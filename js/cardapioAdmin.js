@@ -65,6 +65,45 @@ function salvarEdicaoGrupo() {
     }
 }
 
+// 3.1.1 GRUPOS: PREPARAR EXCLUSÃO (Abre modal de confirmação)
+function prepararExclusaoGrupoCardapio() {
+    if (!grupoAtualEdicao) return;
+    const grupo = cardapioGrupos[grupoAtualEdicao];
+    if (!grupo) return;
+    
+    document.getElementById('modalMsg').innerHTML = `Excluir <strong>${grupo.nome || ''}</strong>? Todos os produtos deste grupo também serão removidos.`;
+    document.getElementById('modalDelete').style.display = 'flex';
+    document.getElementById('confirmDeleteBtn').onclick = () => {
+        excluirGrupoCardapio(grupoAtualEdicao);
+    };
+}
+
+// 3.1.2 GRUPOS: EXCLUIR GRUPO (Remove o grupo e todos seus produtos)
+function excluirGrupoCardapio(key) {
+    if (!key) return;
+    
+    // 1. Deletar todos os produtos deste grupo
+    const itensDoGrupo = Object.keys(cardapioItens).filter(ik => cardapioItens[ik].idGrupo === key);
+    let updates = {};
+    
+    itensDoGrupo.forEach(itemKey => {
+        updates[`cardapio/itens/${itemKey}`] = null;
+    });
+    
+    // 2. Deletar o grupo
+    updates[`cardapio/grupos/${key}`] = null;
+    
+    // 3. Aplicar tudo de uma vez
+    db.ref().update(updates).then(() => {
+        grupoAtualEdicao = null;
+        document.getElementById('modalEditarGrupoCardapio').style.display = 'none';
+        document.getElementById('modalDelete').style.display = 'none';
+        showToast("Grupo excluído com sucesso!", "success");
+    }).catch(e => {
+        alert("Erro ao excluir: " + e.message);
+    });
+}
+
 // 3.2 GRUPOS: MOVER PARA CIMA OU PARA BAIXO
 function moverGrupoCardapio(key, direcao, event) {
     if(event) event.stopPropagation(); // Impede de abrir a gaveta ao clicar na seta

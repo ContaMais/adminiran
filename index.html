@@ -805,10 +805,14 @@
                 <i class="ph ph-plus-circle" style="font-size: 1.2rem;"></i> Criar Novo Produto
             </button>
 
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
                 <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
             </div>
+
+            <button onclick="prepararExclusaoGrupoCardapio()" style="width: 100%; padding: 10px; border-radius: 8px; background: #ef4444; color: white; border: none; font-weight: bold; cursor: pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
+                <i class="ph ph-trash" style="font-size: 1.1rem;"></i> Excluir Grupo
+            </button>
         </div>
     </div>
 
