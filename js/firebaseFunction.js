@@ -123,6 +123,11 @@
 
             if (user) {
                 currentUser = user;
+                currentRole = (user.email === DONO_EMAIL) ? 'dono' : 'visualizador';
+                currentUserName = user.email ? user.email.split('@')[0] : '';
+                aplicarPermissoes();
+                iniciarListenersFirebase();
+
                 perfilUserListener = user.uid;
                 db.ref('users/' + user.uid).on('value', snap => {
                     const data = snap.val();
@@ -143,7 +148,6 @@
                     sincronizarUsuarioIndex(user.uid, perfilSync);
 
                     aplicarPermissoes();
-                    iniciarListenersFirebase();
                 });
             } else {
                 currentUser = null;
@@ -339,7 +343,7 @@
             recebimentoTemp = {};
             
             let prods = Object.keys(produtos).filter(k => produtos[k].metodoCompra === met);
-            prods.sort((a,b) => produtos[a].nome.localeCompare(produtos[b].nome));
+            prods.sort((a,b) => compararProdutosPorCategoriaEOrdem(a, b));
             
             if(prods.length === 0) {
                 document.getElementById('tabela-recebimento-itens').innerHTML = `<tr><td colspan="3" style="text-align:center; color:#64748b;">Fornecedor não tem produtos vinculados.</td></tr>`;
@@ -353,16 +357,33 @@
                 let htmlHead = `<tr><th>Item</th><th style="text-align:center">${maxF>1?'Fds.':' '}</th><th style="text-align:center">Un.</th></tr>`;
                 document.getElementById('head-recebimento').innerHTML = htmlHead;
                 
-                document.getElementById('tabela-recebimento-itens').innerHTML = prods.map(pk => {
+                let currentCategoria = '';
+                let currentSubgrupo = '';
+                const linhasHtml = [];
+
+                prods.forEach(pk => {
                     const p = produtos[pk];
+                    const categoria = getCategoriaPrincipalProduto(p);
+                    const subgrupo = p.subgrupo ? p.subgrupo : '';
+                    if (categoria !== currentCategoria) {
+                        linhasHtml.push(`<tr><td colspan="3" style="padding:12px 0 6px 12px; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${categoria}</td></tr>`);
+                        currentCategoria = categoria;
+                        currentSubgrupo = '';
+                    }
+                    if (subgrupo !== currentSubgrupo) {
+                        linhasHtml.push(`<tr><td colspan="3" style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${subgrupo || 'Sem especificação'}</td></tr>`);
+                        currentSubgrupo = subgrupo;
+                    }
                     let t = 1; getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
                     
                     recebimentoTemp[pk] = { f: 0, u: 0, t: t };
                     const fardoInput = t > 1 ? `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-f-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','f',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','f',-1)">▼</button></div></div>` : '';
                     const unInput = `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-u-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','u',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','u',-1)">▼</button></div></div>`;
                     
-                    return `<tr><td class="col-item">${p.nome}</td><td style="text-align:center">${fardoInput}</td><td style="text-align:center">${unInput}</td></tr>`;
-                }).join('');
+                    linhasHtml.push(`<tr><td class="col-item">${p.nome}</td><td style="text-align:center">${fardoInput}</td><td style="text-align:center">${unInput}</td></tr>`);
+                });
+
+                document.getElementById('tabela-recebimento-itens').innerHTML = linhasHtml.join('');
             }
             navegar('recebimento-entrada');
         }
@@ -585,10 +606,25 @@
                 return;
             }
 
-            prods.sort((a, b) => (produtos[a].nome || '').localeCompare(produtos[b].nome || ''));
+            prods.sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
 
-            lista.innerHTML = prods.map(pk => {
+            let currentCategoria = '';
+            let currentSubgrupo = '';
+            const itensHtml = [];
+
+            prods.forEach(pk => {
                 const p = produtos[pk];
+                const categoria = getCategoriaPrincipalProduto(p);
+                const subgrupo = p.subgrupo ? p.subgrupo : '';
+                if (categoria !== currentCategoria) {
+                    itensHtml.push(`<div style="padding:12px 0 4px 0; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${categoria}</div>`);
+                    currentCategoria = categoria;
+                    currentSubgrupo = '';
+                }
+                if (subgrupo !== currentSubgrupo) {
+                    itensHtml.push(`<div style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${subgrupo || 'Sem especificação'}</div>`);
+                    currentSubgrupo = subgrupo;
+                }
                 const frac = produtoUsaContagemFracionada(p);
                 const t = getTamFardoProduto(p);
                 const est = p.estoque[origem];
@@ -722,6 +758,15 @@
             // Remove a aura/brilho de qualquer botão que tenha sido clicado
             if (document.activeElement) document.activeElement.blur();
 
+            const fabOverlay = document.getElementById('fab-overlay');
+            const fabOptions = document.getElementById('fabOptions');
+            if (fabOverlay && fabOverlay.classList.contains('active')) {
+                fabOverlay.classList.remove('active');
+            }
+            if (fabOptions && fabOptions.classList.contains('active')) {
+                fabOptions.classList.remove('active');
+            }
+
             if (!doHistorico) { history.pushState({ tela: id }, "", "#" + id); }
             
             const alvo = document.getElementById(id);
@@ -752,6 +797,14 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             
             window.scrollTo(0, 0); 
             
+            // Quando entrar nas Configurações do dono, garante que todos os cards estejam retraídos
+            if (id === 'configuracoes') {
+                collapseConfigCards();
+                startConfigObserver();
+            } else {
+                stopConfigObserver();
+            }
+
             if(id === 'mapa-salao') ajustarEscalaMapa();
             if(id === 'agenda-view') setTimeout(() => { renderizarCalendario(); }, 100);
         }
@@ -768,6 +821,50 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             
             options.classList.toggle('active');
             overlay.classList.toggle('active');
+        }
+
+        function collapseConfigCards() {
+            document.querySelectorAll('.config-card').forEach(card => {
+                card.classList.remove('open');
+                const body = card.querySelector('.config-card-body');
+                if(body) body.style.display = 'none';
+                const header = card.querySelector('.config-card-header');
+                if(header) header.setAttribute('aria-expanded', 'false');
+            });
+        }
+
+        function toggleConfigCard(button) {
+            const card = button.closest('.config-card');
+            if(!card) return;
+            const isOpen = card.classList.toggle('open');
+            const body = card.querySelector('.config-card-body');
+            if(body) body.style.display = isOpen ? 'block' : 'none';
+            button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+
+        // MutationObserver to ensure newly-rendered config cards are collapsed
+        let _configObserver = null;
+        function startConfigObserver() {
+            try {
+                stopConfigObserver();
+                const container = document.getElementById('configuracoes');
+                if (!container) return;
+                _configObserver = new MutationObserver((mutations) => {
+                    // Debounce short reflows
+                    clearTimeout(window._collapseConfigTimeout);
+                    window._collapseConfigTimeout = setTimeout(() => {
+                        collapseConfigCards();
+                    }, 50);
+                });
+                _configObserver.observe(container, { childList: true, subtree: true });
+            } catch (e) { console.warn('startConfigObserver error', e); }
+        }
+
+        function stopConfigObserver() {
+            try {
+                if (_configObserver) { _configObserver.disconnect(); _configObserver = null; }
+                if (window._collapseConfigTimeout) { clearTimeout(window._collapseConfigTimeout); window._collapseConfigTimeout = null; }
+            } catch (e) { console.warn('stopConfigObserver error', e); }
         }
 
         document.addEventListener('click', function(event) {
@@ -2097,11 +2194,39 @@ const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
                 navegar('pedidos-lista'); const met = metodosCompra[key]?.nome || 'Desconhecido'; document.getElementById('titulo-pedido-metodo').innerText = `Pedidos: ${met}`; 
                 const prodsFiltrados = Object.keys(produtos).filter(k => produtos[k] && produtos[k].metodoCompra === met).sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
                 if(prodsFiltrados.length === 0) { document.getElementById('tabela-pedidos-filtrada').innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">Nenhum produto usa este método.</td></tr>`; return; }
-                document.getElementById('tabela-pedidos-filtrada').innerHTML = prodsFiltrados.map(k => { 
-                    const p = produtos[k]; let t = 1; getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); }); 
-                    const fAt = Object.values(p.estoque||{}).reduce((ac,v) => typeof v==='object'&&v!==null?ac+((Number(v.f)||0)*t)+(Number(v.u)||0):ac+Number(v||0),0)/t; const m = Number(p.estoqueMinimo||0); const sg = Math.ceil(Math.max(0, m - fAt)); const lb = t > 1 ? 'Fds.' : 'Un.'; 
-                    return `<tr><td class="col-item">${p.nome}</td><td style="text-align:center;">${fAt%1===0?fAt:fAt.toFixed(1)} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--primary)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`; 
-                }).join(''); 
+
+                let currentCategoria = '';
+                let currentSubgrupo = '';
+                const htmlRows = [];
+                const catObjCache = {};
+
+                prodsFiltrados.forEach(k => {
+                    const p = produtos[k];
+                    const cat = getCategoriaPrincipalProduto(p);
+                    const sub = p.subgrupo ? p.subgrupo : '';
+                    const catObj = catObjCache[cat] || (catObjCache[cat] = getCategoriaObjPorNome(cat));
+
+                    if (cat !== currentCategoria) {
+                        htmlRows.push(`<tr><td colspan="4" style="padding:12px 0 6px 12px; color:#cbd5e1; font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${cat}</td></tr>`);
+                        currentCategoria = cat;
+                        currentSubgrupo = '';
+                    }
+
+                    if (sub !== currentSubgrupo && (sub || (catObj && Array.isArray(catObj.subgrupos) && catObj.subgrupos.length > 0) || currentSubgrupo !== '')) {
+                        htmlRows.push(`<tr><td colspan="4" style="padding:8px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700; text-transform:none;">${sub || 'Sem especificação'}</td></tr>`);
+                        currentSubgrupo = sub;
+                    }
+
+                    let t = 1;
+                    getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
+                    const fAt = Object.values(p.estoque||{}).reduce((ac,v) => typeof v==='object'&&v!==null?ac+((Number(v.f)||0)*t)+(Number(v.u)||0):ac+Number(v||0),0)/t;
+                    const m = Number(p.estoqueMinimo||0);
+                    const sg = Math.ceil(Math.max(0, m - fAt));
+                    const lb = t > 1 ? 'Fds.' : 'Un.';
+                    htmlRows.push(`<tr><td class="col-item">${p.nome}</td><td style="text-align:center;">${fAt%1===0?fAt:fAt.toFixed(1)} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--primary)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
+                });
+
+                document.getElementById('tabela-pedidos-filtrada').innerHTML = htmlRows.join(''); 
             } catch(e) {}
         }
 
@@ -2202,6 +2327,7 @@ function moverCatSub(index, direcao) {
                 if(id) { 
                     const old=categorias[id].nome; 
                     db.ref('categorias/'+id).update(d).then(()=>{
+                        renderizarPresets();
                         if(old!==n) {
                             Object.keys(produtos).forEach(pk=>{
                                 if(!produtos[pk]) return;
@@ -2212,6 +2338,7 @@ function moverCatSub(index, direcao) {
                     }); 
                 } else {
                     db.ref('categorias').push(d); 
+                    renderizarPresets();
                 }
                 resetarFormCategoria(); 
             } else {

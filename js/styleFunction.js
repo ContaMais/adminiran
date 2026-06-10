@@ -1,4 +1,11 @@
-window.addEventListener('load', function() {
+window.hideSplash = function() {
+            const bg = document.getElementById('splash-bg');
+            const bands = document.getElementById('splash-bands');
+            if (bg) bg.style.display = 'none';
+            if (bands) bands.style.display = 'none';
+        };
+
+        window.addEventListener('load', function() {
             // 1. Inicia o movimento após o brilho da logo (2.2s)
             setTimeout(() => {
                 const bands = document.getElementById('splash-bands');
@@ -82,12 +89,15 @@ window.addEventListener('load', function() {
                 return;
             }
 
+            const PATIO_LABEL = 'Pátio';
             areas.forEach(a => { 
                 if(a.nome) {
                     custosPorArea[a.nome] = 0; 
                     detalhesPorArea[a.nome] = [];
                 }
             });
+            custosPorArea[PATIO_LABEL] = 0;
+            detalhesPorArea[PATIO_LABEL] = [];
 
             Object.keys(produtos).forEach(pk => {
                 const p = produtos[pk];
@@ -98,18 +108,18 @@ window.addEventListener('load', function() {
                 const t = getTamFardoProduto(p);
 
                 Object.keys(p.estoque || {}).forEach(loc => {
-                    if(loc === '_Pendente_') return;
                     const v = p.estoque[loc];
+                    const areaKey = loc === '_Pendente_' ? PATIO_LABEL : loc;
                     const qtdTotal = parseQtdValor(v.f, frac) * t + parseQtdValor(v.u, frac);
 
                     if (qtdTotal > 0) {
                         const valorNaArea = Math.round(qtdTotal * precoBase * 100) / 100;
 
-                        if(custosPorArea[loc] !== undefined) {
-                            custosPorArea[loc] += valorNaArea;
+                        if(custosPorArea[areaKey] !== undefined) {
+                            custosPorArea[areaKey] += valorNaArea;
                             totalGeral += valorNaArea;
 
-                            detalhesPorArea[loc].push({
+                            detalhesPorArea[areaKey].push({
                                 id: pk,
                                 nome: p.nome,
                                 f: frac ? 0 : Math.floor(qtdTotal / t),
@@ -125,12 +135,17 @@ window.addEventListener('load', function() {
 
             document.getElementById('txt-custo-total-geral').innerText = `R$ ${totalGeral.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
             
-            const htmlGrid = areas.filter(a => a.nome).map(a => {
-                const loc = a.nome;
-                const safeId = a.key; // ID seguro para fazer a gaveta abrir sem erro
+            let financeiroAreas = areas.filter(a => a.nome).map(a => a.nome);
+            if (detalhesPorArea['Pátio'] && detalhesPorArea['Pátio'].length > 0) {
+                financeiroAreas.push('Pátio');
+            }
+
+            const htmlGrid = financeiroAreas.map(loc => {
+                const a = areas.find(x => x.nome === loc) || {};
+                const safeId = loc === 'Pátio' ? 'patio' : (a.key || loc);
                 
                 // Ordena os itens dentro da gaveta do mais CARO para o mais barato
-                const areaObjFin = areas.find(x => x.nome === loc);
+                const areaObjFin = areas.find(x => x.nome === loc) || {};
                 detalhesPorArea[loc].sort((itemA, itemB) => compararProdutosPorCategoriaEOrdem(itemA.id, itemB.id, areaObjFin));
                 
                 let detalhesHtml = detalhesPorArea[loc].map(d => {
@@ -302,6 +317,25 @@ let timelineNodesGlobais = [];
             }
         }
 
+        function getSubgrupoLabel(subgrupo) {
+            return subgrupo && String(subgrupo).trim() ? String(subgrupo).trim() : 'Sem especificação';
+        }
+
+        function ordenarSubgruposDaCategoria(catName, subA, subB) {
+            const catObj = getCategoriaObjPorNome(catName);
+            const ordemSubgrupos = catObj && Array.isArray(catObj.subgrupos) ? catObj.subgrupos : [];
+            const nomeA = subA || '';
+            const nomeB = subB || '';
+            const idxA = ordemSubgrupos.indexOf(nomeA);
+            const idxB = ordemSubgrupos.indexOf(nomeB);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            if (!nomeA && nomeB) return 1;
+            if (!nomeB && nomeA) return -1;
+            return nomeA.localeCompare(nomeB);
+        }
+
         // Função auxiliar blindada contra dados antigos ou corrompidos do Firebase
         function renderItensHistorico(itensObj, isRecebimento = false) {
             // Se o dado não existir, devolve um texto de segurança em vez de travar o sistema
@@ -310,36 +344,50 @@ let timelineNodesGlobais = [];
             }
 
             let html = '';
-            let porCategoria = {};
-            
-            Object.keys(itensObj).forEach(pk => {
-                const item = itensObj[pk];
-                const p = produtos[pk];
+            const itensOrdenados = Object.keys(itensObj).map(pk => ({ pk, item: itensObj[pk], produto: produtos[pk] })).sort((a, b) => compararProdutosPorCategoriaEOrdem(a.pk, b.pk));
+            const porCategoria = {};
+
+            itensOrdenados.forEach(({ pk, item, produto }) => {
                 let catName = "Sem Categoria";
-                if (p) {
-                    const cats = getCategoriasProduto(p);
+                let subgrupo = "";
+                if (produto) {
+                    const cats = getCategoriasProduto(produto);
                     if (cats.length > 0) catName = cats[0];
+                    subgrupo = produto.subgrupo || "";
                 }
-                if(!porCategoria[catName]) porCategoria[catName] = [];
-                porCategoria[catName].push(item);
+                porCategoria[catName] = porCategoria[catName] || {};
+                porCategoria[catName][subgrupo] = porCategoria[catName][subgrupo] || [];
+                porCategoria[catName][subgrupo].push({ pk, item, produto });
             });
 
-            Object.keys(porCategoria).sort().forEach(cat => {
-                html += `<p style="color:#cbd5e1; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:3px; text-transform:uppercase;">${cat}</p>`;
-                porCategoria[cat].forEach(i => {
-                    let sinal = isRecebimento ? '+' : '';
-                    let corNum = isRecebimento ? '#10b981' : 'var(--text-main)';
-                    // Puxa o nome salvo, ou se for tão antigo que não tem, avisa
-                    let nomeExibicao = i.nome || "Produto Antigo"; 
-                    let f = i.f || 0;
-                    let u = i.u || 0;
+            const categorias = Object.keys(porCategoria).sort((a, b) => {
+                const ordenadas = ordenarCategoriasParaArea([a, b], null);
+                return ordenadas.indexOf(a) - ordenadas.indexOf(b);
+            });
 
-                    html += `<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:0.85rem;">
-                        <span style="color:#94a3b8;">${nomeExibicao}</span>
-                        <span style="color:${corNum}; font-weight:bold; letter-spacing: 0.5px;">${sinal} ${f}f | ${u}u</span>
-                    </div>`;
+            categorias.forEach(cat => {
+                html += `<p style="color:#cbd5e1; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:3px; text-transform:uppercase;">${cat}</p>`;
+                const subgrupos = Object.keys(porCategoria[cat]).sort((a, b) => ordenarSubgruposDaCategoria(cat, a, b));
+                subgrupos.forEach(sub => {
+                    if (sub || subgrupos.length > 1) {
+                        html += `<p style="color:#94a3b8; font-size:0.8rem; font-weight:700; margin: 8px 0 4px 0; padding-left: 10px;">${getSubgrupoLabel(sub)}</p>`;
+                    }
+
+                    porCategoria[cat][sub].forEach(({ item, produto }) => {
+                        let sinal = isRecebimento ? '+' : '';
+                        let corNum = isRecebimento ? '#10b981' : 'var(--text-main)';
+                        let nomeExibicao = item.nome || produto?.nome || "Produto Antigo";
+                        let f = item.f || 0;
+                        let u = item.u || 0;
+
+                        html += `<div style="display:flex; justify-content:space-between; padding:4px 0 4px 10px; font-size:0.85rem;">
+                            <span style="color:#94a3b8;">${nomeExibicao}</span>
+                            <span style="color:${corNum}; font-weight:bold; letter-spacing: 0.5px;">${sinal} ${f}f | ${u}u</span>
+                        </div>`;
+                    });
                 });
             });
+
             return html || '<p style="font-size:0.8rem; color:#64748b;">Nenhum item válido lido.</p>';
         }
 
