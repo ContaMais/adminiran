@@ -333,7 +333,7 @@
         <section id="produtos-lista-filtrada" class="section">
             <div class="btn-back-styled" onclick="navegar('produtos-categorias')">✕</div>
             <h1 id="titulo-categoria-filtrada" style="font-size: 1.2rem;">Produtos</h1>
-            <div class="view-toggle-row">
+            <div class="view-toggle-row" style="display:none;">
                 <button id="toggleViewBtn" class="btn-toggle-view" onclick="toggleVisualizacaoProdutos()">Alternar Visualização</button>
                 <span id="viewModeLabel" class="view-mode-label">Modo: Lista</span>
             </div>
@@ -537,63 +537,116 @@
             <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Configurações Admin</h1>
             
-            <div class="card" style="border-color: var(--primary);">
-                <h3 style="color: var(--primary);">👥 Gerenciamento da Equipe</h3>
-                <p style="font-size:0.8rem; color:#64748b; margin-bottom:10px;">Altere a permissão de acesso de cada usuário cadastrado.</p>
-                <div id="lista-usuarios-admin" style="display:flex; flex-direction:column; gap:10px;"></div>
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>👥 Gerenciamento da Equipe</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Altere a permissão de acesso de cada usuário cadastrado.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div id="lista-usuarios-admin" style="display:flex; flex-direction:column; gap:10px;"></div>
+                </div>
             </div>
 
-            <div class="card" style="margin-top:1.5rem;">
-                <h3>1. Categorias de Produtos</h3>
-                <input type="hidden" id="edit-cat-id"><input type="text" id="cat-nome" placeholder="Nome da Categoria">
-                
-                <div id="cat-checks-areas" class="cat-grid-checks"></div>
-                
-                <div style="margin: 10px 0; padding: 12px; background: rgba(183, 41, 41, 0.1); border-radius: 8px; border: 1px solid var(--primary);">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
-                        <input type="checkbox" id="cat-uso-fardo" onchange="toggleFardoInput()"> Usa Fardos?
-                    </label>
-                    <div id="div-unidades-fardo" style="display:none; margin-top:10px;">
-                        <input type="number" id="cat-qtd-fardo" placeholder="Unidades por fardo">
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="true" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>1. Categorias de Produtos</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Cadastre, edite e mantenha as áreas vinculadas em cada categoria.</div>
                     </div>
-                </div>
-
-                <div style="margin: 10px 0; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid #3b82f6;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
-                        <input type="checkbox" id="cat-contagem-fracionada"> Contagem fracionada? (ex.: 6,5 garrafas)
-                    </label>
-                    <p style="font-size:0.75rem; color:#64748b; margin:8px 0 0 22px;">Útil para destilados e itens com capacidade estimada. O financeiro usa a quantidade total × preço da garrafa/unidade.</p>
-                </div>
-
-                <div style="margin: 10px 0; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid #10b981;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
-                        <input type="checkbox" id="cat-has-sub" onchange="toggleSubgrupoInput()"> Especificação de categoria?
-                    </label>
-                    <div id="div-subgrupos" style="display:none; margin-top:10px;">
-                        <div style="display:flex; gap:5px; margin-bottom:10px;">
-                            <input type="text" id="cat-new-sub" placeholder="Ex: Cachaça, Vodka..." style="margin:0; flex:1; padding:8px;">
-                            <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background: #10b981;">Adicionar</button>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body" style="display:block;">
+                    <input type="hidden" id="edit-cat-id"><input type="text" id="cat-nome" placeholder="Nome da Categoria">
+                    <div id="cat-checks-areas" class="cat-grid-checks"></div>
+                    <div style="margin: 10px 0; padding: 12px; background: rgba(183, 41, 41, 0.1); border-radius: 8px; border: 1px solid var(--primary);">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
+                            <input type="checkbox" id="cat-uso-fardo" onchange="toggleFardoInput()"> Usa Fardos?
+                        </label>
+                        <div id="div-unidades-fardo" style="display:none; margin-top:10px;">
+                            <input type="number" id="cat-qtd-fardo" placeholder="Unidades por fardo">
                         </div>
-                        <div id="list-cat-subs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+                    </div>
+                    <div style="margin: 10px 0; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid #3b82f6;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
+                            <input type="checkbox" id="cat-contagem-fracionada"> Contagem fracionada? (ex.: 6,5 garrafas)
+                        </label>
+                        <p style="font-size:0.75rem; color:#64748b; margin:8px 0 0 22px;">Útil para destilados e itens com capacidade estimada. O financeiro usa a quantidade total × preço da garrafa/unidade.</p>
+                    </div>
+                    <div style="margin: 10px 0; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid #10b981;">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
+                            <input type="checkbox" id="cat-has-sub" onchange="toggleSubgrupoInput()"> Especificação de categoria?
+                        </label>
+                        <div id="div-subgrupos" style="display:none; margin-top:10px;">
+                            <div style="display:flex; gap:5px; margin-bottom:10px;">
+                                <input type="text" id="cat-new-sub" placeholder="Ex: Cachaça, Vodka..." style="margin:0; flex:1; padding:8px;">
+                                <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background: #10b981;">Adicionar</button>
+                            </div>
+                            <div id="list-cat-subs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+                        </div>
+                    </div>
+                    <button class="btn-submit" id="btn-salvar-cat" onclick="salvarCategoria()">Salvar Categoria</button>
+                </div>
+            </div>
+            
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>Categorias Existentes</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Visualize, edite e atribua produtos às categorias existentes.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div id="lista-categorias-config" style="margin-top:10px;"></div>
+                </div>
+            </div>
+            
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>2. Métodos de Compra</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Cadastre e atualize os métodos de compra usados na reposição de estoque.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <input type="hidden" id="edit-met-id"><input type="text" id="met-nome" placeholder="Ex: Atacadão...">
+                    <button class="btn-submit" id="btn-salvar-met" onclick="salvarMetodo()">Salvar Método</button>
+                </div>
+            </div>
+            
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>Métodos Existentes</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Gerencie e remova métodos de compra.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div id="lista-metodos-config" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>🔴 Zona de Perigo</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Atenção: zera todo o estoque, inclusive o pátio.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div style="margin-top: 1rem; border: 2px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding:16px; border-radius:12px;">
+                        <h3 style="color: #ef4444;"><i class="ph ph-warning"></i> Zona de Perigo</h3>
+                        <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Esta ação vai colocar o estoque de <strong>TODOS</strong> os produtos em zero em todas as áreas (inclusive no pátio).</p>
+                        <button class="btn-submit" style="background:#ef4444; margin-top:0;" onclick="confirmarLimpezaGeral()">ZERAR TODO O ESTOQUE</button>
                     </div>
                 </div>
-
-                <button class="btn-submit" id="btn-salvar-cat" onclick="salvarCategoria()">Salvar Categoria</button>
             </div>
-            
-            <div class="card"><h3>Categorias Existentes</h3><div id="lista-categorias-config" style="margin-top:10px;"></div></div>
-            
-            <div class="card" style="margin-top: 1.5rem;">
-                <h3>2. Métodos de Compra</h3><input type="hidden" id="edit-met-id"><input type="text" id="met-nome" placeholder="Ex: Atacadão...">
-                <button class="btn-submit" id="btn-salvar-met" onclick="salvarMetodo()">Salvar Método</button>
-            </div>
-            
-            <div class="card">
-                <h3>Métodos Existentes</h3>
-                <div id="lista-metodos-config" style="margin-top:10px;"></div>
-            </div>
-
-            <div class="card" style="margin-top: 2rem; border: 2px dashed #ef4444; background: rgba(239, 68, 68, 0.05);">
                 <h3 style="color: #ef4444;"><i class="ph ph-warning"></i> Zona de Perigo</h3>
                 <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Esta ação vai colocar o estoque de <strong>TODOS</strong> os produtos em zero em todas as áreas (inclusive no pátio).</p>
                 <button class="btn-submit" style="background:#ef4444; margin-top:0;" onclick="confirmarLimpezaGeral()">ZERAR TODO O ESTOQUE</button>
