@@ -87,6 +87,7 @@
             /* Textos agora são Claros (Bege) */
             --text-main: #fbeee3;      
             --text-sidebar: #fbeee3;
+            --text-muted: rgba(251, 238, 227, 0.8);
             
             /* Bordas e Listras sutis */
             --border-color: rgba(251, 238, 227, 0.1);
@@ -112,6 +113,24 @@
         }
         #fab-overlay.active { display: block; opacity: 1; }
 
+        .config-card { border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; background: var(--card-bg); margin-bottom: 1rem; }
+        .config-card-header { width: 100%; background: transparent; border: none; outline: none; cursor: pointer; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 1rem; font-weight: 800; color: var(--text-main); text-align: left; }
+        .config-card-header:hover, .config-card-header:focus { background: rgba(255,255,255,0.05); }
+        .config-card-icon { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); color: var(--primary); font-size: 1rem; transition: transform 0.2s ease; }
+        .config-card.open .config-card-icon { transform: rotate(45deg); }
+        .config-card-body { display: none; padding: 0 20px 20px 20px; background: var(--card-bg); }
+        .config-card.open .config-card-body { display: block; }
+        .config-card-body, .config-card-body p, .config-card-body span, .config-card-body label, .config-card-body strong, .config-card-body small, .config-card-body input, .config-card-body select, .config-card-body textarea {
+            color: var(--text-main) !important;
+        }
+        .config-card-body input, .config-card-body select, .config-card-body textarea {
+            background: rgba(0,0,0,0.45) !important;
+            border-color: rgba(251, 238, 227, 0.12) !important;
+        }
+        .config-card-body [style*="#64748b"], .modal-box [style*="#64748b"], .card [style*="#64748b"], .view-mode-label {
+            color: var(--text-main) !important;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Manrope', sans-serif; font-weight: 600; -webkit-tap-highlight-color: transparent; }
         
         /* Idea 4: Inputs Premium (Sem outline azul, com aura suave) */
@@ -124,7 +143,7 @@
             background-size: 100vw auto; /* Ajusta o zoom para ficar mais distante, mas cobrindo a tela */
             background-position: center; /* Centraliza o desenho */
             background-attachment: fixed;
-            color: var(--bg-body); /* Deixa o texto geral claro (bege) para dar leitura */
+            color: var(--text-main); /* Texto geral claro para leitura */
             line-height: 1.5; 
         }
 
