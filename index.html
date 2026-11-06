@@ -5,16 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AdmiNiran - Gestão Logística</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/png" href="logoproj.png">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="apple-touch-icon" href="images/favicon.png">
+    <meta name="theme-color" content="#1a0404">
+    <link rel="preload" as="image" href="images/contamais.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Ícones: só o peso "regular" (o script antigo baixava os 6 pesos, ~3 MB) -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 </head>
 <body class="role-visualizador">
     <!-- SPLASH SCREEN -->
     <div id="splash-bg">
-        <img src="images/contamais.svg" alt="Logo" class="splash-logo">
+        <img src="images/contamais.webp" alt="Logo" class="splash-logo">
     </div>
     <div id="splash-bands">
         <div class="band" style="background-color: #FBEEE3;"></div>
@@ -25,7 +29,7 @@
     <div id="fab-overlay" onclick="toggleFab()"></div>
 
     <!-- TOPO MOBILE COM LOGO -->
-    <div class="mobile-topbar"><img src="images/contamais.svg" alt="ContaMais Logo" style="height: 50px; width: auto;"></div>
+    <div class="mobile-topbar"><img src="images/contamais.webp" alt="ContaMais Logo" style="height: 50px; width: auto;"></div>
 
     <!-- BOTÃO TOPO ESQUERDA (ENGRENAGEM OU CARGO) -->
     <button id="btn-top-role" class="btn-config" onclick="if(currentRole==='dono') abrirConfig()"></button>
@@ -95,14 +99,14 @@
     </div>
 
  <aside>
-        <div class="logo-container"><img src="images/contamais.svg" alt="ContaMais Logo" class="logo-img"></div>
+        <div class="logo-container"><img src="images/contamais.webp" alt="ContaMais Logo" class="logo-img"></div>
         <nav id="menu-navegacao">
             <button class="nav-btn active" id="nav-inicio" onclick="navegar('inicio', this)"><i class="ph ph-house" style="font-size:1.3rem;"></i> <span>Início</span></button>
             <button class="nav-btn" id="nav-produtos-hub" onclick="navegar('produtos-hub', this)"><i class="ph ph-package" style="font-size:1.3rem;"></i> <span>Produtos</span></button>
             <button class="nav-btn" id="nav-reservas-hub" onclick="navegar('reservas-hub', this)"><i class="ph ph-calendar-blank" style="font-size:1.3rem;"></i> <span>Reservas</span></button>
             <button class="nav-btn" id="nav-receitas-hub" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:1.3rem;"></i> <span>Receitas</span></button>
             <button class="nav-btn req-dono" id="nav-financeiro" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:1.3rem;"></i> <span>Financeiro</span></button>
-            <button class="nav-btn req-dono" id="nav-cardapio" onclick="navegar('cardapio-digital', this)"><i class="ph ph-book-open" style="font-size:1.3rem;"></i> <span>Cardápio Digital</span></button>
+            <button class="nav-btn req-dono" id="nav-cardapio" onclick="abrirCardapioDigital()"><i class="ph ph-book-open" style="font-size:1.3rem;"></i> <span>Cardápio Digital</span></button>
 
             <div style="margin-top: auto;"></div> 
             <button class="nav-btn" onclick="abrirModalAuth()" id="btn-login-sidebar"><i class="ph ph-user" style="font-size:1.3rem;"></i> <span>Entrar</span></button>
@@ -132,8 +136,8 @@
                 <div class="card-nav" onclick="navegar('produtos-hub', document.getElementById('nav-produtos-hub'))"><i class="ph ph-beer-bottle" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Produtos e Pedidos</h3></div>
                 <div class="card-nav" onclick="navegar('reservas-hub', document.getElementById('nav-reservas-hub'))"><i class="ph ph-calendar-blank" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Reservas e Mapa</h3></div>
                 <div class="card-nav" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Receitas</h3></div>
-                <div class="card-nav" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Financeiro</h3></div>
-                <div class="card-nav" onclick="navegar('cardapio-digital')"><i class="ph ph-book-open" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Cardápio Digital</h3></div>
+                <div class="card-nav req-dono" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Financeiro</h3></div>
+                <div class="card-nav req-dono" onclick="abrirCardapioDigital()"><i class="ph ph-book-open" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Cardápio Digital</h3></div>
             </div>
         </section>
       <!-- 2. GUIA: HUB DE PRODUTOS -->
@@ -346,7 +350,7 @@
         </section>
 
         <section id="detalhe-area" class="section">
-            <div class="btn-back-styled" onclick="cancelarModoContagem(); navegar('areas-lista')">✕</div>
+            <div class="btn-back-styled" onclick="navegar('areas-lista')">✕</div>
             
             <div class="card" style="padding: 1rem; margin-bottom: 10px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap: wrap;">
@@ -628,6 +632,21 @@
                 </button>
                 <div class="config-card-body">
                     <div id="lista-metodos-config" style="margin-top:10px;"></div>
+                </div>
+            </div>
+
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>⚡ Deixar o app mais rápido</strong>
+                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Reduz as fotos antigas de receitas e cardápio (faz backup antes).</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <p style="font-size:0.85rem; margin:10px 0;">Fotos gravadas antes desta atualização estão no tamanho original do celular e são baixadas por toda a equipe a cada login. Use uma vez para reduzi-las. Um arquivo de backup com as originais é baixado neste aparelho antes.</p>
+                    <button class="btn-submit" id="btn-otimizar-fotos" style="background:#10b981;" onclick="otimizarFotosSalvas()">OTIMIZAR FOTOS SALVAS</button>
+                    <p id="status-otimizar-fotos" style="font-size:0.85rem; margin-top:10px;"></p>
                 </div>
             </div>
 

@@ -136,15 +136,17 @@
         /* Idea 4: Inputs Premium (Sem outline azul, com aura suave) */
         input:focus, select:focus, textarea:focus, button:focus { outline: none; box-shadow: 0 0 0 3px rgba(183, 41, 41, 0.15); border-color: rgba(183, 41, 41, 0.4); transition: var(--transition-fluid); }
         
-        body { 
+        body {
             background-color: var(--bg-sidebar); /* Cor base escura de segurança */
-            background-image: url('../images/backg_dark.svg');
-            background-repeat: no-repeat; /* Proíbe de multiplicar */
-            background-size: 100vw auto; /* Ajusta o zoom para ficar mais distante, mas cobrindo a tela */
-            background-position: center; /* Centraliza o desenho */
-            background-attachment: fixed;
             color: var(--text-main); /* Texto geral claro para leitura */
-            line-height: 1.5; 
+            line-height: 1.5;
+        }
+        /* Fundo em camada fixa própria (WebP leve, 24 KB). Antes era um SVG de 5,8 MB com
+           background-attachment: fixed, que obrigava o navegador a redesenhar a imagem
+           inteira a cada rolagem e travava o app no celular. */
+        body::before {
+            content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background: var(--bg-sidebar) url('../images/backg_dark.webp') center / cover no-repeat;
         }
 
         /* Idea 3: Container de Notificações (Toasts) */
@@ -329,8 +331,7 @@
             border-radius: var(--radius-lg); 
             box-shadow: 0 8px 32px rgba(0,0,0,0.25); /* Sombra mais difusa */
             margin-bottom: 1.5rem; 
-            border: 1px solid rgba(255,255,255,0.1); 
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
             transition: var(--transition-fluid);
         }
         .card:hover { transform: translateY(-2px); }
@@ -348,9 +349,10 @@
             flex-direction: column; 
             align-items: center; 
             justify-content: center; 
-            border: 1px solid rgba(255,255,255,0.1); 
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
         }
+        /* Obs.: o desfoque (backdrop-filter) dos cards foi removido. O fundo deles já é 95% opaco,
+           então o efeito era invisível, mas custava muito processamento em cada rolagem. */
         .card-nav:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.35); }
         .btn-back-styled { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: var(--bg-sidebar); color: var(--primary); border-radius: 10px; border: 2px solid var(--primary); cursor: pointer; margin-bottom: 1rem; }
         .btn-back-styled svg { width: 25px; height: 25px; fill: currentColor; }
@@ -517,7 +519,6 @@
         }
 
         @media (max-width: 768px) { 
-            body { background-size: cover; background-position: top center; } 
 
             .mobile-topbar { 
                 display: flex; justify-content: center; align-items: center; 
@@ -560,7 +561,7 @@
         .splash-logo {
             width: 250px; /* Logo bem maior e destacada no PC */
             height: auto; opacity: 0;
-            animation: fadeInLogo 1.2s ease-in-out forwards;
+            animation: fadeInLogo 0.5s ease-out forwards;
         }
 
         @keyframes fadeInLogo {
@@ -584,7 +585,7 @@
         .band { flex: 1; height: 100%; } /* Ocupa 25% da LARGURA da tela */
 
         .bands-animate {
-            animation: sanfonaHorizontal 1.8s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+            animation: sanfonaHorizontal 1s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
         }
 
         @keyframes sanfonaHorizontal {
@@ -610,7 +611,7 @@
             .band { width: 100%; height: auto; } /* Ocupa 25% da ALTURA da tela */
             
             .bands-animate {
-                animation: sanfonaVertical 1.8s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+                animation: sanfonaVertical 1s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
             }
         }
 
