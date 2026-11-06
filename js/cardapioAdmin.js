@@ -448,7 +448,7 @@ function renderizarCardapioDigital() {
                     : `<button class="sort-btn-down" disabled style="opacity:0.3">▼</button>`;
                 // Foto só é carregada quando o grupo é aberto (loading="lazy")
                 const fotoHTML = item.foto ? `<img src="${esc(item.foto)}" loading="lazy" decoding="async" style="width:30px; height:30px; object-fit:cover; border-radius:4px; border: 1px solid var(--border-color);">` : '';
-                return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(255, 255, 255, 0.02); border-radius:8px; border:1px solid var(--border-color);">
+                return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border-color);">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div class="sort-wrapper" style="margin-right: 5px;" onclick="event.stopPropagation()">${btnSubirItem}${btnDescerItem}</div>
                         <button class="action-icon edit-btn" onclick="editarProdutoCardapio(${jsArg(ik)}, event)" style="margin:0; width:24px; height:24px; font-size:0.7rem;">✎</button>
@@ -471,7 +471,7 @@ function renderizarCardapioDigital() {
                 </div>
                 <button class="action-icon edit-btn" onclick="editarGrupoCardapio(${jsArg(gk)}, event)" style="margin:0; width:28px; height:28px;">✎</button>
             </div>
-            <div id="itens-grupo-${gk}" style="display:${estaAberto ? 'flex' : 'none'}; flex-direction:column; gap:6px; padding:0 15px 15px 15px; background:rgba(0, 0, 0, 0.15);">${itensHtml}</div>
+            <div id="itens-grupo-${gk}" style="display:${estaAberto ? 'flex' : 'none'}; flex-direction:column; gap:6px; padding:0 15px 15px 15px; background:var(--surface-2);">${itensHtml}</div>
         </div>`;
     }).join('');
 

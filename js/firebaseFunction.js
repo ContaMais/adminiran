@@ -145,7 +145,14 @@
         let authMode = 'login'; 
 
         function abrirModalAuth() {
-            if(currentUser) { auth.signOut(); return; }
+            if(currentUser) {
+                // Pergunta antes de sair (no celular o avatar é fácil de tocar sem querer)
+                if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && !confirm('Você está no meio de uma contagem. Sair da conta mesmo assim? Os números digitados serão perdidos.')) return;
+                else if (!(typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) && !confirm('Sair da conta?')) return;
+                if (typeof encerrarModoContagem === 'function') encerrarModoContagem();
+                auth.signOut();
+                return;
+            }
             document.getElementById('modalAuth').style.display = 'flex';
             document.getElementById('auth-nome').value = '';
             document.getElementById('auth-email').value = '';
@@ -254,22 +261,36 @@
         });
 
         function aplicarPermissoes() {
-            document.body.className = 'role-' + currentRole;
+            document.body.classList.remove('role-dono', 'role-contribuidor', 'role-visualizador');
+            document.body.classList.add('role-' + currentRole);
+            document.body.classList.toggle('logado', !!currentUser);
             const avisoLogin = document.getElementById('aviso-login');
-            if (avisoLogin) avisoLogin.style.display = currentUser ? 'none' : 'block';
+            if (avisoLogin) avisoLogin.style.display = currentUser ? 'none' : '';
 
             const btnLogin = document.getElementById('btn-login-sidebar');
             const btnRole = document.getElementById('btn-top-role');
             
             if(currentUser) {
-                btnLogin.innerHTML = '<i class="ph ph-sign-out" style="font-size:1.3rem;"></i> <span>Sair da Conta</span>';
+                btnLogin.innerHTML = '<i class="ph ph-sign-out"></i><span>Sair da conta</span>';
             } else {
-                btnLogin.innerHTML = '<i class="ph ph-user" style="font-size:1.3rem;"></i> <span>Entrar / Cadastrar</span>';
+                btnLogin.innerHTML = '<i class="ph ph-user"></i><span>Entrar / Cadastrar</span>';
             }
             
-            if (currentRole === 'dono') btnRole.innerHTML = '<i class="ph ph-gear-six" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
-            else if (currentRole === 'contribuidor') btnRole.innerHTML = '<i class="ph ph-pencil-simple" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
-            else btnRole.innerHTML = '<i class="ph ph-eye" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
+            const nomesCargo = { dono: 'Dono', contribuidor: 'Contribuidor', visualizador: 'Visualizador' };
+            const cargoTxt = currentUser ? (nomesCargo[currentRole] || 'Visualizador') : 'Visitante';
+            if (currentRole === 'dono') { btnRole.innerHTML = '<i class="ph ph-gear-six"></i>'; btnRole.title = 'Configurações'; }
+            else if (currentRole === 'contribuidor') { btnRole.innerHTML = '<i class="ph ph-pencil-simple"></i>'; btnRole.title = 'Você pode editar o estoque e as reservas'; }
+            else { btnRole.innerHTML = '<i class="ph ph-eye"></i>'; btnRole.title = 'Somente visualização'; }
+
+            // Avatar e nome na barra superior; cartão no rodapé do menu
+            const nomeExib = currentUser ? (currentUserName || (currentUser.email || '').split('@')[0]) : 'Entrar';
+            const iniciais = currentUser ? (nomeExib.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || '?') : '?';
+            const elAv = document.getElementById('user-avatar'); if (elAv) elAv.textContent = iniciais;
+            const elNome = document.getElementById('user-nome'); if (elNome) elNome.textContent = nomeExib;
+            const elCargo = document.getElementById('user-cargo'); if (elCargo) elCargo.textContent = cargoTxt;
+            const elChip = document.getElementById('user-chip'); if (elChip) elChip.title = currentUser ? 'Sair da conta' : 'Entrar';
+            const elFoot = document.getElementById('side-foot-role'); if (elFoot) elFoot.textContent = currentUser ? `${nomeExib} · ${cargoTxt}` : 'Visitante';
+            const elFootSub = document.getElementById('side-foot-sub'); if (elFootSub) elFootSub.textContent = currentUser ? (currentUser.email || '') : 'Faça login para usar o sistema';
 
             if(currentRole !== 'dono' && document.getElementById('configuracoes').classList.contains('active')) navegar('inicio');
             
@@ -278,9 +299,11 @@
             if(document.getElementById('mapa-salao').classList.contains('active')) carregarReservasMapa();
 
             if (document.getElementById('receitas-lista').classList.contains('active')) renderizarReceitas();
+            if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
             if (document.getElementById('detalhe-receita').classList.contains('active') && receitaAtualKey) {
                 verDetalhesReceita(receitaAtualKey, true);
             }
+            if (typeof atualizarBadges === 'function') atualizarBadges();
         }
 
         function sincronizarUsuarioIndex(uid, u) {
@@ -382,12 +405,12 @@
                 if (email === DONO_EMAIL) {
                     selectHtml = `<div style="font-weight:bold; color:var(--primary); font-size:0.85rem; padding-right:5px;">👑 Dono</div>`;
                 } else {
-                    selectHtml = `<select onchange="atualizarCargoUsuario(${jsArg(uid)}, this.value)" style="width:auto; padding:6px; margin:0; font-weight:bold; border-radius:6px; font-size:0.85rem; border:1px solid #ccc; background:#1a0404; color:#fbeee3;">
+                    selectHtml = `<select onchange="atualizarCargoUsuario(${jsArg(uid)}, this.value)" style="width:auto; padding:6px; margin:0; font-weight:bold; border-radius:6px; font-size:0.85rem; border:1px solid var(--line); background:var(--surface-2); color:var(--text-main);">
                         <option value="contribuidor" ${roleAtual==='contribuidor'?'selected':''}>✏️ Contribuidor</option>
                         <option value="visualizador" ${roleAtual==='visualizador'?'selected':''}>👁️ Visualizador</option>
                     </select>`;
                 }
-                html += `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.4); margin-bottom:8px; gap:10px; flex-wrap:wrap;">
+                html += `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); margin-bottom:8px; gap:10px; flex-wrap:wrap;">
                     <div style="font-weight:bold; font-size:0.9rem; color:var(--text-main); line-height:1.2; flex:1; min-width:180px;">${nomeExibicao}</div>
                     ${selectHtml}
                 </div>`;
@@ -465,7 +488,7 @@
                     const categoria = getCategoriaPrincipalProduto(p);
                     const subgrupo = p.subgrupo ? p.subgrupo : '';
                     if (categoria !== currentCategoria) {
-                        linhasHtml.push(`<tr><td colspan="3" style="padding:12px 0 6px 12px; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${esc(categoria)}</td></tr>`);
+                        linhasHtml.push(`<tr><td colspan="3" style="padding:12px 0 6px 12px; color:var(--text-main); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(categoria)}</td></tr>`);
                         currentCategoria = categoria;
                         currentSubgrupo = '';
                     }
@@ -476,8 +499,8 @@
                     let t = getTamFardoProduto(p);
                     
                     recebimentoTemp[pk] = { f: 0, u: 0, t: t };
-                    const fardoInput = t > 1 ? `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-f-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','f',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','f',-1)">▼</button></div></div>` : '';
-                    const unInput = `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-u-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','u',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','u',-1)">▼</button></div></div>`;
+                    const fardoInput = t > 1 ? `<div class="qty-box" style="background:var(--surface-2);"><input type="number" class="qty-input" style="background:var(--surface-2);" id="rec-f-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','f',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','f',-1)">▼</button></div></div>` : '';
+                    const unInput = `<div class="qty-box" style="background:var(--surface-2);"><input type="number" class="qty-input" style="background:var(--surface-2);" id="rec-u-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','u',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','u',-1)">▼</button></div></div>`;
                     
                     linhasHtml.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center">${fardoInput}</td><td style="text-align:center">${unInput}</td></tr>`);
                 });
@@ -593,17 +616,17 @@
                 let inputsQtd = '';
                 if (frac || t <= 1) {
                     inputsQtd = `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" inputmode="decimal" id="transf-u-${pk}" value="${totalUnPend}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>`;
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" inputmode="decimal" id="transf-u-${pk}" value="${totalUnPend}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>`;
                 } else {
                     inputsQtd = `
                     <div style="display:flex; gap:8px; flex:1;">
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (MÁX: ${totalF})</label><input type="number" inputmode="numeric" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="1" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Un. (MÁX: ${totalU})</label><input type="number" inputmode="numeric" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="1" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (MÁX: ${totalF})</label><input type="number" inputmode="numeric" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Un. (MÁX: ${totalU})</label><input type="number" inputmode="numeric" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
                     </div>`;
                 }
 
                 blocos.push(`
-                <div style="padding:15px; border:1px solid rgba(251, 238, 227, 0.1); border-radius:10px; background:rgba(255,255,255,0.03);">
+                <div style="padding:15px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">
                         <strong style="color:var(--text-main); font-size:1.05rem;">${esc(p.nome)}</strong>
                         <span style="color:var(--primary); font-weight:800; font-size:0.85rem; text-align:right;">Disponível:<br>${txtQtd}</span>
@@ -611,7 +634,7 @@
                     <div style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
                         <div style="flex:1; min-width: 160px;">
                             <label style="font-size:0.7rem; color:#64748b;">Área de Destino</label>
-                            <select id="aloc-area-${pk}" style="margin:0; background:#280606; color:#fbeee3; font-weight:bold; border-color:rgba(251, 238, 227, 0.2);">${optionsArea}</select>
+                            <select id="aloc-area-${pk}" style="margin:0; background:var(--surface-2); color:var(--text-main); font-weight:bold; border-color:var(--line);">${optionsArea}</select>
                         </div>
                         ${inputsQtd}
                         <button class="btn-submit req-contrib" style="margin:0; background:#10b981; width:auto; padding:10px 15px;" onclick="prepararEfetivacaoAlocacao(${jsArg(pk)})">Transferir</button>
@@ -738,7 +761,7 @@
                 const categoria = getCategoriaPrincipalProduto(p);
                 const subgrupo = p.subgrupo ? p.subgrupo : '';
                 if (categoria !== currentCategoria) {
-                    itensHtml.push(`<div style="padding:12px 0 4px 0; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${esc(categoria)}</div>`);
+                    itensHtml.push(`<div style="padding:12px 0 4px 0; color:var(--text-main); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(categoria)}</div>`);
                     currentCategoria = categoria;
                     currentSubgrupo = null;
                 }
@@ -773,7 +796,7 @@
                     <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">${t > 1 && !frac ? 'Un.' : 'Qtd.'} (máx. ${formatarQtdNumero(maxU, frac)})</label>
                     <input type="number" inputmode="decimal" id="tr-area-u-${pk}" value="0" min="0" max="${maxU}" step="${step}" style="margin:0; text-align:center;"></div>`;
 
-                itensHtml.push(`<div style="padding:15px; border:1px solid rgba(251,238,227,0.15); border-radius:10px; margin-bottom:10px; background:rgba(0,0,0,0.25);">
+                itensHtml.push(`<div style="padding:15px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:var(--surface-2);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
                         <strong style="color:var(--text-main);">${esc(p.nome)}</strong>
                         <span style="color:var(--primary); font-weight:800; font-size:0.85rem;">Disponível: ${txtDisp}</span>
@@ -900,27 +923,11 @@
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active')); 
             if(alvo) alvo.classList.add('active');
 
-            // Mantém os botões do menu sincronizados
-document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            if (id.includes('reservas') || id.includes('mapa') || id.includes('agenda')) {
-                const btnRes = document.getElementById('nav-reservas-hub');
-                if(btnRes) btnRes.classList.add('active');
-            } else if (id.includes('receita')) {
-                const btnRec = document.getElementById('nav-receitas-hub');
-                if(btnRec) btnRec.classList.add('active');
-            } else if (id === 'inicio') {
-                const btnIni = document.getElementById('nav-inicio');
-                if(btnIni) btnIni.classList.add('active');
-            } else if (id.includes('financeiro')) {
-                const btnFin = document.getElementById('nav-financeiro');
-                if(btnFin) btnFin.classList.add('active');
-            } else if (id === 'cardapio-digital') {
-                const btnCard = document.getElementById('nav-cardapio');
-                if(btnCard) btnCard.classList.add('active');
-            } else if (id !== 'configuracoes' && id !== 'atribuir-categoria' && id !== 'atribuir-metodo' && id !== 'detalhe-categoria-admin') {
-                const btnProd = document.getElementById('nav-produtos-hub');
-                if(btnProd) btnProd.classList.add('active');
-            } 
+            // Mantém o menu lateral e a barra inferior sincronizados com a tela aberta
+            document.querySelectorAll('.nav-btn[data-telas], .tab-btn[data-telas]').forEach(b => {
+                b.classList.toggle('active', b.dataset.telas.split(' ').includes(id));
+            });
+            if (typeof fecharMenuLateral === 'function') fecharMenuLateral();
             
             window.scrollTo(0, 0); 
             
@@ -935,6 +942,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             if(id === 'cardapio-digital' && typeof iniciarListenersCardapio === 'function') iniciarListenersCardapio();
             if(id === 'receitas-lista') renderizarReceitas();
             if(id === 'financeiro-dashboard' && doHistorico) abrirDashboard(true);
+            if(id === 'inicio') if (typeof renderizarInicio === 'function') renderizarInicio();
         }
 
         function irParaAgenda() {
@@ -946,8 +954,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             const options = document.getElementById('fabOptions');
             const overlay = document.getElementById('fab-overlay');
             
-            options.classList.toggle('active');
-            overlay.classList.toggle('active');
+            const abrir = !options.classList.contains('active');
+            options.classList.toggle('active', abrir);
+            overlay.classList.toggle('active', abrir);
         }
 
         function collapseConfigCards() {
@@ -969,20 +978,10 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         }
 
+        // Fecha o menu "Novo" ao tocar fora dele (fecha também a camada invisível de fundo)
         document.addEventListener('click', function(event) {
             const fabOptions = document.getElementById('fabOptions');
-            const fabMain = document.querySelector('.fab-main');
-            const btnNovoTop = document.getElementById('btn-novo-top');
-            
-            if (fabOptions && fabOptions.classList.contains('active')) {
-                const isClickInsideMain = fabMain && fabMain.contains(event.target);
-                const isClickInsideTop = btnNovoTop && btnNovoTop.contains(event.target);
-                const isClickInsideOptions = fabOptions.contains(event.target);
-
-                if (!isClickInsideMain && !isClickInsideTop && !isClickInsideOptions) {
-                    fabOptions.classList.remove('active');
-                }
-            }
+            if (fabOptions && fabOptions.classList.contains('active') && !event.target.closest('.fab-container')) toggleFab();
         });
 
         // ==========================================
@@ -1063,7 +1062,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                     return `
                         <article class="product-card">
                             <div class="card-media">
-                                <div style="aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:3rem; color:var(--primary); background:rgba(0,0,0,0.3);"><i class="ph ph-package"></i></div>
+                                <div style="aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:3rem; color:var(--primary); background:var(--surface-2);"><i class="ph ph-package"></i></div>
                             </div>
                             <div class="card-body">
                                 <p class="product-title">${esc(nome)}</p>
@@ -1145,6 +1144,8 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             _listenerReservas = escutar(db.ref('reservas').orderByKey().startAt(dataStr), 'reservas', s => {
                 reservasApp = s.val() || {};
                 agendarRender('reservas', () => {
+                    if (typeof atualizarBadges === 'function') atualizarBadges();
+                    if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
                     if (telaAtiva('agenda-view')) renderizarCalendario();
                     if (telaAtiva('agenda-detalhe')) renderizarReservasDia();
                     if (telaAtiva('mapa-salao')) carregarReservasMapa();
@@ -1217,6 +1218,8 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             receitasDB = {};
             eventosTimeline = [];
             try {
+                if (typeof atualizarBadges === 'function') atualizarBadges();
+                if (typeof renderizarInicio === 'function') renderizarInicio();
                 renderizarAreas();
                 renderizarGradeAgrupada();
                 renderizarPedidosMetodos();
@@ -1237,6 +1240,8 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             }
             if (telaAtiva('transferencia-area')) renderizarTransferenciaArea();
             if (telaAtiva('produtos-lista-filtrada') && grupoAtualLista) verGrupo(grupoAtualLista.key, grupoAtualLista.tipo, true);
+            if (typeof atualizarBadges === 'function') atualizarBadges();
+            if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
             if (telaAtiva('detalhe-produto') && produtoDetalheAtual) verDetalhesProduto(produtoDetalheAtual, true);
         }
 
@@ -1252,7 +1257,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                     }
                     return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
                 }) : [];
-                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); });
+                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
             }, () => showToast("Sem permissão para ler áreas.", "error"));
 
             escutar(db.ref('produtos'), 'produtos', s => {
@@ -1286,6 +1291,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 receitasDB = s.val() || {};
                 receitasCarregadas = true;
                 agendarRender('receitas', () => {
+                    if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
                     if (telaAtiva('receitas-lista')) renderizarReceitas();
                     if (telaAtiva('detalhe-receita') && receitaAtualKey) verDetalhesReceita(receitaAtualKey, true);
                 });
@@ -1338,12 +1344,12 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 if (!montadas.has(r.nome)) {
                     resHtml += `
                     <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                        <div><strong style="font-size:0.95rem; color:var(--bg-sidebar);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:#64748b;">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
+                        <div><strong style="font-size:0.95rem; color:var(--text-main);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:#64748b;">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
                         <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--primary); border-radius:6px;" onclick="montarReservaNoMapa(${jsArg(k)})">Montar</button>
                     </div>`;
                 } else {
                     resHtml += `
-                    <div style="padding:10px; border:1px solid #10b981; border-radius:8px; background:#f0fdf4; display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
+                    <div style="padding:10px; border:1px solid #10b981; border-radius:8px; background:rgba(16,185,129,0.12); display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
                         <div><strong style="font-size:0.95rem; color:#047857;">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:#047857;">✅ Já montada no salão</span></div>
                     </div>`;
                 }
@@ -1647,7 +1653,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 const r = lista[k]; const hor = r.periodo === 'dia' ? '12:00 - 18:00' : `${r.horario || '—'} ${endStr}`;
                 const btnExcluir = (currentRole === 'dono' || currentRole === 'contribuidor') ? `<span style="color:red; font-size:0.8rem; cursor:pointer; font-weight:bold;" onclick="excluirReserva(${jsArg(k)})">Excluir</span>` : '';
                 return `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:1.05rem; color:var(--bg-sidebar);">${esc(r.nome)}</strong>${btnExcluir}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:1.05rem; color:var(--text-main);">${esc(r.nome)}</strong>${btnExcluir}</div>
                     <div style="font-size:0.85rem; color:#64748b; margin-top:6px; display:flex; flex-direction:column; gap:3px;"><span>📍 ${esc(r.area)} <strong>(${esc(r.lugares)} lug.)</strong></span><span>⏰ ${esc(hor)}</span></div></div>`;
             }).join('') || `<p style="font-size:0.85rem; color:#64748b; text-align:center; margin-top:20px;">Nenhuma reserva para este dia.</p>`;
             
@@ -1923,7 +1929,7 @@ function atualizarOrdemCategoriasAreaEdit() {
     }
 
     container.innerHTML = areaCatOrderTemp.map((cat, idx) => `
-        <div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
             <div class="sort-wrapper">
                 <button class="sort-btn-up" onclick="moverCategoriaAreaEdit(${jsArg(cat)}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
                 <button class="sort-btn-down" onclick="moverCategoriaAreaEdit(${jsArg(cat)}, 1)" ${idx === areaCatOrderTemp.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
@@ -2165,7 +2171,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 const html = [];
 
                 nomesCategorias.forEach(catNome => {
-                    html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background: rgba(183, 41, 41, 0.22); color:#fbeee3; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.78rem; padding:10px;">${esc(catNome)}</td></tr>`);
+                    html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--group-bg); color:var(--text-main); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.78rem; padding:10px;">${esc(catNome)}</td></tr>`);
 
                     grupos[catNome].sort((a, b) => compararProdutosDentroDaCategoria(a, b, catNome));
 
@@ -2189,7 +2195,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                     ordemSubgrupos.forEach(subKey => {
                         if (subKey !== '_sem_subgrupo_') {
-                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background: rgba(0,0,0,0.35); color:#10b981; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">${esc(subKey)}</td></tr>`);
+                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--surface-2); color:#10b981; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">${esc(subKey)}</td></tr>`);
                         }
 
                         subgruposDaCategoria[subKey].forEach(pk => {
@@ -2213,8 +2219,8 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                             const incU = frac ? 0.1 : 1;
                             const viewFardo = modoContagemAtivo 
-                                ? (usaFardoNaArea ? `<div class="qty-box" style="border: 1px solid var(--primary); background: #000; width: 75px;">
-                                     <input type="number" inputmode="numeric" class="qty-input" id="cont-f-${pk}" value="" step="1" min="0" style="background: #000; color: #fff;">
+                                ? (usaFardoNaArea ? `<div class="qty-box" style="border: 1px solid var(--primary); background:var(--surface-strong); width: 75px;">
+                                     <input type="number" inputmode="numeric" class="qty-input" id="cont-f-${pk}" value="" step="1" min="0" >
                                      <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
                                          <button class="qty-btn-up" onclick="passoContagem('cont-f-${pk}', 1, 1)">▲</button>
                                          <button class="qty-btn-down" onclick="passoContagem('cont-f-${pk}', -1, 1)">▼</button>
@@ -2223,8 +2229,8 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                 : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${usaFardoNaArea ? formatarQtdNumero(qtdF, false) : '-'}</span>`;
 
                             const viewUnidade = modoContagemAtivo 
-                                ? `<div class="qty-box" style="border: 1px solid var(--primary); background: #000; width: 75px;">
-                                     <input type="number" inputmode="decimal" class="qty-input" id="cont-u-${pk}" value="" step="${stepCont}" min="0" style="background: #000; color: #fff;">
+                                ? `<div class="qty-box" style="border: 1px solid var(--primary); background:var(--surface-strong); width: 75px;">
+                                     <input type="number" inputmode="decimal" class="qty-input" id="cont-u-${pk}" value="" step="${stepCont}" min="0" >
                                      <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
                                          <button class="qty-btn-up" onclick="passoContagem('cont-u-${pk}', 1, ${incU})">▲</button>
                                          <button class="qty-btn-down" onclick="passoContagem('cont-u-${pk}', -1, ${incU})">▼</button>
@@ -2237,7 +2243,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                 : (t > 1 ? `${Math.floor(totalUnidades / t)} Fds | ${formatarQtdNumero(totalUnidades % t, false)} Un.` : `${Math.floor(totalUnidades)} Un.`);
                             const viewTotal = modoContagemAtivo 
                                 ? ''
-                                : `<td style="text-align:right; border-left: 1px solid rgba(255,255,255,0.05);">
+                                : `<td style="text-align:right; border-left: 1px solid var(--line);">
                                      <div style="display:flex; flex-direction:column; line-height:1.2;">
                                        <span style="font-weight:900; color:var(--primary); font-size:1.05rem;">${txtTopTotal}</span>
                                        ${usaFardoNaArea ? `<span style="font-size:0.75rem; color:#64748b; font-weight:700;">${formatarQtdNumero(totalUnidades, false)} Un. Totais</span>` : ''}
@@ -2246,7 +2252,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                             html.push(`<tr>
                                 <td style="font-size: 0.95rem; font-weight:700;"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
-                                ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid rgba(255,255,255,0.05);">${padraoTxt}</td>` : '')}
+                                ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);">${padraoTxt}</td>` : '')}
                                 <td style="text-align:center">${viewFardo}</td>
                                 <td style="text-align:center">${viewUnidade}</td>
                                 ${viewTotal}
@@ -2361,7 +2367,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
         function renderizarMetodosConfig() { 
             const el = document.getElementById('lista-metodos-config'); if (!el) return;
-            el.innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid #e2e8f0; margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo(${jsArg(k)})">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${esc(metodosCompra[k].nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet(${jsArg(k)})">Excluir</span></div></div>`).join('') || '<p style="font-size:0.85rem; color:#64748b;">Nenhum método cadastrado.</p>';
+            el.innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid var(--line); margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo(${jsArg(k)})">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${esc(metodosCompra[k].nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet(${jsArg(k)})">Excluir</span></div></div>`).join('') || '<p style="font-size:0.85rem; color:#64748b;">Nenhum método cadastrado.</p>';
         }
 
         function renderizarPedidosMetodos() { 
@@ -2391,7 +2397,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const catObj = getCategoriaObjPorNome(cat);
 
                     if (cat !== currentCategoria) {
-                        htmlRows.push(`<tr><td colspan="4" style="padding:12px 0 6px 12px; color:#cbd5e1; font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${esc(cat)}</td></tr>`);
+                        htmlRows.push(`<tr><td colspan="4" style="padding:12px 0 6px 12px; color:var(--ink-2); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(cat)}</td></tr>`);
                         currentCategoria = cat;
                         currentSubgrupo = '';
                     }
@@ -2412,7 +2418,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const sg = Math.ceil(Math.max(0, Math.round((m - fAt) * 1000) / 1000));
                     const lb = emFardos ? 'Fds.' : 'Un.';
                     const atualTxt = Number.isInteger(fAt) ? fAt : fAt.toFixed(1).replace('.', ',');
-                    htmlRows.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center;">${atualTxt} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--primary)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
+                    htmlRows.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center;">${atualTxt} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--danger)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
                 });
 
                 document.getElementById('tabela-pedidos-filtrada').innerHTML = htmlRows.join(''); 
@@ -2474,7 +2480,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
     }
 
     box.innerHTML = currentCatSubgrupos.map((s, idx) => `
-        <div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:8px; border-radius:8px; border:1px solid var(--border-color); width:100%;">
+        <div style="display:flex; align-items:center; background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border-color); width:100%;">
             <div class="sort-wrapper" style="height:38px; margin-right:10px;">
                 <button class="sort-btn-up" onclick="moverCatSub(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
                 <button class="sort-btn-down" onclick="moverCatSub(${idx}, 1)" ${idx === currentCatSubgrupos.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
@@ -2546,7 +2552,7 @@ function moverCatSub(index, direcao) {
             document.getElementById('lista-categorias-config').innerHTML=Object.keys(categorias).map(k=>{ 
                 const c=categorias[k]; 
                 const hasSubs = c.subgrupos && c.subgrupos.length > 0;
-                return `<div class="preset-config-item" style="padding:12px; border:1px solid #ccc; border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria(${jsArg(k)})">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria(${jsArg(k)})">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${esc(c.nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat(${jsArg(k)})">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:#64748b;">Áreas: ${esc((c.areas||[]).join(', '))} <br> Fardo: ${c.unidadesFardo>1?esc(c.unidadesFardo)+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?esc(c.subgrupos.join(', ')):'Nenhuma'}</div></div>`; 
+                return `<div class="preset-config-item" style="padding:12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria(${jsArg(k)})">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria(${jsArg(k)})">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${esc(c.nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat(${jsArg(k)})">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:#64748b;">Áreas: ${esc((c.areas||[]).join(', '))} <br> Fardo: ${c.unidadesFardo>1?esc(c.unidadesFardo)+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?esc(c.subgrupos.join(', ')):'Nenhuma'}</div></div>`; 
             }).join(''); 
         }
 
@@ -2597,7 +2603,7 @@ function moverCatSub(index, direcao) {
 
             document.getElementById('lista-ordenacao-cat').innerHTML = visibleProds.map((pk, index) => {
                 const p = produtos[pk];
-                return `<div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                return `<div style="display:flex; align-items:center; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
                     <div class="sort-wrapper">
                         <button class="sort-btn-up" onclick="moverProdutoOrdem(${jsArg(k)}, ${jsArg(pk)}, -1)" ${index === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
                         <button class="sort-btn-down" onclick="moverProdutoOrdem(${jsArg(k)}, ${jsArg(pk)}, 1)" ${index === visibleProds.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
@@ -3000,7 +3006,7 @@ function toggleItemProduzido() {
                 const labelQtd = (t > 1 && !produtoUsaContagemFracionada(p)) ? 'Fds.' : 'Un.';
                 const salvo = (areaObj.config && areaObj.config.padroes && areaObj.config.padroes[pk]) ? areaObj.config.padroes[pk] : 0;
                 const valAtual = digitados[`padrao-${pk}`] !== undefined ? digitados[`padrao-${pk}`] : salvo;
-                return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding:8px 0;">
+                return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
                     <span style="font-size:0.85rem; font-weight:bold; color: var(--text-main);">${esc(p.nome)} <small style="color:#64748b;">(${labelQtd})</small></span>
                     <input type="number" inputmode="decimal" id="padrao-${pk}" value="${esc(valAtual)}" style="width:65px; padding:5px; text-align:center; margin:0;" min="0">
                 </div>`;
@@ -3271,10 +3277,10 @@ function toggleItemProduzido() {
                 }
 
                 const imgHtml = r.foto
-                    ? `<div style="width:60px; height:60px; border-radius:10px; overflow:hidden; flex-shrink:0; border:1px solid rgba(255,255,255,0.1); display:block !important;">
+                    ? `<div style="width:60px; height:60px; border-radius:10px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); display:block !important;">
                             <img src="${esc(r.foto)}" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:cover; ${estiloEnquadramento(r.configEnquadramento)} display:block !important;">
                        </div>`
-                    : `<div style="width:60px; height:60px; border-radius:10px; background:rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); display:flex !important; align-items:center; justify-content:center; color:var(--primary); font-size:1.5rem; flex-shrink:0;"><i class="ph ph-martini"></i></div>`;
+                    : `<div style="width:60px; height:60px; border-radius:10px; background:var(--surface-2); border: 1px solid var(--line); display:flex !important; align-items:center; justify-content:center; color:var(--primary); font-size:1.5rem; flex-shrink:0;"><i class="ph ph-martini"></i></div>`;
 
                 return `
                 <div class="card-nav" onclick="verDetalhesReceita(${jsArg(k)})" style="display:flex !important; align-items:center; gap:12px; padding: 15px; flex-direction: row; justify-content:flex-start;">
@@ -3303,7 +3309,7 @@ function toggleItemProduzido() {
                     custoTotal += custoIng;
                     custoIngHtml = `<span class="req-custo custo-receita" style="color:#10b981; font-weight:800; font-size:0.85rem;">${formatarReais(custoIng)}</span>`;
                 }
-                return `<li style="margin-bottom:8px; color:var(--text-main); font-size:0.95rem; list-style:none; border-bottom:1px solid rgba(251, 238, 227, 0.1); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                return `<li style="margin-bottom:8px; color:var(--text-main); font-size:0.95rem; list-style:none; border-bottom:1px solid var(--line); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                             <span><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                             ${custoIngHtml}
                         </li>`;
@@ -3340,7 +3346,7 @@ function toggleItemProduzido() {
                 </div>
 
                 ${r.preparo ? `
-                <div style="margin-top:25px; padding:18px; background:rgba(0,0,0,0.4); border-radius:16px; border:1px solid var(--border-color);">
+                <div style="margin-top:25px; padding:18px; background:var(--surface-2); border-radius:16px; border:1px solid var(--border-color);">
                     <strong style="display:block; margin-bottom:10px; color:var(--primary); font-size:1.05rem;"><i class="ph ph-book-open"></i> Modo de Preparo:</strong>
                     <p style="margin:0; font-size:0.95rem; line-height:1.6; color:var(--text-main); white-space:pre-wrap;">${esc(r.preparo)}</p>
                 </div>` : ''}
@@ -3404,11 +3410,11 @@ function toggleItemProduzido() {
         function renderIngredientesReceita() {
             const lista = document.getElementById('lista-ingredientes-receita');
             if(receitaEmConstrucao.ingredientes.length === 0) {
-                lista.innerHTML = `<p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
+                lista.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
                 return;
             }
             lista.innerHTML = receitaEmConstrucao.ingredientes.map((ing, idx) => `
-                <div style="display:flex; justify-content:space-between; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
+                <div style="display:flex; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
                     <span style="font-size:0.9rem;"><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                     <button style="background:red; color:white; border:none; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="removerIngrediente(${idx})">×</button>
                 </div>
@@ -3418,11 +3424,11 @@ function toggleItemProduzido() {
         function renderIngredientesReceitaEdit() {
             const lista = document.getElementById('edit-lista-ingredientes-receita');
             if(receitaEmEdicao.ingredientes.length === 0) {
-                lista.innerHTML = `<p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
+                lista.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
                 return;
             }
             lista.innerHTML = receitaEmEdicao.ingredientes.map((ing, idx) => `
-                <div style="display:flex; justify-content:space-between; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
+                <div style="display:flex; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
                     <span style="font-size:0.9rem;"><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                     <button style="background:red; color:white; border:none; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="removerIngredienteEdit(${idx})">×</button>
                 </div>
@@ -3704,8 +3710,8 @@ function calcularCustoComposicao() {
                 const areaObj = areas.find(a => a.nome === loc);
                 const click = areaObj ? `onclick="document.getElementById('modalInfoItem').style.display='none'; verArea(${jsArg(areaObj.key)}, ${jsArg(loc)})"` : '';
                 linhas.push(`
-                    <div ${click} style="display: flex; justify-content: space-between; padding: 12px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; ${areaObj ? 'cursor: pointer;' : ''}">
-                        <span style="color: white; font-weight: 600; ${areaObj ? 'text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 4px;' : ''}">${esc(loc)}</span>
+                    <div ${click} style="display: flex; justify-content: space-between; padding: 12px 10px; background:var(--surface-2); border: 1px solid var(--line); border-radius: 8px; ${areaObj ? 'cursor: pointer;' : ''}">
+                        <span style="color: var(--text-main); font-weight: 600; ${areaObj ? 'text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 4px;' : ''}">${esc(loc)}</span>
                         <span style="color: var(--primary); font-weight: 800;">${txtQtd}</span>
                     </div>`);
             });

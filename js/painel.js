@@ -1,0 +1,371 @@
+// =====================================================================
+// PAINEL (layout novo): menu lateral, busca global, tela de Início
+// =====================================================================
+
+// ---------- Menu lateral no celular (gaveta) ----------
+function abrirMenuLateral() {
+    document.body.classList.add('menu-aberto');
+}
+function fecharMenuLateral() {
+    document.body.classList.remove('menu-aberto');
+}
+
+// Os pop-ups (modais) ficam fora do painel com vidro: elementos com "backdrop-filter"
+// prendem os filhos com position:fixed dentro deles, e o pop-up abriria cortado.
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.modal-overlay').forEach(m => document.body.appendChild(m));
+    renderizarInicio();
+});
+
+// ---------- Atalhos de teclado (computador) ----------
+document.addEventListener('keydown', (e) => {
+    const alvo = e.target;
+    const digitando = alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT' || alvo.isContentEditable);
+    if (e.key === '/' && !digitando) {
+        e.preventDefault();
+        const b = document.getElementById('busca-global');
+        if (b) b.focus();
+    }
+    if (e.key === 'Escape') {
+        fecharMenuLateral();
+        fecharBuscaGlobal();
+        const opts = document.getElementById('fabOptions');
+        if (opts && opts.classList.contains('active')) toggleFab();
+    }
+});
+
+// ---------- Busca global ----------
+let _resultadosBusca = [];
+let _idxBusca = -1;
+
+function fecharBuscaGlobal() {
+    const box = document.getElementById('busca-global-resultados');
+    if (box) { box.classList.remove('aberta'); box.innerHTML = ''; }
+    _resultadosBusca = []; _idxBusca = -1;
+}
+
+function buscarGlobal() {
+    const inp = document.getElementById('busca-global');
+    const box = document.getElementById('busca-global-resultados');
+    if (!inp || !box) return;
+    const termo = normalizarBusca(inp.value);
+    if (termo.length < 2) { fecharBuscaGlobal(); return; }
+    if (!currentUser) {
+        box.innerHTML = `<div class="sr-vazio">Faça login para buscar.</div>`;
+        box.classList.add('aberta');
+        return;
+    }
+    const achou = (txt) => normalizarBusca(txt).includes(termo);
+    const res = [];
+
+    Object.keys(produtos).forEach(pk => {
+        const p = produtos[pk];
+        if (p && achou(p.nome)) res.push({ tipo: 'Produto', icone: 'ph-package', titulo: p.nome, sub: getCategoriaPrincipalProduto(p), acao: () => verDetalhesProduto(pk) });
+    });
+    areas.forEach(a => {
+        if (achou(a.nome)) res.push({ tipo: 'Área', icone: 'ph-map-pin', titulo: a.nome, sub: 'Estoque da área', acao: () => verArea(a.key, a.nome) });
+    });
+    Object.keys(receitasDB).forEach(k => {
+        const r = receitasDB[k];
+        if (r && achou(r.nome)) res.push({ tipo: 'Receita', icone: 'ph-martini', titulo: r.nome, sub: 'Receita', acao: () => verDetalhesReceita(k) });
+    });
+    const hoje = dataLocalISO();
+    Object.keys(reservasApp).filter(d => d >= hoje).sort().forEach(d => {
+        const lista = reservasApp[d] || {};
+        Object.keys(lista).forEach(k => {
+            const r = lista[k];
+            if (r && achou(r.nome)) {
+                const [y, m, dd] = d.split('-');
+                res.push({ tipo: 'Reserva', icone: 'ph-calendar-check', titulo: r.nome, sub: `${dd}/${m}/${y} · ${r.area || ''} · ${r.lugares || 0} lug.`, acao: () => abrirDia(d, new Date(d + 'T12:00:00').getDay()) });
+            }
+        });
+    });
+
+    _resultadosBusca = res.slice(0, 12);
+    _idxBusca = _resultadosBusca.length ? 0 : -1;
+    desenharResultadosBusca(res.length);
+}
+
+function desenharResultadosBusca(total) {
+    const box = document.getElementById('busca-global-resultados');
+    if (!box) return;
+    if (_resultadosBusca.length === 0) {
+        box.innerHTML = `<div class="sr-vazio">Nada encontrado.</div>`;
+    } else {
+        box.innerHTML = _resultadosBusca.map((r, i) => `
+            <button class="sr-item ${i === _idxBusca ? 'sel' : ''}" onmousedown="event.preventDefault()" onclick="escolherResultadoBusca(${i})">
+                <span class="sr-ico"><i class="ph ${r.icone}"></i></span>
+                <span class="sr-txt"><strong>${esc(r.titulo)}</strong><small>${esc(r.tipo)} · ${esc(r.sub || '')}</small></span>
+            </button>`).join('') + (total > _resultadosBusca.length ? `<div class="sr-vazio">Mostrando ${_resultadosBusca.length} de ${total}. Digite mais para filtrar.</div>` : '');
+    }
+    box.classList.add('aberta');
+}
+
+function escolherResultadoBusca(i) {
+    const r = _resultadosBusca[i];
+    if (!r) return;
+    const inp = document.getElementById('busca-global');
+    if (inp) { inp.value = ''; inp.blur(); }
+    fecharBuscaGlobal();
+    r.acao();
+}
+
+function teclaBuscaGlobal(e) {
+    if (!_resultadosBusca.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); _idxBusca = (_idxBusca + 1) % _resultadosBusca.length; desenharResultadosBusca(_resultadosBusca.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); _idxBusca = (_idxBusca - 1 + _resultadosBusca.length) % _resultadosBusca.length; desenharResultadosBusca(_resultadosBusca.length); }
+    else if (e.key === 'Enter') { e.preventDefault(); escolherResultadoBusca(Math.max(0, _idxBusca)); }
+}
+
+document.addEventListener('click', (e) => {
+    const area = document.querySelector('.search-global');
+    if (area && !area.contains(e.target)) fecharBuscaGlobal();
+});
+
+// ---------- Cálculos usados no Início e nos contadores do menu ----------
+function produtosAbaixoDoMinimo() {
+    const lista = [];
+    Object.keys(produtos).forEach(pk => {
+        const p = produtos[pk];
+        if (!p) return;
+        const m = Number(p.estoqueMinimo || 0);
+        if (m <= 0) return;
+        const frac = produtoUsaContagemFracionada(p);
+        const t = getTamFardoProduto(p);
+        const pend = (p.estoque && p.estoque['_Pendente_']) || { f: 0, u: 0 };
+        const totalUn = getUnidadesTotaisEstoque(p) + parseQtdValor(pend.f, frac) * t + parseQtdValor(pend.u, frac);
+        const atual = (t > 1 && !frac) ? totalUn / t : totalUn;
+        if (atual < m) lista.push(pk);
+    });
+    return lista;
+}
+
+function qtdPendentesPatio() {
+    let n = 0;
+    Object.keys(produtos).forEach(pk => {
+        const p = produtos[pk];
+        const pend = p && p.estoque && p.estoque['_Pendente_'];
+        if (pend && (Number(pend.f) > 0 || Number(pend.u) > 0)) n++;
+    });
+    return n;
+}
+
+function resumoReservasDia(dataStr) {
+    const lista = reservasApp[dataStr] || {};
+    let qtd = 0, pessoas = 0;
+    Object.keys(lista).forEach(k => {
+        const r = lista[k];
+        if (!r) return;
+        qtd++;
+        const isUnidade = String(r.area || '').includes('Redondas') || String(r.area || '').includes('Bistrôs');
+        if (!isUnidade) pessoas += parseInt(r.lugares) || 0;
+    });
+    return { qtd, pessoas };
+}
+
+function valorEstoquePorArea() {
+    const porArea = {};
+    let total = 0;
+    areas.forEach(a => { if (a.nome) porArea[a.nome] = 0; });
+    Object.keys(produtos).forEach(pk => {
+        const p = produtos[pk];
+        if (!p || !p.estoque) return;
+        const preco = getPrecoPorUnidadeBase(p);
+        const frac = produtoUsaContagemFracionada(p);
+        const t = getTamFardoProduto(p);
+        Object.keys(p.estoque).forEach(loc => {
+            if (porArea[loc] === undefined) return;
+            const v = p.estoque[loc];
+            if (!v || typeof v !== 'object') return;
+            const val = (parseQtdValor(v.f, frac) * t + parseQtdValor(v.u, frac)) * preco;
+            porArea[loc] += val; total += val;
+        });
+    });
+    return { porArea, total };
+}
+
+function definirBadge(id, n) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+    el.style.display = n > 0 ? '' : 'none';
+}
+
+function atualizarBadges() {
+    if (!currentUser) { ['badge-pendentes', 'badge-pedidos', 'badge-reservas'].forEach(id => definirBadge(id, 0)); return; }
+    definirBadge('badge-pendentes', currentRole === 'visualizador' ? 0 : qtdPendentesPatio());
+    definirBadge('badge-pedidos', produtosAbaixoDoMinimo().length);
+    definirBadge('badge-reservas', resumoReservasDia(dataLocalISO()).qtd);
+}
+
+// ---------- Tela de Início ----------
+let periodoGrafico = 7;
+
+function mudarPeriodoGrafico(dias, btn) {
+    periodoGrafico = dias;
+    if (btn) btn.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+    renderizarInicio();
+}
+
+function abrirNovaReservaHoje() {
+    const hoje = new Date();
+    if (hoje.getDay() === 1) { showToast("Segunda-feira o bar está fechado. Escolha um dia na agenda.", "error"); irParaAgenda(); return; }
+    abrirDia(dataLocalISO(hoje), hoje.getDay());
+    setTimeout(() => { const n = document.getElementById('res-nome'); if (n) n.focus(); }, 50);
+}
+
+function irParaPendentes() {
+    navegar('areas-lista');
+    abrirAlocacaoModal();
+}
+
+function abrirReservasHoje() {
+    const hoje = new Date();
+    if (hoje.getDay() === 1) { irParaAgenda(); return; }
+    abrirDia(dataLocalISO(hoje), hoje.getDay());
+}
+
+function abrirPedidosAbaixoMinimo() {
+    navegar('pedidos-metodos');
+}
+
+function renderizarInicio() {
+    const sec = document.getElementById('inicio');
+    if (!sec) return;
+    const agora = new Date();
+    const h = agora.getHours();
+    const saud = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    const primeiroNome = currentUser ? String(currentUserName || (currentUser.email || '').split('@')[0]).split(/\s+/)[0] : '';
+    const elSaud = document.getElementById('saudacao');
+    if (elSaud) elSaud.textContent = primeiroNome ? `${saud}, ${primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1)}` : `${saud}!`;
+
+    const dataTxt = agora.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const abaixo = currentUser ? produtosAbaixoDoMinimo() : [];
+    const pend = currentUser && currentRole !== 'visualizador' ? qtdPendentesPatio() : 0;
+    const hojeRes = resumoReservasDia(dataLocalISO(agora));
+    const atencao = (abaixo.length ? 1 : 0) + (pend ? 1 : 0);
+    const elSub = document.getElementById('saudacao-sub');
+    if (elSub) {
+        const d = dataTxt.charAt(0).toUpperCase() + dataTxt.slice(1);
+        elSub.textContent = !currentUser ? `${d} · faça login para ver o painel`
+            : atencao ? `${d} · ${atencao} ${atencao === 1 ? 'coisa precisa' : 'coisas precisam'} da sua atenção`
+            : `${d} · tudo em ordem por aqui`;
+    }
+
+    // ---- Gráfico de reservas (próximos dias) ----
+    const chart = document.getElementById('chart-reservas');
+    if (chart) {
+        const dias = [];
+        for (let i = 0; i < periodoGrafico; i++) {
+            const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + i);
+            const iso = dataLocalISO(d);
+            const r = resumoReservasDia(iso);
+            dias.push({ iso, d, pessoas: r.pessoas, qtd: r.qtd, fechado: d.getDay() === 1 });
+        }
+        chart.classList.toggle('denso', periodoGrafico > 7 && window.innerWidth < 700);
+        const tit = document.getElementById('chart-reservas-titulo');
+        if (tit) tit.textContent = periodoGrafico > 7 ? `Reservas dos próximos ${periodoGrafico} dias` : 'Reservas da semana';
+        const max = Math.max(10, ...dias.map(x => x.pessoas));
+        const passo = max <= 20 ? 5 : max <= 60 ? 15 : max <= 120 ? 30 : Math.ceil(max / 4 / 10) * 10;
+        const topo = Math.ceil(max / passo) * passo;
+        const linhas = [];
+        for (let v = topo; v >= 0; v -= passo) linhas.push(v);
+        const nomesDia = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+        chart.innerHTML = `
+            <div class="bc-y">${linhas.map(v => `<span>${v}</span>`).join('')}</div>
+            <div class="bc-area">
+                <div class="bc-grid">${linhas.map(() => '<i></i>').join('')}</div>
+                <div class="bc-bars">${dias.map((x, i) => `
+                    <button class="bc-col ${i === 0 ? 'hoje' : ''} ${x.fechado ? 'fechado' : ''}" ${x.fechado ? 'disabled' : `onclick="abrirDia('${x.iso}', ${x.d.getDay()})"`} title="${x.fechado ? 'Fechado' : `${x.qtd} reserva(s), ${x.pessoas} pessoa(s)`}">
+                        <span class="bc-plot"><span class="bc-bar" style="height:${topo ? Math.max(x.pessoas ? 3 : 0, (x.pessoas / topo) * 100) : 0}%">${x.pessoas ? `<span class="bc-val">${x.pessoas}</span>` : ''}</span></span>
+                        <span class="bc-lbl"><span class="dia-sem">${i === 0 ? 'Hoje' : nomesDia[x.d.getDay()]}<br></span><small>${x.d.getDate()}</small></span>
+                    </button>`).join('')}
+                </div>
+            </div>`;
+        const totalPessoas = dias.reduce((a, x) => a + x.pessoas, 0);
+        const totalRes = dias.reduce((a, x) => a + x.qtd, 0);
+        const sub = document.getElementById('chart-reservas-sub');
+        if (sub) sub.textContent = `${totalRes} reserva(s) · ${totalPessoas} pessoa(s) nos próximos ${periodoGrafico} dias`;
+    }
+
+    // ---- Rosca: valor (ou itens) por área ----
+    const donut = document.getElementById('donut-areas');
+    if (donut) {
+        const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899', '#64748b'];
+        const verValor = podeVerCustos();
+        let dados = [];
+        if (verValor) {
+            const { porArea } = valorEstoquePorArea();
+            dados = Object.keys(porArea).map(n => ({ nome: n, valor: porArea[n] }));
+        } else {
+            const cont = {};
+            areas.forEach(a => cont[a.nome] = 0);
+            Object.keys(produtos).forEach(pk => (produtos[pk] && produtos[pk].locais || []).forEach(l => { if (cont[l] !== undefined) cont[l]++; }));
+            dados = Object.keys(cont).map(n => ({ nome: n, valor: cont[n] }));
+        }
+        dados.sort((a, b) => b.valor - a.valor);
+        if (dados.length > 7) {
+            const resto = dados.slice(6).reduce((a, x) => a + x.valor, 0);
+            dados = dados.slice(0, 6).concat([{ nome: 'Outras', valor: resto, outras: true }]);
+        }
+        const total = dados.reduce((a, x) => a + x.valor, 0);
+        document.getElementById('donut-titulo').textContent = verValor ? 'Estoque por área' : 'Itens por área';
+        document.getElementById('donut-sub').textContent = verValor ? 'Valor parado em cada área' : 'Quantidade de produtos em cada área';
+        const fmtCurto = (v) => verValor
+            ? (v >= 1000 ? 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + 'k' : 'R$ ' + Math.round(v).toLocaleString('pt-BR'))
+            : String(Math.round(v));
+        if (!currentUser || dados.length === 0) {
+            donut.innerHTML = `<p class="vazio">${currentUser ? 'Nenhuma área cadastrada.' : 'Faça login para ver.'}</p>`;
+        } else {
+            const R = 52, C = 2 * Math.PI * R;
+            let acc = 0;
+            const comValor = dados.filter(x => x.valor > 0).length;
+            const arcos = total > 0 ? dados.map((x, i) => {
+                const frac = x.valor / total;
+                if (frac <= 0) return ''; // área zerada não desenha nada
+                const len = Math.max(0.5, frac * C - (comValor > 1 ? 2 : 0));
+                const arco = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${cores[i % cores.length]}" stroke-width="16" stroke-linecap="butt" stroke-dasharray="${len} ${C}" stroke-dashoffset="${-acc}" transform="rotate(-90 70 70)"></circle>`;
+                acc += frac * C;
+                return arco;
+            }).join('') : `<circle r="${R}" cx="70" cy="70" fill="none" stroke="rgba(15,30,46,.1)" stroke-width="16"></circle>`;
+            donut.innerHTML = `
+                <div class="donut">
+                    <svg viewBox="0 0 140 140" aria-hidden="true">${arcos}</svg>
+                    <div class="donut-centro"><strong>${fmtCurto(total)}</strong><small>${verValor ? 'em estoque' : 'vínculos'}</small></div>
+                </div>
+                <div class="donut-legenda">${dados.map((x, i) => {
+                    const a = areas.find(z => z.nome === x.nome);
+                    const click = a ? `onclick="verArea(${jsArg(a.key)}, ${jsArg(a.nome)})"` : '';
+                    return `<button class="leg" ${click} ${a ? '' : 'disabled'}><i style="background:${cores[i % cores.length]}"></i><span>${esc(x.nome)}</span><strong>${fmtCurto(x.valor)}</strong></button>`;
+                }).join('')}</div>`;
+        }
+    }
+
+    // ---- Cartões de números ----
+    const grid = document.getElementById('stat-grid');
+    if (grid) {
+        if (!currentUser) { grid.innerHTML = ''; return; }
+        const { total: valorTotal } = podeVerCustos() ? valorEstoquePorArea() : { total: 0 };
+        const prox7 = (() => { let q = 0; for (let i = 1; i <= 7; i++) { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + i); q += resumoReservasDia(dataLocalISO(d)).qtd; } return q; })();
+        const cards = [
+            { ico: 'ph-shopping-cart', n: abaixo.length, t: 'Itens abaixo do mínimo', s: abaixo.length ? 'Veja o que pedir' : 'Estoque em dia', tag: abaixo.length ? { txt: 'Pedir', cls: 'alerta' } : null, acao: 'abrirPedidosAbaixoMinimo()' },
+            { ico: 'ph-box-arrow-down', n: pend, t: 'Aguardando armazenagem', s: pend ? 'Itens parados no pátio' : 'Nada no pátio', tag: pend ? { txt: 'Guardar', cls: 'aviso' } : null, acao: 'irParaPendentes()', papel: 'req-contrib' },
+            { ico: 'ph-calendar-check', n: hojeRes.qtd, t: 'Reservas hoje', s: `${hojeRes.pessoas} pessoa(s)`, acao: 'abrirReservasHoje()' },
+            { ico: 'ph-coins', n: formatarReais(valorTotal), t: 'Valor em estoque', s: 'Custo parado nas áreas', acao: 'abrirDashboard()', papel: 'req-dono' },
+            { ico: 'ph-package', n: Object.keys(produtos).length, t: 'Produtos cadastrados', s: `${Object.keys(categorias).length} categoria(s)`, acao: "navegar('produtos-categorias')" },
+            { ico: 'ph-map-pin', n: areas.length, t: 'Áreas de estoque', s: 'Câmaras, bar, depósitos...', acao: "navegar('areas-lista')" },
+            { ico: 'ph-calendar-blank', n: prox7, t: 'Reservas na semana', s: 'Próximos 7 dias', acao: 'irParaAgenda()' },
+            { ico: 'ph-martini', n: Object.keys(receitasDB).length, t: 'Receitas', s: 'Fichas técnicas', acao: 'abrirReceitas()' }
+        ];
+        grid.innerHTML = cards.map(c => `
+            <button class="stat-card ${c.papel || ''}" onclick="${c.acao}">
+                <div class="stat-top"><span class="stat-ico"><i class="ph ${c.ico}"></i></span>${c.tag ? `<span class="stat-tag ${c.tag.cls}">${c.tag.txt}</span>` : ''}</div>
+                <strong class="stat-num">${typeof c.n === 'number' ? c.n : esc(c.n)}</strong>
+                <span class="stat-t">${c.t}</span>
+                <small class="stat-s">${esc(c.s)}</small>
+            </button>`).join('');
+    }
+}
+
+// Ao girar o celular ou redimensionar a janela, ajusta o gráfico do Início
+window.addEventListener('resize', () => { if (telaAtiva('inicio')) agendarRender('inicio-resize', renderizarInicio); });

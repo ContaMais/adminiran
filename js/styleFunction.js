@@ -163,7 +163,7 @@ window.hideSplash = function() {
                     let txtQtd = d.frac
                         ? `${formatarQtdNumero(d.u, true)} Un.`
                         : (d.t > 1 ? `${d.f} Fds e ${d.u} Un.` : `${d.u} Un.`);
-                    return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); padding:8px 0;">
+                    return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
                                 <span style="color:var(--text-main); font-size:0.85rem; flex:1;">${esc(d.nome)} <br><small style="color:#64748b;">${txtQtd}</small></span>
                                 <span style="color:#10b981; font-weight:bold; font-size:0.85rem;">${formatarReais(d.valor)}</span>
                             </div>`;
@@ -172,7 +172,7 @@ window.hideSplash = function() {
                 if(!detalhesHtml) detalhesHtml = '<p style="font-size:0.8rem; color:#64748b;">Nenhum produto com valor registrado nesta área.</p>';
 
                 return `
-                <div class="card" style="margin-bottom:10px; padding: 0; overflow:hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4);">
+                <div class="card" style="margin-bottom:10px; padding: 0; overflow:hidden; border: 1px solid var(--border-color); background:var(--surface-2);">
                     <div style="display:flex; justify-content:space-between; align-items:center; padding: 15px;">
                         <div style="display:flex; align-items:center; gap:10px;">
  
@@ -181,7 +181,7 @@ window.hideSplash = function() {
                         </div>
                         <span style="color:#10b981; font-weight:800; font-size:1.1rem;">${formatarReais(custosPorArea[loc])}</span>
                     </div>
-                    <div id="det-fin-${safeId}" style="display:${estavaAberto && estavaAberto.display === 'block' ? 'block' : 'none'}; padding: 0 15px 15px 15px; background: rgba(0,0,0,0.2); border-top: 1px solid rgba(255,255,255,0.05);">
+                    <div id="det-fin-${safeId}" style="display:${estavaAberto && estavaAberto.display === 'block' ? 'block' : 'none'}; padding: 0 15px 15px 15px; background:var(--surface-2); border-top: 1px solid var(--line);">
                         <p style="font-size:0.85rem; color:var(--primary); margin: 5px 0 10px 0; font-weight:bold;">Itens e Custos no Local:</p>
                         <div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
                             ${detalhesHtml}
@@ -274,25 +274,25 @@ let timelineNodesGlobais = [];
                 let titulo = isContagem ? `Contagem de Estoque` : `Carga: ${esc(ev.fornecedor || '')}`;
                 
                 // Cores de distinção: Contagem (Vermelho AdmiNiran) | Recebimento (Verde Sucesso)
-                let corBase = isContagem ? 'var(--primary)' : '#10b981';
+                let corBase = isContagem ? 'var(--danger)' : '#10b981';
                 let bgCard = isContagem ? 'rgba(183, 41, 41, 0.1)' : 'rgba(16, 185, 129, 0.1)';
-                let borderColor = isContagem ? 'rgba(183, 41, 41, 0.3)' : 'rgba(16, 185, 129, 0.3)';
+                let borderColor = isContagem ? 'var(--primary-line)' : 'rgba(16, 185, 129, 0.3)';
                 let nomeOperador = esc(isContagem ? "Equipe" : (ev.usuario || "Equipe"));
 
                 html += `
                 <div style="position:relative; margin-bottom: 25px; padding-left: 20px;">
-                    <div style="position:absolute; left: -14px; top: 15px; width:26px; height:26px; border-radius:50%; background:${corBase}; display:flex; align-items:center; justify-content:center; font-size:12px; border:4px solid var(--bg-body); z-index:2; color:white;">${icone}</div>
+                    <div style="position:absolute; left: -14px; top: 15px; width:26px; height:26px; border-radius:50%; background:${corBase}; display:flex; align-items:center; justify-content:center; font-size:12px; border:4px solid var(--modal-bg); z-index:2; color:white;">${icone}</div>
                     
                     <div class="card" style="margin:0; padding:15px; background:${bgCard}; border: 1px solid ${borderColor}; border-left: 4px solid ${corBase};">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <strong style="color:var(--text-main); font-size:1.05rem;">${titulo}</strong><br>
-                                <span style="font-size:0.85rem; color:#cbd5e1; font-weight:bold;">Dia ${esc(ev.dataFormatada)} <span style="color:#64748b; font-weight:normal;">• ${nomeOperador}</span></span>
+                                <span style="font-size:0.85rem; color:var(--ink-2); font-weight:bold;">Dia ${esc(ev.dataFormatada)} <span style="color:#64748b; font-weight:normal;">• ${nomeOperador}</span></span>
                             </div>
                             <button class="action-icon info-btn" style="background:${corBase};" onclick="abrirDetalheTimeline(${jsArg(ev.id)})">ⓘ</button>
                         </div>
                         
-                        <div id="detalhe-tl-${ev.id}" style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;"></div>
+                        <div id="detalhe-tl-${ev.id}" style="display:none; margin-top:15px; border-top:1px solid var(--line); padding-top:10px;"></div>
                     </div>
                 </div>`;
             });
@@ -320,11 +320,11 @@ let timelineNodesGlobais = [];
                             
                             html += `
                             <div style="margin-bottom:8px;">
-                                <div style="background:rgba(0,0,0,0.5); padding:10px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.05);" onclick="document.getElementById('${divAreaId}').style.display = document.getElementById('${divAreaId}').style.display === 'none' ? 'block' : 'none'">
+                                <div style="background:var(--surface-2); padding:10px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--line);" onclick="document.getElementById('${divAreaId}').style.display = document.getElementById('${divAreaId}').style.display === 'none' ? 'block' : 'none'">
                                     <strong style="color:var(--primary); font-size:0.95rem;">📍 ${esc(nomeArea)}</strong>
                                     <span style="color:#64748b; font-size:0.8rem;">Ver itens ▼</span>
                                 </div>
-                                <div id="${divAreaId}" style="display:none; padding:10px; border:1px dashed rgba(255,255,255,0.1); border-top:none; border-radius: 0 0 8px 8px; background:rgba(0,0,0,0.2);">
+                                <div id="${divAreaId}" style="display:none; padding:10px; border:1px dashed var(--line); border-top:none; border-radius: 0 0 8px 8px; background:var(--surface-2);">
                                     ${renderItensHistorico(ev.areas[nomeArea])}
                                 </div>
                             </div>`;
@@ -393,11 +393,11 @@ let timelineNodesGlobais = [];
             });
 
             categorias.forEach(cat => {
-                html += `<p style="color:#cbd5e1; font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:3px; text-transform:uppercase;">${esc(cat)}</p>`;
+                html += `<p style="color:var(--ink-2); font-size:0.85rem; font-weight:bold; margin: 10px 0 5px 0; border-bottom:1px solid var(--line); padding-bottom:3px; text-transform:uppercase;">${esc(cat)}</p>`;
                 const subgrupos = Object.keys(porCategoria[cat]).sort((a, b) => ordenarSubgruposDaCategoria(cat, a, b));
                 subgrupos.forEach(sub => {
                     if (sub || subgrupos.length > 1) {
-                        html += `<p style="color:#94a3b8; font-size:0.8rem; font-weight:700; margin: 8px 0 4px 0; padding-left: 10px;">${esc(getSubgrupoLabel(sub))}</p>`;
+                        html += `<p style="color:var(--text-muted); font-size:0.8rem; font-weight:700; margin: 8px 0 4px 0; padding-left: 10px;">${esc(getSubgrupoLabel(sub))}</p>`;
                     }
 
                     porCategoria[cat][sub].forEach(({ item, produto }) => {
@@ -408,7 +408,7 @@ let timelineNodesGlobais = [];
                         let u = item.u || 0;
 
                         html += `<div style="display:flex; justify-content:space-between; padding:4px 0 4px 10px; font-size:0.85rem;">
-                            <span style="color:#94a3b8;">${esc(nomeExibicao)}</span>
+                            <span style="color:var(--text-muted);">${esc(nomeExibicao)}</span>
                             <span style="color:${corNum}; font-weight:bold; letter-spacing: 0.5px;">${sinal} ${esc(f)}f | ${esc(u)}u</span>
                         </div>`;
                     });
@@ -421,6 +421,7 @@ let timelineNodesGlobais = [];
 function ativarModoContagem() {
     if (currentRole === 'visualizador') return;
     modoContagemAtivo = true;
+    document.body.classList.add('contando');
     document.getElementById('btn-modo-contagem').style.display = 'none';
     document.getElementById('btn-cancelar-contagem').style.display = 'block';
     document.getElementById('btn-salvar-contagem-geral').style.display = 'block';
@@ -436,6 +437,7 @@ function ativarModoContagem() {
 // Sai do modo contagem só restaurando os botões (sem redesenhar a tela)
 function encerrarModoContagem() {
     modoContagemAtivo = false;
+    document.body.classList.remove('contando');
     const mostrar = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v; };
     // '' devolve o controle de visibilidade para o CSS
     mostrar('btn-modo-contagem', '');

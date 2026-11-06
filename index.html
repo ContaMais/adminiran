@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/png" href="images/favicon.png">
     <link rel="apple-touch-icon" href="images/favicon.png">
-    <meta name="theme-color" content="#1a0404">
+    <meta name="theme-color" content="#0a3550">
     <link rel="preload" as="image" href="images/contamais.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Ícones: só o peso "regular" (o script antigo baixava os 6 pesos, ~3 MB) -->
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 </head>
@@ -21,18 +21,15 @@
         <img src="images/contamais.webp" alt="Logo" class="splash-logo">
     </div>
     <div id="splash-bands">
-        <div class="band" style="background-color: #FBEEE3;"></div>
-        <div class="band" style="background-color: #9F302C;"></div>
-        <div class="band" style="background-color: #6E0606;"></div>
-        <div class="band" style="background-color: #250902;"></div>
+        <div class="band" style="background-color: #e6f4fa;"></div>
+        <div class="band" style="background-color: #3fb2d9;"></div>
+        <div class="band" style="background-color: #0e6f99;"></div>
+        <div class="band" style="background-color: #0a3550;"></div>
     </div>
+    <!-- Fundo do app (gradiente leve, sem imagem) -->
+    <div class="app-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
     <div id="fab-overlay" onclick="toggleFab()"></div>
-
-    <!-- TOPO MOBILE COM LOGO -->
-    <div class="mobile-topbar"><img src="images/contamais.webp" alt="ContaMais Logo" style="height: 50px; width: auto;"></div>
-
-    <!-- BOTÃO TOPO ESQUERDA (ENGRENAGEM OU CARGO) -->
-    <button id="btn-top-role" class="btn-config" onclick="if(currentRole==='dono') abrirConfig()"></button>
+    <div id="drawer-overlay" onclick="fecharMenuLateral()"></div>
     
 
     <!-- MODAL DE AUTENTICAÇÃO -->
@@ -46,7 +43,7 @@
             <input type="password" id="auth-senha" placeholder="Senha" onkeydown="if(event.key==='Enter') submeterAuth()">
             
             <button class="btn-submit" onclick="submeterAuth()" id="btn-submit-auth">Entrar</button>
-            <button onclick="fecharModalAuth()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; margin-top:10px;">Cancelar</button>
+            <button onclick="fecharModalAuth()" style="width: 100%; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; margin-top:10px;">Cancelar</button>
             
             <p style="font-size:0.8rem; margin-top:15px; cursor:pointer; color:var(--primary); font-weight:bold;" onclick="toggleAuthMode()" id="auth-toggle-link">Ainda não tem conta? Cadastre-se</p>
         </div>
@@ -57,8 +54,8 @@
         <div class="modal-box">
             <p id="modalMsg" style="margin-bottom: 20px; font-weight: 600;"></p>
             <div style="display: flex; gap: 10px;">
-                <button onclick="fecharModal()" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer;">Não</button>
-                <button id="confirmDeleteBtn" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Excluir</button>
+                <button onclick="fecharModal()" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer;">Não</button>
+                <button id="confirmDeleteBtn" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--danger); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Excluir</button>
             </div>
         </div>
     </div>
@@ -71,24 +68,24 @@
             <input type="number" id="ingrediente-modal-qtd" placeholder="Ex: 50" style="margin-bottom: 15px;">
             
             <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('modalIngredienteQtd').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer;">Cancelar</button>
+                <button onclick="document.getElementById('modalIngredienteQtd').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer;">Cancelar</button>
                 <button onclick="confirmarIngredienteQtd()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
             </div>
         </div>
     </div>
     <!-- MODAL ALOCAR MERCADORIAS PENDENTES -->
     <div id="modalAlocar" class="modal-overlay" style="z-index: 4000;">
-        <div class="modal-box" style="max-width: 600px; background: #1a0404; border: 1px solid var(--border-color);">
+        <div class="modal-box" style="max-width: 600px; background:var(--surface-2); border: 1px solid var(--border-color);">
             <h3 style="color:var(--primary); margin-bottom:10px; font-size:1.2rem; text-align:left;"><i class="ph ph-box-arrow-down"></i> Itens aguardando armazenagem</h3>
             <p style="font-size:0.85rem; color:#64748b; margin-bottom:15px; text-align:left;">Transfira os itens para seus determinados estoques</p>
             <div id="lista-pendentes-alocar" style="max-height: 55vh; overflow-y:auto; text-align:left; display:flex; flex-direction:column; gap:10px; padding-right:5px;"></div>
-            <button class="btn-submit" onclick="document.getElementById('modalAlocar').style.display='none'" style="background: white; color: black; margin-top:20px;">FECHAR JANELA</button>
+            <button class="btn-submit" onclick="document.getElementById('modalAlocar').style.display='none'" style="margin-top:20px;">FECHAR JANELA</button>
         </div>
     </div>
 
     <!-- MODAL CONFIRMAÇÃO TRANSFERÊNCIA -->
     <div id="modalConfirmTransfer" class="modal-overlay" style="z-index: 4001;">
-        <div class="modal-box" style="max-width: 350px; background: var(--bg-body); border: 2px solid var(--primary);">
+        <div class="modal-box" style="max-width: 350px; background:var(--modal-bg); border: 2px solid var(--primary);">
             <h3 style="color:var(--text-main); margin-bottom:15px; font-size:1.1rem;">Confirmar Transferência</h3>
             <p id="msgConfirmTransfer" style="margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; color:var(--text-main);"></p>
             <div style="display: flex; gap: 10px;">
@@ -98,49 +95,110 @@
         </div>
     </div>
 
- <aside>
-        <div class="logo-container"><img src="images/contamais.webp" alt="ContaMais Logo" class="logo-img"></div>
-        <nav id="menu-navegacao">
-            <button class="nav-btn active" id="nav-inicio" onclick="navegar('inicio', this)"><i class="ph ph-house" style="font-size:1.3rem;"></i> <span>Início</span></button>
-            <button class="nav-btn" id="nav-produtos-hub" onclick="navegar('produtos-hub', this)"><i class="ph ph-package" style="font-size:1.3rem;"></i> <span>Produtos</span></button>
-            <button class="nav-btn" id="nav-reservas-hub" onclick="navegar('reservas-hub', this)"><i class="ph ph-calendar-blank" style="font-size:1.3rem;"></i> <span>Reservas</span></button>
-            <button class="nav-btn" id="nav-receitas-hub" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:1.3rem;"></i> <span>Receitas</span></button>
-            <button class="nav-btn req-dono" id="nav-financeiro" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:1.3rem;"></i> <span>Financeiro</span></button>
-            <button class="nav-btn req-dono" id="nav-cardapio" onclick="abrirCardapioDigital()"><i class="ph ph-book-open" style="font-size:1.3rem;"></i> <span>Cardápio Digital</span></button>
+    <!-- ================= MENU LATERAL ================= -->
+    <aside id="sidebar" class="sidebar">
+        <div class="brand">
+            <img src="images/contamais.webp" alt="AdmiNiran" class="logo-img">
+            <span class="brand-sub">Gestão do Adoniran Bar</span>
+        </div>
+        <nav id="menu-navegacao" class="side-nav">
+            <p class="nav-label">Painel</p>
+            <button class="nav-btn active" id="nav-inicio" data-telas="inicio" onclick="navegar('inicio')"><i class="ph ph-house"></i><span>Início</span></button>
+            <button class="nav-btn req-dono" id="nav-financeiro" data-telas="financeiro-dashboard" onclick="abrirDashboard()"><i class="ph ph-chart-line-up"></i><span>Financeiro</span></button>
 
-            <div style="margin-top: auto;"></div> 
-            <button class="nav-btn" onclick="abrirModalAuth()" id="btn-login-sidebar"><i class="ph ph-user" style="font-size:1.3rem;"></i> <span>Entrar</span></button>
+            <p class="nav-label">Estoque</p>
+            <button class="nav-btn" id="nav-produtos-hub" data-telas="produtos-hub" onclick="navegar('produtos-hub')"><i class="ph ph-squares-four"></i><span>Visão geral</span></button>
+            <button class="nav-btn" id="nav-areas" data-telas="areas-lista detalhe-area transferencia-area nova-area" onclick="navegar('areas-lista')"><i class="ph ph-map-pin"></i><span>Áreas</span><em class="nav-badge" id="badge-pendentes"></em></button>
+            <button class="nav-btn" id="nav-itens" data-telas="produtos-categorias produtos-lista-filtrada detalhe-produto novo-produto editar-produto" onclick="navegar('produtos-categorias')"><i class="ph ph-tag"></i><span>Itens</span></button>
+            <button class="nav-btn" id="nav-pedidos" data-telas="pedidos-metodos pedidos-lista" onclick="navegar('pedidos-metodos')"><i class="ph ph-shopping-cart"></i><span>Pedidos</span><em class="nav-badge" id="badge-pedidos"></em></button>
+            <button class="nav-btn" id="nav-recebimentos" data-telas="recebimentos-lista recebimento-entrada" onclick="abrirRecebimentos()"><i class="ph ph-truck"></i><span>Recebimentos</span></button>
+            <button class="nav-btn req-dono" id="nav-historico" data-telas="timeline-estoque" onclick="abrirTimeline()"><i class="ph ph-clock-counter-clockwise"></i><span>Histórico</span></button>
+
+            <p class="nav-label">Reservas</p>
+            <button class="nav-btn" id="nav-reservas-hub" data-telas="reservas-hub agenda-view agenda-detalhe" onclick="irParaAgenda()"><i class="ph ph-calendar-blank"></i><span>Agenda</span><em class="nav-badge" id="badge-reservas"></em></button>
+            <button class="nav-btn" id="nav-mapa" data-telas="mapa-setup mapa-salao" onclick="navegar('mapa-setup')"><i class="ph ph-map-trifold"></i><span>Mapa do salão</span></button>
+
+            <p class="nav-label">Cardápio</p>
+            <button class="nav-btn" id="nav-receitas-hub" data-telas="receitas-lista detalhe-receita nova-receita editar-receita selecionar-ingrediente" onclick="abrirReceitas()"><i class="ph ph-martini"></i><span>Receitas</span></button>
+            <button class="nav-btn req-dono" id="nav-cardapio" data-telas="cardapio-digital" onclick="abrirCardapioDigital()"><i class="ph ph-book-open"></i><span>Cardápio digital</span></button>
+
+            <p class="nav-label">Sistema</p>
+            <button class="nav-btn req-dono" id="nav-config" data-telas="configuracoes detalhe-categoria-admin atribuir-categoria atribuir-metodo" onclick="abrirConfig()"><i class="ph ph-gear-six"></i><span>Configurações</span></button>
+            <button class="nav-btn" onclick="abrirModalAuth()" id="btn-login-sidebar"><i class="ph ph-user"></i><span>Entrar</span></button>
         </nav>
+        <div class="side-foot" id="side-foot">
+            <span id="side-foot-role">Visitante</span>
+            <small id="side-foot-sub">Faça login para usar o sistema</small>
+        </div>
     </aside>
 
-    <main>
-        <div id="aviso-login" style="display:none; margin-bottom:1rem; padding:14px 18px; border-radius:12px; background:rgba(183,41,41,0.25); border:2px solid var(--primary); color:#fbeee3; font-weight:700; text-align:center;">
-            Faça login para carregar produtos, áreas e reservas.
-            <button type="button" onclick="abrirModalAuth()" style="display:block; margin:12px auto 0; padding:10px 24px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:800; cursor:pointer;">Entrar agora</button>
+    <!-- ================= BARRA SUPERIOR ================= -->
+    <header class="topbar">
+        <button class="icon-btn only-mobile" id="btn-menu" onclick="abrirMenuLateral()" aria-label="Abrir menu"><i class="ph ph-list"></i></button>
+        <img src="images/contamais.webp" alt="AdmiNiran" class="topbar-logo only-mobile">
+        <div class="search-global">
+            <i class="ph ph-magnifying-glass"></i>
+            <input type="text" id="busca-global" placeholder="Buscar produtos, áreas, receitas, reservas..." autocomplete="off" oninput="buscarGlobal()" onfocus="buscarGlobal()" onkeydown="teclaBuscaGlobal(event)">
+            <kbd>/</kbd>
+            <div id="busca-global-resultados" class="search-results"></div>
         </div>
-       <div class="fab-container req-dono">
-            <button class="fab-main" id="fabMain" onclick="event.stopPropagation(); toggleFab()">
-                <span style="font-weight: 900; font-size: 42px; color: white; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; padding: 0; line-height: 1;">+</span>
-            </button>
-            <div id="fabOptions" class="fab-options">
-                <button class="fab-item" onclick="abrirCadastro('nova-area'); toggleFab()"><i class="ph ph-map-pin" style="margin-right:5px; font-size:1.1rem;"></i> Nova Área</button>
-                <button class="fab-item" onclick="abrirCadastroProduto(); toggleFab()"><i class="ph ph-wine" style="margin-right:5px; font-size:1.1rem;"></i> Novo Produto</button>
-                <button class="fab-item" onclick="abrirNovaReceita(); toggleFab()"><i class="ph ph-martini" style="margin-right:5px; font-size:1.1rem;"></i> Nova Receita</button>
+        <div class="topbar-actions">
+            <div class="fab-container req-dono">
+                <button class="icon-btn btn-novo" id="fabMain" onclick="event.stopPropagation(); toggleFab()" aria-label="Novo"><i class="ph ph-plus"></i><span class="only-desktop">Novo</span></button>
+                <div id="fabOptions" class="fab-options">
+                    <button class="fab-item" onclick="abrirCadastro('nova-area')"><i class="ph ph-map-pin"></i> Nova área</button>
+                    <button class="fab-item" onclick="abrirCadastroProduto()"><i class="ph ph-wine"></i> Novo produto</button>
+                    <button class="fab-item" onclick="abrirNovaReceita()"><i class="ph ph-martini"></i> Nova receita</button>
+                </div>
             </div>
+            <button id="btn-top-role" class="icon-btn btn-config" onclick="if(currentRole==='dono') abrirConfig()" aria-label="Cargo"></button>
+            <button class="user-chip" id="user-chip" onclick="abrirModalAuth()">
+                <span class="avatar" id="user-avatar">?</span>
+                <span class="user-txt only-desktop"><strong id="user-nome">Entrar</strong><small id="user-cargo">Visitante</small></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= ÁREA PRINCIPAL ================= -->
+    <main>
+      <div class="panel">
+        <div id="aviso-login" class="aviso-login" style="display:none;">
+            <div><strong>Faça login para carregar produtos, áreas e reservas.</strong><br><small>Seus dados ficam salvos no servidor e aparecem em qualquer aparelho.</small></div>
+            <button type="button" class="btn-pill dark" onclick="abrirModalAuth()">Entrar agora</button>
         </div>
 
-        <!-- 1. GUIA: INÍCIO -->
+        <!-- 1. INÍCIO (painel) -->
         <section id="inicio" class="section active">
-            <h1>Início</h1>
-            <div class="grid-home">
-                <div class="card-nav" onclick="navegar('produtos-hub', document.getElementById('nav-produtos-hub'))"><i class="ph ph-beer-bottle" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Produtos e Pedidos</h3></div>
-                <div class="card-nav" onclick="navegar('reservas-hub', document.getElementById('nav-reservas-hub'))"><i class="ph ph-calendar-blank" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Reservas e Mapa</h3></div>
-                <div class="card-nav" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Receitas</h3></div>
-                <div class="card-nav req-dono" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Financeiro</h3></div>
-                <div class="card-nav req-dono" onclick="abrirCardapioDigital()"><i class="ph ph-book-open" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Cardápio Digital</h3></div>
+            <div class="page-head">
+                <div>
+                    <h1 id="saudacao">Olá!</h1>
+                    <p class="page-sub" id="saudacao-sub"></p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn-pill req-dono" onclick="abrirTimeline()"><i class="ph ph-clock-counter-clockwise"></i> Histórico</button>
+                    <button class="btn-pill dark req-contrib" onclick="abrirNovaReservaHoje()"><i class="ph ph-plus"></i> Nova reserva</button>
+                </div>
             </div>
+
+            <div class="dash-row">
+                <div class="card dash-chart">
+                    <div class="card-head">
+                        <div><h3 id="chart-reservas-titulo">Reservas da semana</h3><p class="card-sub" id="chart-reservas-sub">Pessoas reservadas por dia</p></div>
+                        <div class="segmented" id="seg-periodo">
+                            <button class="active" onclick="mudarPeriodoGrafico(7, this)">7 dias</button>
+                            <button onclick="mudarPeriodoGrafico(14, this)">14 dias</button>
+                        </div>
+                    </div>
+                    <div class="bar-chart" id="chart-reservas"></div>
+                </div>
+                <div class="card dash-donut">
+                    <div class="card-head"><div><h3 id="donut-titulo">Estoque por área</h3><p class="card-sub" id="donut-sub">Toque numa área para abrir</p></div></div>
+                    <div class="donut-wrap" id="donut-areas"></div>
+                </div>
+            </div>
+
+            <div class="stat-grid" id="stat-grid"></div>
         </section>
-      <!-- 2. GUIA: HUB DE PRODUTOS -->
         <section id="produtos-hub" class="section">
             <h1>Produtos e Logística</h1>
             <div class="grid-home">
@@ -151,7 +209,7 @@
             </div>
 
             <div class="req-dono" style="margin-top: 20px;">
-                <button class="card" onclick="abrirTimeline()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 15px; padding: 20px; border: 1px dashed var(--primary); background: rgba(183, 41, 41, 0.05); cursor: pointer; transition: 0.3s;">
+                <button class="card" onclick="abrirTimeline()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 15px; padding: 20px; border: 1px dashed var(--primary); background:var(--primary-soft); cursor: pointer; transition: 0.3s;">
                     <i class="ph ph-clock-counter-clockwise" style="font-size:2rem; color:var(--primary);"></i>
                     <div style="text-align: left;">
                         <h3 style="margin:0; color:var(--text-main); font-size:1.1rem;">Histórico Semanal</h3>
@@ -198,9 +256,9 @@
             <div class="btn-back-styled" onclick="navegar('reservas-hub')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Acessar Mapa de Salão</h1>
             <div class="card" style="max-width: 400px;">
-                <p style="font-weight: 700; margin-bottom: 5px; color: var(--bg-sidebar);">Data da Operação:</p>
+                <p style="font-weight: 700; margin-bottom: 5px; color:var(--text-main);">Data da Operação:</p>
                 <input type="date" id="setup-mapa-data" style="margin-bottom: 15px;">
-                <p style="font-weight: 700; margin-bottom: 5px; color: var(--bg-sidebar);">Turno:</p>
+                <p style="font-weight: 700; margin-bottom: 5px; color:var(--text-main);">Turno:</p>
                 <select id="setup-mapa-turno" style="margin-bottom: 20px;">
                     <option value="dia">Dia (Almoço)</option>
                     <option value="tarde_noite">Tarde/Noite</option>
@@ -240,7 +298,7 @@
                         </div>
                         
                         <div id="dynamic-selected-controls" style="display:none; flex-direction:column; gap:8px; padding-top:15px; border-top:1px solid var(--border-color);">
-                            <strong style="color:var(--bg-sidebar); font-size:0.9rem;">Mesas Selecionadas: <span id="qtd-selecionadas">0</span></strong>
+                            <strong style="color:var(--text-main); font-size:0.9rem;">Mesas Selecionadas: <span id="qtd-selecionadas">0</span></strong>
                             <input type="text" id="mapa-reserva-nome" placeholder="Nome do Cliente" style="padding:10px; font-size:0.9rem; margin:0;">
                             <button class="btn-submit" style="margin:0; background:#3b82f6; padding:10px;" onclick="salvarReservaMapa()">💾 Salvar Reserva</button>
                             <button class="btn-submit" style="margin:0; background:#ef4444; padding:10px;" onclick="apagarMesasSelecionadas()">✂️ Apagar Mesa(s)</button>
@@ -264,7 +322,7 @@
             <div class="card" style="padding: 1.5rem 1rem;">
                 <div class="cal-header">
                     <button class="cal-btn" onclick="mudarMes(-1)">◀</button>
-                    <h2 id="cal-mes-ano" style="margin: 0; font-size: 1.1rem; color: var(--bg-sidebar);"></h2>
+                    <h2 id="cal-mes-ano" style="margin: 0; font-size: 1.1rem; color:var(--text-main);"></h2>
                     <button class="cal-btn" onclick="mudarMes(1)">▶</button>
                 </div>
                 <div class="cal-grid" id="cal-dias-semana">
@@ -282,7 +340,7 @@
             <div class="card req-contrib">
                 <h3 style="margin-bottom: 10px; color: var(--primary); font-size: 1rem;">Criar Nova Reserva (Manual)</h3>
                 <select id="res-periodo" onchange="atualizarFormReserva()"><option value="dia">Dia</option><option value="tarde_noite">Tarde/Noite</option></select>
-                <div id="res-time-dia" style="padding: 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 8px; font-weight: bold; text-align: center; color: #fbeee3; margin: 6px 0;">12:00 - 18:00</div>
+                <div id="res-time-dia" style="padding: 10px; background:var(--surface-2); border: 1px solid var(--border-color); border-radius: 8px; font-weight: bold; text-align: center; color:var(--text-main); margin: 6px 0;">12:00 - 18:00</div>
                 <div id="res-time-tarde" style="display: none; align-items: center; gap: 10px;"><input type="text" id="res-horario-tarde" list="lista-horarios" placeholder="18:00" style="flex:1;"><datalist id="lista-horarios"><option value="18:00"><option value="18:30"><option value="19:00"><option value="19:30"><option value="20:00"></datalist><span id="res-time-tarde-end" style="font-weight: bold; color: var(--primary); white-space: nowrap;">- 01:00</span></div>
                 <select id="res-area" onchange="atualizarFormReserva()">
                     <option value="Varanda">Varanda</option><option value="Salão 1 - Frente">Salão 1 - Frente</option><option value="Salão 1 - Corredor">Salão 1 - Corredor</option><option value="Salão 2 - Parede">Salão 2 - Parede</option><option value="Salão 2 - Meio">Salão 2 - Meio</option><option value="Salão 2 - Corrimão">Salão 2 - Corrimão</option><option value="Salão 2 - Mesas Redondas">Salão 2 - Mesas Redondas</option><option value="Salão 2 - Bistrôs">Salão 2 - Bistrôs</option><option value="Salão 2 - Brinquedão">Salão 2 - Brinquedão</option><option value="Laje">Laje</option>
@@ -306,7 +364,7 @@
                     <h1 style="margin:0;">Áreas</h1>
                 </div>
                 <!-- Banner Novo no Topo -->
-                <div id="banner-pendentes" class="req-contrib" style="display:none; background: var(--primary); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(183, 41, 41, 0.4); gap: 15px;" onclick="abrirAlocacaoModal()">
+                <div id="banner-pendentes" class="req-contrib" style="display:none; background: var(--primary); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px var(--primary-line); gap: 15px;" onclick="abrirAlocacaoModal()">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <i class="ph ph-warning-circle" style="font-size:1.6rem;"></i> 
                         <div style="text-align: left;">
@@ -382,12 +440,12 @@
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:10px;">
                         <input type="checkbox" id="area-usar-padrao" onchange="toggleConfigEstoquePadrao()"> Sim
                     </label>
-                    <div id="div-config-estoque-padrao" style="display:none; margin-top:10px; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                    <div id="div-config-estoque-padrao" style="display:none; margin-top:10px; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
                         <div id="lista-itens-padrao-area" style="display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto;"></div>
                     </div>
                     <button class="btn-submit" onclick="salvarNovoNomeArea()" style="padding:8px;">Salvar Ajustes</button>
                 </div>
-                <span id="btn-excluir-area-texto" class="req-dono" style="color:var(--primary); cursor:pointer; font-size:0.75rem; display:block; margin-top:8px;" onclick="prepararExclusaoArea()">Excluir Área</span>
+                <span id="btn-excluir-area-texto" class="req-dono" style="color:var(--danger); cursor:pointer; font-size:0.75rem; display:block; margin-top:8px;" onclick="prepararExclusaoArea()">Excluir Área</span>
             </div>
 
             <input type="text" id="busca-area" class="search-bar" placeholder="🔍 Pesquisar item nesta área..." onkeyup="filtrarTabela('busca-area', 'tabela-area-itens')">
@@ -505,7 +563,7 @@
 
                 <hr style="opacity: 0.2; margin-top: 15px; margin-bottom: 15px;">
                 <button class="btn-submit" onclick="salvarEdicaoReceita()">SALVAR RECEITA</button>
-                <span style="color:var(--primary); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoReceita()">Excluir Receita</span>
+                <span style="color:var(--danger); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoReceita()">Excluir Receita</span>
             </div>
         </section>
 
@@ -565,7 +623,7 @@
                 <div class="config-card-body" style="display:block;">
                     <input type="hidden" id="edit-cat-id"><input type="text" id="cat-nome" placeholder="Nome da Categoria">
                     <div id="cat-checks-areas" class="cat-grid-checks"></div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(183, 41, 41, 0.1); border-radius: 8px; border: 1px solid var(--primary);">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--primary-soft); border-radius: 8px; border: 1px solid var(--primary);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-uso-fardo" onchange="toggleFardoInput()"> Usa Fardos?
                         </label>
@@ -669,11 +727,11 @@
             
 
             <div id="modalZerarEstoque" class="modal-overlay" style="z-index: 5000;">
-                <div class="modal-box" style="background: var(--bg-body); border: 2px solid #ef4444; max-width: 350px;">
+                <div class="modal-box" style="background:var(--modal-bg); border: 2px solid #ef4444; max-width: 350px;">
                     <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
                     <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 15px; line-height: 1.5;">Esta ação é irreversível e vai remover todas as contagens físicas do sistema.<br><br>Para confirmar, digite sua <strong style="color:#ef4444;">SENHA DE ACESSO</strong>:</p>
                     
-                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background: rgba(0,0,0,0.5); color: white; border-color: rgba(239, 68, 68, 0.3);">
+                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
                     
                     <div style="display: flex; gap: 10px;">
                         <button onclick="document.getElementById('modalZerarEstoque').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
@@ -725,7 +783,7 @@
                 <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
                 <div id="presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
                 
-                <div id="wrap-subgrupo-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background: rgba(183, 41, 41, 0.1);">
+                <div id="wrap-subgrupo-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background:var(--primary-soft);">
                     <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
                     <div id="prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                 </div>
@@ -804,7 +862,7 @@
                 <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
                 <div id="edit-presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
                 
-                <div id="wrap-subgrupo-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background: rgba(183, 41, 41, 0.1);">
+                <div id="wrap-subgrupo-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background:var(--primary-soft);">
                     <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
                     <div id="edit-prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                 </div>
@@ -827,7 +885,7 @@
                 <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">4. Onde este produto fica armazenado?</p>
                 <div id="edit-checks-areas" class="areas-check-list"></div>
                 <button class="btn-submit" onclick="salvarEdicaoProduto()">SALVAR</button>
-                <span style="color:var(--primary); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoProd()">Excluir Produto</span>
+                <span style="color:var(--danger); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoProd()">Excluir Produto</span>
             </div>
         </section>
         
@@ -858,7 +916,7 @@
             <input type="text" id="input-novo-grupo-cardapio" placeholder="Nome do Grupo" style="margin-bottom: 15px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;" onkeydown="if(event.key==='Enter') confirmarNovoGrupoCardapio()">
             
             <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('modalNovoGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="document.getElementById('modalNovoGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
                 <button onclick="confirmarNovoGrupoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Criar</button>
             </div>
         </div>
@@ -875,7 +933,7 @@
             </button>
 
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
                 <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
             </div>
 
@@ -893,7 +951,7 @@
     <div style="flex: 1; text-align: center;">
         <p style="font-size:0.7rem; font-weight:bold; margin-bottom:5px;">Miniatura</p>
         <img id="preview-prod-foto" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid var(--primary); margin:0 auto 5px;">
-        <label style="display:block; background:rgba(255,255,255,0.1); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
+        <label style="display:block; background:var(--surface-2); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
             📷 Escolher
             <input type="file" id="input-prod-foto" accept="image/*" style="display:none;" onchange="carregarFotoProduto(event, 'preview-prod-foto', 'fotoBase64Miniatura')">
         </label>
@@ -901,7 +959,7 @@
     <div style="flex: 1; text-align: center;">
         <p style="font-size:0.7rem; font-weight:bold; margin-bottom:5px;">Exibição</p>
         <img id="preview-prod-exibicao" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid #10b981; margin:0 auto 5px;">
-        <label style="display:block; background:rgba(255,255,255,0.1); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
+        <label style="display:block; background:var(--surface-2); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
             🖼️ Escolher
             <input type="file" id="input-prod-exibicao" accept="image/*" style="display:none;" onchange="carregarFotoProduto(event, 'preview-prod-exibicao', 'fotoBase64Exibicao')">
         </label>
@@ -912,26 +970,26 @@
             
             <input type="number" id="input-prod-preco" step="0.01" placeholder="Preço (Ex: 25.90)" style="margin-bottom: 10px; text-align: left; font-weight: bold; width: 100%; box-sizing: border-box;">
             
-            <textarea id="input-prod-desc" placeholder="Descrição (Ex: Vodka, morango, gelo e açúcar...)" style="margin-bottom: 15px; text-align: left; width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white;"></textarea>
+            <textarea id="input-prod-desc" placeholder="Descrição (Ex: Vodka, morango, gelo e açúcar...)" style="margin-bottom: 15px; text-align: left; width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background:var(--surface-strong); color: var(--text-main);"></textarea>
             <label style="display:flex; align-items:center; gap:10px; margin-bottom: 15px; font-size: 0.95rem; color: var(--text-main);">
                 <input type="checkbox" id="input-prod-oculto" style="width:16px; height:16px;">
                 Ocultar produto?
             </label>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button onclick="document.getElementById('modalNovoProdutoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="document.getElementById('modalNovoProdutoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
                 <button onclick="salvarProdutoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer;">Salvar</button>
             </div>
             <div id="acao-item-cardapio" style="display:none; margin-top: 12px; text-align: center;">
-                <button type="button" onclick="duplicarProdutoCardapio(produtoAtualEdicao)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: #262626; color: var(--text-main); font-weight: bold; cursor: pointer; margin-bottom: 8px;">Duplicar</button>
+                <button type="button" onclick="duplicarProdutoCardapio(produtoAtualEdicao)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #262626; color: var(--text-main); font-weight: bold; cursor: pointer; margin-bottom: 8px;">Duplicar</button>
                 <span style="display: block; margin-top: 12px; color: #ff4d4f; cursor: pointer; font-weight: bold; font-size: 0.9rem;" onclick="prepararExclusaoProdutoCardapio()">Excluir produto</span>
             </div>
         </div>
     </div>
     <div id="modalInfoItem" class="modal-overlay" style="z-index: 5000; display: none;">
-        <div class="modal-box" style="background: #1a0404; border: 1px solid var(--primary); max-width: 450px; width: 90%;">
+        <div class="modal-box" style="background:var(--surface-2); border: 1px solid var(--primary); max-width: 450px; width: 90%;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3 id="titulo-info-item" style="color: var(--primary); margin: 0;">Detalhes do Item</h3>
-                <button onclick="document.getElementById('modalInfoItem').style.display='none'" style="background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button onclick="document.getElementById('modalInfoItem').style.display='none'" style="background: transparent; border: none; color: var(--text-main); font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
             
             <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">Este item está distribuído nas seguintes áreas:</p>
@@ -939,12 +997,22 @@
             <div id="lista-locais-item" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
                 </div>
 
-            <div style="text-align: right; font-weight: 800; font-size: 1.1rem; color: white; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div style="text-align: right; font-weight: 800; font-size: 1.1rem; color: var(--text-main); padding-top: 10px; border-top: 1px solid var(--line);">
                 Total Geral: <span id="total-info-item" style="color: var(--primary);">0</span>
             </div>
         </div>
     </div>
+      </div>
     </main>
+
+    <!-- Barra inferior (celular) -->
+    <nav class="tabbar" id="tabbar">
+        <button class="tab-btn active" data-telas="inicio" onclick="navegar('inicio')"><i class="ph ph-house"></i><span>Início</span></button>
+        <button class="tab-btn" data-telas="produtos-hub areas-lista detalhe-area transferencia-area produtos-categorias produtos-lista-filtrada detalhe-produto pedidos-metodos pedidos-lista recebimentos-lista recebimento-entrada" onclick="navegar('areas-lista')"><i class="ph ph-package"></i><span>Estoque</span></button>
+        <button class="tab-btn" data-telas="reservas-hub agenda-view agenda-detalhe mapa-setup mapa-salao" onclick="irParaAgenda()"><i class="ph ph-calendar-blank"></i><span>Reservas</span></button>
+        <button class="tab-btn" data-telas="receitas-lista detalhe-receita nova-receita editar-receita" onclick="abrirReceitas()"><i class="ph ph-martini"></i><span>Receitas</span></button>
+        <button class="tab-btn" onclick="abrirMenuLateral()"><i class="ph ph-list"></i><span>Menu</span></button>
+    </nav>
 
     <!-- FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
@@ -955,5 +1023,6 @@
     <script src="js/styleFunction.js"></script>
     
     <script src="js/cardapioAdmin.js"></script>
+    <script src="js/painel.js"></script>
 </body>
 </html>
