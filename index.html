@@ -95,6 +95,19 @@
         </div>
     </div>
 
+
+    <!-- CADASTRO RÁPIDO (área / método / categoria) -->
+    <div id="modalCadastroRapido" class="modal-overlay" onclick="if(event.target===this) fecharCadastroRapido()">
+        <div class="modal-box form-modal">
+            <h3 id="cr-titulo" style="margin-bottom:4px;">Cadastro rápido</h3>
+            <p id="cr-sub" class="form-dica" style="margin-bottom:10px;"></p>
+            <div id="cr-corpo"></div>
+            <div style="display:flex; gap:8px; margin-top:14px;">
+                <button class="btn-pill" style="flex:1;" onclick="fecharCadastroRapido()">Cancelar</button>
+                <button class="btn-pill dark" style="flex:1;" id="cr-salvar" onclick="salvarCadastroRapido()">Salvar</button>
+            </div>
+        </div>
+    </div>
     <!-- ================= MENU LATERAL ================= -->
     <aside id="sidebar" class="sidebar">
         <div class="brand">
@@ -107,9 +120,10 @@
             <button class="nav-btn req-dono" id="nav-financeiro" data-telas="financeiro-dashboard" onclick="abrirDashboard()"><i class="ph ph-chart-line-up"></i><span>Financeiro</span></button>
 
             <p class="nav-label">Estoque</p>
+            <button class="nav-btn req-dono" id="nav-cadastros" data-telas="cadastros nova-area novo-produto editar-produto" onclick="abrirCadastros()"><i class="ph ph-list-plus"></i><span>Cadastros</span></button>
             <button class="nav-btn" id="nav-produtos-hub" data-telas="produtos-hub" onclick="navegar('produtos-hub')"><i class="ph ph-squares-four"></i><span>Visão geral</span></button>
-            <button class="nav-btn" id="nav-areas" data-telas="areas-lista detalhe-area transferencia-area nova-area" onclick="navegar('areas-lista')"><i class="ph ph-map-pin"></i><span>Áreas</span><em class="nav-badge" id="badge-pendentes"></em></button>
-            <button class="nav-btn" id="nav-itens" data-telas="produtos-categorias produtos-lista-filtrada detalhe-produto novo-produto editar-produto" onclick="navegar('produtos-categorias')"><i class="ph ph-tag"></i><span>Itens</span></button>
+            <button class="nav-btn" id="nav-areas" data-telas="areas-lista detalhe-area transferencia-area" onclick="navegar('areas-lista')"><i class="ph ph-map-pin"></i><span>Áreas</span><em class="nav-badge" id="badge-pendentes"></em></button>
+            <button class="nav-btn" id="nav-itens" data-telas="produtos-categorias produtos-lista-filtrada detalhe-produto" onclick="navegar('produtos-categorias')"><i class="ph ph-tag"></i><span>Itens</span></button>
             <button class="nav-btn" id="nav-pedidos" data-telas="pedidos-metodos pedidos-lista" onclick="navegar('pedidos-metodos')"><i class="ph ph-shopping-cart"></i><span>Pedidos</span><em class="nav-badge" id="badge-pedidos"></em></button>
             <button class="nav-btn" id="nav-recebimentos" data-telas="recebimentos-lista recebimento-entrada" onclick="abrirRecebimentos()"><i class="ph ph-truck"></i><span>Recebimentos</span></button>
             <button class="nav-btn req-dono" id="nav-historico" data-telas="timeline-estoque" onclick="abrirTimeline()"><i class="ph ph-clock-counter-clockwise"></i><span>Histórico</span></button>
@@ -180,6 +194,7 @@
                 </div>
             </div>
 
+            <div id="comece-aqui" class="req-dono"></div>
             <div class="dash-row">
                 <div class="card dash-chart">
                     <div class="card-head">
@@ -722,10 +737,32 @@
                         <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Esta ação vai colocar o estoque de <strong>TODOS</strong> os produtos em zero em todas as áreas (inclusive no pátio).</p>
                         <button class="btn-submit" style="background:#ef4444; margin-top:0;" onclick="confirmarLimpezaGeral()">ZERAR TODO O ESTOQUE</button>
                     </div>
+                    <div style="margin-top: 1rem; border: 2px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding:16px; border-radius:12px;">
+                        <h3 style="color: #b91c1c;"><i class="ph ph-arrow-counter-clockwise"></i> Recomeçar do zero</h3>
+                        <p style="font-size:0.85rem; color:var(--ink-2); margin:6px 0 10px;">Apaga <strong>tudo</strong> o que foi cadastrado: produtos, preços, categorias, áreas, métodos de compra, receitas, histórico, cardápio digital, reservas e mapas do salão. As contas da equipe e os cargos continuam.</p>
+                        <p style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">Antes de apagar, um arquivo de backup com todos os dados é baixado neste aparelho.</p>
+                        <button class="btn-submit" style="background:#b91c1c; margin-top:0;" onclick="abrirRecomecarDoZero()">RECOMEÇAR DO ZERO</button>
+                    </div>
                 </div>
             </div>
             
 
+
+            <div id="modalRecomecar" class="modal-overlay" style="z-index: 5000;">
+                <div class="modal-box" style="max-width: 380px; border: 2px solid #ef4444 !important;">
+                    <h3 style="color: #b91c1c; margin-bottom: 10px; font-size:1.15rem;"><i class="ph ph-warning-octagon"></i> Recomeçar do zero</h3>
+                    <p style="font-size: 0.88rem; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; text-align:left;">Isto apaga <strong>todos os cadastros e dados</strong> do sistema. <strong>Não dá para desfazer</strong> (só restaurando o backup).</p>
+                    <label class="form-label" style="text-align:left;">Digite <strong>APAGAR TUDO</strong> para confirmar</label>
+                    <input type="text" id="input-recomecar-frase" autocomplete="off" placeholder="APAGAR TUDO" style="text-align:center; font-weight:700;">
+                    <label class="form-label" style="text-align:left;">Sua senha de acesso</label>
+                    <input type="password" id="input-recomecar-senha" placeholder="Senha" style="text-align:center;">
+                    <p id="status-recomecar" class="form-dica" style="min-height:1.2em;"></p>
+                    <div style="display: flex; gap: 10px; margin-top:6px;">
+                        <button class="btn-pill" style="flex:1;" onclick="document.getElementById('modalRecomecar').style.display='none'">Cancelar</button>
+                        <button class="btn-pill" id="btn-recomecar-confirmar" style="flex:1; background:#b91c1c; color:#fff; border-color:#b91c1c;" onclick="executarRecomecarDoZero()">Apagar tudo</button>
+                    </div>
+                </div>
+            </div>
             <div id="modalZerarEstoque" class="modal-overlay" style="z-index: 5000;">
                 <div class="modal-box" style="background:var(--modal-bg); border: 2px solid #ef4444; max-width: 350px;">
                     <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
@@ -772,30 +809,32 @@
         </section>
 
         <section id="novo-produto" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
-            <h1 style="font-size: 1.3rem;">Novo Produto</h1>
-            <div class="card">
-                <input type="text" id="prod-nome" placeholder="Ex: Coca-Cola">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Preço de Custo (R$):</p>
-                <input type="number" id="prod-preco-custo" placeholder="Ex: 5.50" step="0.01">
+            <div class="btn-back-styled" onclick="voltarDoCadastroProduto()"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Novo produto</h1><p class="page-sub">Preencha o básico; o resto é opcional e pode ser ajustado depois.</p></div></div>
+            
+            <div class="form-grid">
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">1</span> Identificação</h3>
+                    <label class="form-label" for="prod-nome">Nome do produto <b>*</b></label>
+                    <input type="text" id="prod-nome" placeholder="Ex.: Coca-Cola Lata 350ml" autocomplete="off" enterkeyhint="next">
+                    <label class="form-label" for="prod-preco-custo">Preço de custo por unidade (R$)</label>
+                    <input type="text" inputmode="decimal" id="prod-preco-custo" placeholder="Ex.: 5,50" autocomplete="off">
+                    <p class="form-dica">Use vírgula ou ponto. Para destilados, informe o preço da garrafa abaixo.</p>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
-                <div id="presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
-                
-                <div id="wrap-subgrupo-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background:var(--primary-soft);">
-                    <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
-                    <div id="prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                </div>
-
-                <div id="wrap-destilados-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:var(--ink);">Informações do Destilado:</p>
-                    <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
-                    <input type="number" id="prod-ml-garrafa" placeholder="Ex: 1000">
-                    <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
-                    <input type="number" id="prod-preco-garrafa" placeholder="Ex: 85.00" step="0.01">
-                </div>
-                <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background: rgba(245, 158, 11, 0.1);">
+                    <label class="form-label">Categoria <b>*</b></label>
+                    <div id="presets-container" class="chip-row"></div>
+                    <div id="wrap-subgrupo-novo" class="form-sub" style="display:none;">
+                        <label class="form-label">Especificação</label>
+                        <div id="prod-subgrupo-container" class="chip-row"></div>
+                    </div>
+                    <div id="wrap-destilados-novo" class="form-sub" style="display:none;">
+                        <label class="form-label">Destilado</label>
+                        <div class="form-duo">
+                            <div><small>Volume da garrafa (ml)</small><input type="number" inputmode="numeric" id="prod-ml-garrafa" placeholder="Ex.: 1000"></div>
+                            <div><small>Preço da garrafa (R$)</small><input type="text" inputmode="decimal" id="prod-preco-garrafa" placeholder="Ex.: 85,00"></div>
+                        </div>
+                    </div>
+                    <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background: rgba(245, 158, 11, 0.1);">
 
     <label class="check-item" style="font-weight:800; color:var(--ink);">
         <input type="checkbox" id="check-item-produzido" onchange="toggleItemProduzido()">
@@ -837,61 +876,102 @@
 
     </div>
 </div>
+                </div>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">2. Selecione o Método de Compra <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas um)*</span>:</p>
-                <div id="metodos-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                <input type="hidden" id="prod-metodo-selecionado">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">3. Estoque Mínimo <span id="lbl-estoque-minimo-novo" style="font-size:0.75rem; font-weight:normal; color:var(--primary);">(Un.)</span>:</p>
-                <input type="number" id="prod-estoque-minimo" value="0">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">4. Onde este produto fica armazenado?</p>
-                <div id="checks-areas" class="areas-check-list"></div>
-                <button class="btn-submit" onclick="salvarProduto()">CADASTRAR</button>
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">2</span> Compra e estoque</h3>
+                    <label class="form-label">Método de compra (fornecedor) <b>*</b></label>
+                    <div id="metodos-container" class="chip-row"></div>
+                    <input type="hidden" id="prod-metodo-selecionado">
+
+                    <label class="form-label" for="prod-estoque-minimo">Estoque mínimo <span id="lbl-estoque-minimo-novo" class="form-unid">(Un.)</span></label>
+                    <div class="stepper">
+                        <button type="button" onclick="passoCampo('prod-estoque-minimo', -1)" aria-label="Diminuir">−</button>
+                        <input type="number" inputmode="numeric" id="prod-estoque-minimo" value="0" min="0">
+                        <button type="button" onclick="passoCampo('prod-estoque-minimo', 1)" aria-label="Aumentar">+</button>
+                    </div>
+                    <p class="form-dica">Abaixo desse número o item aparece em Pedidos para comprar.</p>
+
+                    <div class="form-label-row"><label class="form-label">Onde fica guardado? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area', 'novo')"><i class="ph ph-plus"></i> Nova área</button></div>
+                    <div id="checks-areas" class="areas-check-list"></div>
+                    <p class="form-dica">Ao escolher a categoria, as áreas dela já vêm marcadas.</p>
+                </div>
+            </div>
+            <div class="form-acoes">
+                    <button class="btn-pill" onclick="salvarProduto(true)"><i class="ph ph-plus"></i> <span>Salvar e <span class="so-desk">cadastrar outro</span><span class="so-mob">novo</span></span></button>
+                    <button class="btn-pill dark" onclick="salvarProduto(false)"><i class="ph ph-check"></i> <span>Salvar<span class="so-desk"> produto</span></span></button>
             </div>
         </section>
         
         <section id="editar-produto" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('produtos-categorias')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div><h1 style="font-size: 1.3rem;">Editar Produto</h1>
-            <div class="card">
-                <input type="hidden" id="edit-prod-id"><input type="text" id="edit-prod-nome">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Preço de Custo (R$):</p>
-                <input type="number" id="edit-prod-preco-custo" placeholder="Ex: 5.50" step="0.01">
+            <div class="btn-back-styled" onclick="voltarDoCadastroProduto()"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Editar produto</h1><p class="page-sub">Altere o que precisar e salve.</p></div></div>
+            <input type="hidden" id="edit-prod-id">
+            <div class="form-grid">
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">1</span> Identificação</h3>
+                    <label class="form-label" for="edit-prod-nome">Nome do produto <b>*</b></label>
+                    <input type="text" id="edit-prod-nome" placeholder="Ex.: Coca-Cola Lata 350ml" autocomplete="off" enterkeyhint="next">
+                    <label class="form-label" for="edit-prod-preco-custo">Preço de custo por unidade (R$)</label>
+                    <input type="text" inputmode="decimal" id="edit-prod-preco-custo" placeholder="Ex.: 5,50" autocomplete="off">
+                    <p class="form-dica">Use vírgula ou ponto. Para destilados, informe o preço da garrafa abaixo.</p>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
-                <div id="edit-presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
-                
-                <div id="wrap-subgrupo-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background:var(--primary-soft);">
-                    <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
-                    <div id="edit-prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+                    <label class="form-label">Categoria <b>*</b></label>
+                    <div id="edit-presets-container" class="chip-row"></div>
+                    <div id="wrap-subgrupo-edit" class="form-sub" style="display:none;">
+                        <label class="form-label">Especificação</label>
+                        <div id="edit-prod-subgrupo-container" class="chip-row"></div>
+                    </div>
+                    <div id="wrap-destilados-edit" class="form-sub" style="display:none;">
+                        <label class="form-label">Destilado</label>
+                        <div class="form-duo">
+                            <div><small>Volume da garrafa (ml)</small><input type="number" inputmode="numeric" id="edit-prod-ml-garrafa" placeholder="Ex.: 1000"></div>
+                            <div><small>Preço da garrafa (R$)</small><input type="text" inputmode="decimal" id="edit-prod-preco-garrafa" placeholder="Ex.: 85,00"></div>
+                        </div>
+                    </div>
+                    
                 </div>
 
-                <div id="wrap-destilados-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:var(--ink);">Informações do Destilado:</p>
-                    <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
-                    <input type="number" id="edit-prod-ml-garrafa" placeholder="Ex: 1000">
-                    <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
-                    <input type="number" id="edit-prod-preco-garrafa" placeholder="Ex: 85.00" step="0.01">
-                </div>
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">2</span> Compra e estoque</h3>
+                    <label class="form-label">Método de compra (fornecedor) <b>*</b></label>
+                    <div id="edit-metodos-container" class="chip-row"></div>
+                    <input type="hidden" id="edit-prod-metodo-selecionado">
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">2. Selecione o Método de Compra <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas um)*</span>:</p>
-                <div id="edit-metodos-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                <input type="hidden" id="edit-prod-metodo-selecionado">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">3. Estoque Mínimo <span id="lbl-estoque-minimo-edit" style="font-size:0.75rem; font-weight:normal; color:var(--primary);">(Un.)</span>:</p>
-                <input type="number" id="edit-prod-estoque-minimo">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">4. Onde este produto fica armazenado?</p>
-                <div id="edit-checks-areas" class="areas-check-list"></div>
-                <button class="btn-submit" onclick="salvarEdicaoProduto()">SALVAR</button>
-                <span style="color:var(--danger); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoProd()">Excluir Produto</span>
+                    <label class="form-label" for="edit-prod-estoque-minimo">Estoque mínimo <span id="lbl-estoque-minimo-edit" class="form-unid">(Un.)</span></label>
+                    <div class="stepper">
+                        <button type="button" onclick="passoCampo('edit-prod-estoque-minimo', -1)" aria-label="Diminuir">−</button>
+                        <input type="number" inputmode="numeric" id="edit-prod-estoque-minimo" value="0" min="0">
+                        <button type="button" onclick="passoCampo('edit-prod-estoque-minimo', 1)" aria-label="Aumentar">+</button>
+                    </div>
+                    <p class="form-dica">Abaixo desse número o item aparece em Pedidos para comprar.</p>
+
+                    <div class="form-label-row"><label class="form-label">Onde fica guardado? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area', 'edit')"><i class="ph ph-plus"></i> Nova área</button></div>
+                    <div id="edit-checks-areas" class="areas-check-list"></div>
+                    <p class="form-dica">Ao escolher a categoria, as áreas dela já vêm marcadas.</p>
+                </div>
+            </div>
+            <div class="form-acoes">
+                    <button class="btn-pill danger-text" onclick="prepararExclusaoProd()"><i class="ph ph-trash"></i> Excluir</button>
+                    <button class="btn-pill dark" onclick="salvarEdicaoProduto()"><i class="ph ph-check"></i> Salvar alterações</button>
             </div>
         </section>
         
         <section id="nova-area" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
-            <h1>Nova Área</h1><div class="card"><input type="text" id="area-nome" placeholder="Nome da área"><button class="btn-submit" onclick="salvarArea()">CRIAR</button></div>
+            <div class="btn-back-styled" onclick="navegar('cadastros')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Novas áreas</h1><p class="page-sub">Lugares onde o estoque fica guardado (ex.: Câmara Fria, Bar, Depósito).</p></div></div>
+            <div class="card form-card" style="max-width:640px;">
+                <label class="form-label" for="area-nome">Nome das áreas <b>*</b></label>
+                <textarea id="area-nome" rows="5" placeholder="Uma por linha:&#10;Câmara Fria&#10;Bar&#10;Depósito"></textarea>
+                <p class="form-dica">Pode cadastrar várias de uma vez, uma por linha. Não use os caracteres . # $ [ ] /</p>
+                <div class="form-acoes" style="margin-top:12px;"><button class="btn-pill dark" onclick="salvarArea()"><i class="ph ph-check"></i> Criar áreas</button></div>
+            </div>
+        </section>
+
+        <!-- CADASTROS (passo a passo) -->
+        <section id="cadastros" class="section req-dono">
+            <div class="page-head"><div><h1>Cadastros</h1><p class="page-sub">Siga a ordem: cada passo usa o anterior.</p></div></div>
+            <div id="cadastros-passos" class="passos-grid"></div>
         </section>
 
         <section id="cardapio-digital" class="section req-dono">
@@ -1024,5 +1104,6 @@
     
     <script src="js/cardapioAdmin.js"></script>
     <script src="js/painel.js"></script>
+    <script src="js/cadastros.js"></script>
 </body>
 </html>

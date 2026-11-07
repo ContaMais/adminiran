@@ -232,6 +232,7 @@ function abrirPedidosAbaixoMinimo() {
 function renderizarInicio() {
     const sec = document.getElementById('inicio');
     if (!sec) return;
+    if (typeof renderizarComeceAqui === 'function') renderizarComeceAqui();
     const agora = new Date();
     const h = agora.getHours();
     const saud = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';

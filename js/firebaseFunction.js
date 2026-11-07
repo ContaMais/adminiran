@@ -943,6 +943,7 @@
             if(id === 'receitas-lista') renderizarReceitas();
             if(id === 'financeiro-dashboard' && doHistorico) abrirDashboard(true);
             if(id === 'inicio') if (typeof renderizarInicio === 'function') renderizarInicio();
+            if(id === 'cadastros') if (typeof renderizarCadastros === 'function') renderizarCadastros();
         }
 
         function irParaAgenda() {
@@ -1243,6 +1244,7 @@
             if (typeof atualizarBadges === 'function') atualizarBadges();
             if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
             if (telaAtiva('detalhe-produto') && produtoDetalheAtual) verDetalhesProduto(produtoDetalheAtual, true);
+            if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); 
         }
 
         function iniciarListenersFirebase() {
@@ -1257,7 +1259,7 @@
                     }
                     return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
                 }) : [];
-                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
+                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
             }, () => showToast("Sem permissão para ler áreas.", "error"));
 
             escutar(db.ref('produtos'), 'produtos', s => {
@@ -1282,6 +1284,7 @@
                     renderizarPresetsMetodos();
                     renderizarGradeAgrupada();
                     renderizarPedidosMetodos();
+                    if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); 
                 });
             });
 
@@ -2447,7 +2450,13 @@ function moverCategoriaAreaEdit(cat, direcao) {
         }
         function editarMetodo(k) { if(!metodosCompra[k]) return; document.getElementById('edit-met-id').value=k; document.getElementById('met-nome').value=metodosCompra[k].nome; document.getElementById('btn-salvar-met').innerText="Atualizar"; }
         function resetarFormMetodo() { document.getElementById('edit-met-id').value=""; document.getElementById('met-nome').value=""; document.getElementById('btn-salvar-met').innerText="Salvar"; }
-        function renderizarPresetsMetodos() { const vN=document.getElementById('prod-metodo-selecionado').value, vE=document.getElementById('edit-prod-metodo-selecionado').value; document.getElementById('metodos-container').innerHTML=Object.keys(metodosCompra).map(k=>`<div class="chip ${vN===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'novo')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join(''); document.getElementById('edit-metodos-container').innerHTML=Object.keys(metodosCompra).map(k=>`<div class="chip ${vE===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'edit')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join(''); }
+        function renderizarPresetsMetodos() {
+            const vN=document.getElementById('prod-metodo-selecionado').value, vE=document.getElementById('edit-prod-metodo-selecionado').value;
+            const add = ctx => currentRole === 'dono' ? `<button type="button" class="chip chip-add" onclick="cadastroRapido('metodo','${ctx}')"><i class="ph ph-plus"></i> Novo método</button>` : '';
+            const ordem = Object.keys(metodosCompra).sort((a, b) => String(metodosCompra[a].nome || '').localeCompare(String(metodosCompra[b].nome || ''), 'pt-BR'));
+            document.getElementById('metodos-container').innerHTML=ordem.map(k=>`<div class="chip ${vN===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'novo')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join('') + add('novo');
+            document.getElementById('edit-metodos-container').innerHTML=ordem.map(k=>`<div class="chip ${vE===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'edit')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join('') + add('edit');
+        }
         function selecionarMetodo(k, ctx) { document.getElementById(ctx==='novo'?'prod-metodo-selecionado':'edit-prod-metodo-selecionado').value=metodosCompra[k].nome; renderizarPresetsMetodos(); }
         
         // ==========================================
@@ -2546,8 +2555,10 @@ function moverCatSub(index, direcao) {
         }
         
         function renderizarPresets() { 
-            document.getElementById('presets-container').innerHTML=Object.keys(categorias).map(k=>`<div class="chip ${catsNovo.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'novo')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join(''); 
-            document.getElementById('edit-presets-container').innerHTML=Object.keys(categorias).map(k=>`<div class="chip ${catsEdit.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'edit')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join(''); 
+            const chipNovaCat = ctx => currentRole === 'dono' ? `<button type="button" class="chip chip-add" onclick="cadastroRapido('categoria','${ctx}')"><i class="ph ph-plus"></i> Nova categoria</button>` : '';
+            const ordemCats = Object.keys(categorias).sort((a, b) => String(categorias[a].nome || '').localeCompare(String(categorias[b].nome || ''), 'pt-BR'));
+            document.getElementById('presets-container').innerHTML=ordemCats.map(k=>`<div class="chip ${catsNovo.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'novo')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join('') + chipNovaCat('novo'); 
+            document.getElementById('edit-presets-container').innerHTML=ordemCats.map(k=>`<div class="chip ${catsEdit.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'edit')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join('') + chipNovaCat('edit'); 
             
             document.getElementById('lista-categorias-config').innerHTML=Object.keys(categorias).map(k=>{ 
                 const c=categorias[k]; 
@@ -2736,7 +2747,9 @@ function toggleItemProduzido() {
             const t=ctx==='novo'?'checks-areas':'edit-checks-areas';
             const a=ctx==='novo'?catsNovo:catsEdit;
             
-            document.querySelectorAll('#'+t+' input').forEach(cb=>cb.checked=false); 
+            // Novo produto: as áreas seguem a categoria escolhida.
+            // Edição: só acrescenta as áreas da categoria (antes apagava as áreas do produto).
+            if (ctx === 'novo') document.querySelectorAll('#'+t+' input').forEach(cb=>cb.checked=false); 
             if(a.includes(n)) { 
                 a.length=0; 
             } else { 
@@ -2825,23 +2838,21 @@ function toggleItemProduzido() {
             navegar('novo-produto'); 
         }
 
-        function salvarArea() {
+        async function salvarArea() {
             if (currentRole !== 'dono') { showToast("Apenas o dono pode criar áreas.", "error"); return; }
-            const n = document.getElementById('area-nome').value.trim();
-            if (!n) { alert("Digite o nome da área."); return; }
-            if (nomeAreaInvalido(n)) { alert('O nome da área não pode ter os caracteres  . # $ [ ] /'); return; }
-            if (n === '_Pendente_' || areas.some(a => (a.nome || '').trim().toLowerCase() === n.toLowerCase())) { alert("Já existe uma área com esse nome."); return; }
-            db.ref('areas').push({ nome: n, config: { usaPadrao: false, padroes: {} } })
-                .then(() => showToast("Área criada!", "success"))
-                .catch(() => showToast("Erro ao criar a área.", "error"));
-            document.getElementById('area-nome').value = "";
-            navegar('areas-lista');
+            const nomes = nomesDasLinhas(document.getElementById('area-nome').value);
+            try {
+                const ok = await criarAreas(nomes);
+                if (!ok) return;
+                document.getElementById('area-nome').value = "";
+                navegar('areas-lista');
+            } catch (e) { console.error(e); showToast("Erro ao criar a área.", "error"); }
         }
 
-        function salvarProduto() {
+        function salvarProduto(continuar = false) {
             if (currentRole !== 'dono') { showToast("Apenas o dono pode cadastrar produtos.", "error"); return; }
             const n = document.getElementById('prod-nome').value.trim();
-            const pCusto = Number(String(document.getElementById('prod-preco-custo').value).replace(',', '.')) || 0;
+            const pCusto = lerPreco(document.getElementById('prod-preco-custo').value);
             const met = document.getElementById('prod-metodo-selecionado').value;
             const min = Number(document.getElementById('prod-estoque-minimo').value) || 0;
 
@@ -2861,7 +2872,7 @@ function toggleItemProduzido() {
             if (catsNovo.some(c => c.toLowerCase().includes('destilado'))) {
                 detDestilado = {
                     ml: Number(document.getElementById('prod-ml-garrafa').value) || 0,
-                    precoGarrafa: Number(String(document.getElementById('prod-preco-garrafa').value).replace(',', '.')) || 0
+                    precoGarrafa: lerPreco(document.getElementById('prod-preco-garrafa').value)
                 };
             }
 
@@ -2892,10 +2903,19 @@ function toggleItemProduzido() {
               .catch(() => showToast("Erro ao cadastrar o produto.", "error"));
 
             document.getElementById('prod-nome').value = "";
+            document.getElementById('prod-preco-custo').value = "";
+            document.getElementById('prod-ml-garrafa').value = "";
+            document.getElementById('prod-preco-garrafa').value = "";
+
+            if (continuar) {
+                // Mantém categoria, método, áreas e mínimo para cadastrar o próximo mais rápido
+                const nomeEl = document.getElementById('prod-nome');
+                nomeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => nomeEl.focus(), 150);
+                return;
+            }
             document.getElementById('prod-metodo-selecionado').value = "";
             document.getElementById('prod-estoque-minimo').value = "0";
-            document.getElementById('prod-preco-custo').value = "";
-
             navegar('produtos-categorias');
         }
 
@@ -2904,7 +2924,7 @@ function toggleItemProduzido() {
             if (!p) return;
             document.getElementById('edit-prod-id').value=k; 
             document.getElementById('edit-prod-nome').value=p.nome || ''; 
-            document.getElementById('edit-prod-preco-custo').value = p.precoCusto || "";
+            document.getElementById('edit-prod-preco-custo').value = precoParaCampo(p.precoCusto);
             document.getElementById('edit-prod-metodo-selecionado').value=p.metodoCompra||""; 
             document.getElementById('edit-prod-estoque-minimo').value=p.estoqueMinimo||0; 
             catsEdit=getCategoriasProduto(p); 
@@ -2912,7 +2932,7 @@ function toggleItemProduzido() {
             
             if(p.detalhesDestilado) {
                 document.getElementById('edit-prod-ml-garrafa').value = p.detalhesDestilado.ml || "";
-                document.getElementById('edit-prod-preco-garrafa').value = p.detalhesDestilado.precoGarrafa || "";
+                document.getElementById('edit-prod-preco-garrafa').value = precoParaCampo(p.detalhesDestilado.precoGarrafa);
             } else {
                 document.getElementById('edit-prod-ml-garrafa').value = "";
                 document.getElementById('edit-prod-preco-garrafa').value = "";
@@ -2936,7 +2956,7 @@ function toggleItemProduzido() {
             const p = produtos[id];
             if (!p) { showToast("Produto não encontrado (pode ter sido excluído).", "error"); return; }
             const n=document.getElementById('edit-prod-nome').value.trim();
-            const pCusto = Number(String(document.getElementById('edit-prod-preco-custo').value).replace(',', '.')) || 0;
+            const pCusto = lerPreco(document.getElementById('edit-prod-preco-custo').value);
             const met=document.getElementById('edit-prod-metodo-selecionado').value;
             const min=Number(document.getElementById('edit-prod-estoque-minimo').value)||0; 
             
@@ -2948,7 +2968,7 @@ function toggleItemProduzido() {
             if(catsEdit.some(c => c.toLowerCase().includes('destilado'))) {
                 detDestilado = {
                     ml: Number(document.getElementById('edit-prod-ml-garrafa').value) || 0,
-                    precoGarrafa: Number(String(document.getElementById('edit-prod-preco-garrafa').value).replace(',', '.')) || 0
+                    precoGarrafa: lerPreco(document.getElementById('edit-prod-preco-garrafa').value)
                 };
             }
 
