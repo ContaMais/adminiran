@@ -637,7 +637,7 @@
                             <select id="aloc-area-${pk}" style="margin:0; background:var(--surface-2); color:var(--text-main); font-weight:bold; border-color:var(--line);">${optionsArea}</select>
                         </div>
                         ${inputsQtd}
-                        <button class="btn-submit req-contrib" style="margin:0; background:#10b981; width:auto; padding:10px 15px;" onclick="prepararEfetivacaoAlocacao(${jsArg(pk)})">Transferir</button>
+                        <button class="btn-submit req-contrib" style="margin:0; background:var(--dark); width:auto; padding:10px 15px;" onclick="prepararEfetivacaoAlocacao(${jsArg(pk)})">Transferir</button>
                     </div>
                 </div>`);
             }
@@ -808,7 +808,7 @@
                         </div>
                         ${inputF}
                         ${inputU}
-                        <button class="btn-submit req-contrib" style="margin:0; width:auto; padding:10px 14px; background:#3b82f6;" onclick="prepararTransferenciaArea(${jsArg(pk)})">Transferir</button>
+                        <button class="btn-submit req-contrib" style="margin:0; width:auto; padding:10px 14px; background:var(--dark);" onclick="prepararTransferenciaArea(${jsArg(pk)})">Transferir</button>
                     </div>
                 </div>`);
             });
@@ -1349,8 +1349,8 @@
                     </div>`;
                 } else {
                     resHtml += `
-                    <div style="padding:10px; border:1px solid #10b981; border-radius:8px; background:rgba(16,185,129,0.12); display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
-                        <div><strong style="font-size:0.95rem; color:#047857;">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:#047857;">✅ Já montada no salão</span></div>
+                    <div style="padding:10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2); display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
+                        <div><strong style="font-size:0.95rem; color:var(--ink);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:var(--ink);">✅ Já montada no salão</span></div>
                     </div>`;
                 }
             });
@@ -1378,7 +1378,7 @@
             modoMontagemMapa = !modoMontagemMapa; mesasSelecionadasMapa = [];
             const btn = document.getElementById('btn-edit-layout');
             btn.innerHTML = modoMontagemMapa ? "💾 Sair Montagem" : "✏️ Modo Montagem";
-            btn.style.background = modoMontagemMapa ? "#10b981" : "var(--bg-sidebar)";
+            btn.style.background = modoMontagemMapa ? "#52525b" : "var(--bg-sidebar)";
             atualizarPainelDinamicoMapa(); carregarMapa();
         }
 
@@ -2103,7 +2103,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const t = getTamFardoProduto(p);
                     const tot = getUnidadesTotaisEstoque(p);
                     const selo = p.itemProduzido
-                        ? `<span style="background:#f59e0b; color:white; font-size:0.65rem; padding:2px 6px; border-radius:999px; margin-left:6px; font-weight:800;">PRODUZIDO</span>`
+                        ? `<span style="background:var(--dark); color:white; font-size:0.65rem; padding:2px 6px; border-radius:999px; margin-left:6px; font-weight:800;">PRODUZIDO</span>`
                         : '';
                     return `<tr data-subgrupo="${esc(p.subgrupo || '')}"><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto(${jsArg(k)})">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto(${jsArg(k)})">ⓘ</button><span class="col-item">${esc(p.nome||'')}</span>${selo}</div></td><td style="text-align:right">${renderizarTotalLinhaDupla(tot,t,p)}</td></tr>`; 
                 }).join(''); 
@@ -2140,7 +2140,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                 document.getElementById('head-area-itens').innerHTML = `<tr>
                     <th>Item</th>
-                    ${modoContagemAtivo ? '' : (usaPadrao ? '<th style="text-align:center; color:#10b981;">Pad.</th>' : '')}
+                    ${modoContagemAtivo ? '' : (usaPadrao ? '<th style="text-align:center; color:var(--ink);">Pad.</th>' : '')}
                     <th style="text-align:center">${modoContagemAtivo ? 'Contar Fds' : 'Estoque Fds'}</th>
                     <th style="text-align:center">${modoContagemAtivo ? 'Contar Un.' : 'Estoque Un.'}</th>
                     ${modoContagemAtivo ? '' : '<th style="text-align:right;">Total</th>'}
@@ -2195,7 +2195,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                     ordemSubgrupos.forEach(subKey => {
                         if (subKey !== '_sem_subgrupo_') {
-                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--surface-2); color:#10b981; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">${esc(subKey)}</td></tr>`);
+                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--surface-2); color:var(--ink); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">${esc(subKey)}</td></tr>`);
                         }
 
                         subgruposDaCategoria[subKey].forEach(pk => {
@@ -2212,7 +2212,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                             let padraoTxt = '-';
                             if (usaPadrao && areaObj.config.padroes && areaObj.config.padroes[pk] !== undefined) {
-                                padraoTxt = `<span style="color:#10b981; font-weight:900; font-size: 0.95rem;">${esc(areaObj.config.padroes[pk])} ${usaFardoNaArea ? 'Fds.' : 'Un.'}</span>`;
+                                padraoTxt = `<span style="color:var(--ink); font-weight:900; font-size: 0.95rem;">${esc(areaObj.config.padroes[pk])} ${usaFardoNaArea ? 'Fds.' : 'Un.'}</span>`;
                             } else if (usaPadrao) {
                                 padraoTxt = `<span style="color:#64748b;">-</span>`;
                             }
@@ -2317,7 +2317,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     if (podeVerCustos()) {
                         const precoLt = (Number(p.detalhesDestilado.precoGarrafa) / ml) * 1000;
                         htmlInfoDestilado = `<div class="req-custo"><hr style="opacity:0.2; margin: 10px 0;">
-                        <p style="font-size:0.9rem; margin-bottom:5px; color:#047857; font-weight:bold;">🍹 Cálculos de Destilado</p>
+                        <p style="font-size:0.9rem; margin-bottom:5px; color:var(--ink); font-weight:bold;">🍹 Cálculos de Destilado</p>
                         <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Volume:</strong> ${ml} ml</p>
                         <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço Garrafa:</strong> ${formatarReais(p.detalhesDestilado.precoGarrafa)}</p>
                         <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço por Litro (1L):</strong> ${formatarReais(precoLt)}</p></div>`;
@@ -3273,7 +3273,7 @@ function toggleItemProduzido() {
                 let custoHtml = '';
                 if (podeVerCustos()) {
                     const custoTotal = (r.ingredientes || []).reduce((acc, ing) => acc + custoIngrediente(ing), 0);
-                    custoHtml = `<span class="req-custo custo-receita" style="font-size:0.85rem; color:#10b981; font-weight:800;">${formatarReais(custoTotal)}</span>`;
+                    custoHtml = `<span class="req-custo custo-receita" style="font-size:0.85rem; color:var(--ink); font-weight:800;">${formatarReais(custoTotal)}</span>`;
                 }
 
                 const imgHtml = r.foto
@@ -3307,7 +3307,7 @@ function toggleItemProduzido() {
                 if (podeVerCustos() && p) {
                     const custoIng = custoIngrediente(ing);
                     custoTotal += custoIng;
-                    custoIngHtml = `<span class="req-custo custo-receita" style="color:#10b981; font-weight:800; font-size:0.85rem;">${formatarReais(custoIng)}</span>`;
+                    custoIngHtml = `<span class="req-custo custo-receita" style="color:var(--ink); font-weight:800; font-size:0.85rem;">${formatarReais(custoIng)}</span>`;
                 }
                 return `<li style="margin-bottom:8px; color:var(--text-main); font-size:0.95rem; list-style:none; border-bottom:1px solid var(--line); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                             <span><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
@@ -3330,8 +3330,8 @@ function toggleItemProduzido() {
             container.style.padding = "20px";
 
             const painelCustoHtml = podeVerCustos()
-                ? `<div id="receita-info-painel" class="req-custo custo-receita" style="background:rgba(16, 185, 129, 0.1); border:1px solid #10b981; border-radius:12px; padding:15px; margin-bottom:15px;">
-                            <h3 style="color:#10b981; margin:0; font-size:1.15rem; font-weight:800;">Custo Total: ${formatarReais(custoTotal)}</h3>
+                ? `<div id="receita-info-painel" class="req-custo custo-receita" style="background:var(--surface-2); border:1px solid var(--line-strong); border-radius:12px; padding:15px; margin-bottom:15px;">
+                            <h3 style="color:var(--ink); margin:0; font-size:1.15rem; font-weight:800;">Custo Total: ${formatarReais(custoTotal)}</h3>
                         </div>`
                 : '';
 

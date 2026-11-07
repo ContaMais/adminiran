@@ -165,7 +165,7 @@ window.hideSplash = function() {
                         : (d.t > 1 ? `${d.f} Fds e ${d.u} Un.` : `${d.u} Un.`);
                     return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
                                 <span style="color:var(--text-main); font-size:0.85rem; flex:1;">${esc(d.nome)} <br><small style="color:#64748b;">${txtQtd}</small></span>
-                                <span style="color:#10b981; font-weight:bold; font-size:0.85rem;">${formatarReais(d.valor)}</span>
+                                <span style="color:var(--ink); font-weight:bold; font-size:0.85rem;">${formatarReais(d.valor)}</span>
                             </div>`;
                 }).join('');
                 
@@ -179,7 +179,7 @@ window.hideSplash = function() {
                             <button class="action-icon info-btn" onclick="toggleDetFin('${safeId}')">ⓘ</button>
                             <strong style="color:var(--text-main); font-size:1.05rem;">${esc(loc)}</strong>
                         </div>
-                        <span style="color:#10b981; font-weight:800; font-size:1.1rem;">${formatarReais(custosPorArea[loc])}</span>
+                        <span style="color:var(--ink); font-weight:800; font-size:1.1rem;">${formatarReais(custosPorArea[loc])}</span>
                     </div>
                     <div id="det-fin-${safeId}" style="display:${estavaAberto && estavaAberto.display === 'block' ? 'block' : 'none'}; padding: 0 15px 15px 15px; background:var(--surface-2); border-top: 1px solid var(--line);">
                         <p style="font-size:0.85rem; color:var(--primary); margin: 5px 0 10px 0; font-weight:bold;">Itens e Custos no Local:</p>
@@ -274,7 +274,7 @@ let timelineNodesGlobais = [];
                 let titulo = isContagem ? `Contagem de Estoque` : `Carga: ${esc(ev.fornecedor || '')}`;
                 
                 // Cores de distinção: Contagem (Vermelho AdmiNiran) | Recebimento (Verde Sucesso)
-                let corBase = isContagem ? 'var(--danger)' : '#10b981';
+                let corBase = isContagem ? '#18181b' : '#71717a';
                 let bgCard = isContagem ? 'rgba(183, 41, 41, 0.1)' : 'rgba(16, 185, 129, 0.1)';
                 let borderColor = isContagem ? 'var(--primary-line)' : 'rgba(16, 185, 129, 0.3)';
                 let nomeOperador = esc(isContagem ? "Equipe" : (ev.usuario || "Equipe"));
@@ -402,7 +402,7 @@ let timelineNodesGlobais = [];
 
                     porCategoria[cat][sub].forEach(({ item, produto }) => {
                         let sinal = isRecebimento ? '+' : '';
-                        let corNum = isRecebimento ? '#10b981' : 'var(--text-main)';
+                        let corNum = 'var(--text-main)';
                         let nomeExibicao = item.nome || produto?.nome || "Produto Antigo";
                         let f = item.f || 0;
                         let u = item.u || 0;

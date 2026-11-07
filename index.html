@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/png" href="images/favicon.png">
     <link rel="apple-touch-icon" href="images/favicon.png">
-    <meta name="theme-color" content="#0a3550">
+    <meta name="theme-color" content="#0a0a0a">
     <link rel="preload" as="image" href="images/contamais.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,10 +21,10 @@
         <img src="images/contamais.webp" alt="Logo" class="splash-logo">
     </div>
     <div id="splash-bands">
-        <div class="band" style="background-color: #e6f4fa;"></div>
-        <div class="band" style="background-color: #3fb2d9;"></div>
-        <div class="band" style="background-color: #0e6f99;"></div>
-        <div class="band" style="background-color: #0a3550;"></div>
+        <div class="band" style="background-color: #f4f4f5;"></div>
+        <div class="band" style="background-color: #a1a1aa;"></div>
+        <div class="band" style="background-color: #52525b;"></div>
+        <div class="band" style="background-color: #18181b;"></div>
     </div>
     <!-- Fundo do app (gradiente leve, sem imagem) -->
     <div class="app-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
@@ -90,7 +90,7 @@
             <p id="msgConfirmTransfer" style="margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; color:var(--text-main);"></p>
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modalConfirmTransfer').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button id="btnConfirmTransferAction" style="flex: 1; padding: 10px; border-radius: 8px; background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Transferir</button>
+                <button id="btnConfirmTransferAction" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Transferir</button>
             </div>
         </div>
     </div>
@@ -293,14 +293,14 @@
                         
                         <strong style="color:var(--primary); font-size:1rem; margin-bottom:10px; display:block;">⚙️ Controles da Área</strong>
                         <div style="display:flex; gap:10px; margin-bottom:15px;">
-                            <button class="btn-submit" style="margin:0; flex:1; background:#10b981; font-size:0.8rem; padding:8px;" onclick="adicionarMesaFileira()">➕ Add Ponta</button>
-                            <button class="btn-submit" style="margin:0; flex:1; background:#f59e0b; font-size:0.8rem; padding:8px;" onclick="subtrairMesaFileira()">➖ Sub Ponta</button>
+                            <button class="btn-submit" style="margin:0; flex:1; background:var(--dark); font-size:0.8rem; padding:8px;" onclick="adicionarMesaFileira()">➕ Add Ponta</button>
+                            <button class="btn-submit" style="margin:0; flex:1; background:var(--dark); font-size:0.8rem; padding:8px;" onclick="subtrairMesaFileira()">➖ Sub Ponta</button>
                         </div>
                         
                         <div id="dynamic-selected-controls" style="display:none; flex-direction:column; gap:8px; padding-top:15px; border-top:1px solid var(--border-color);">
                             <strong style="color:var(--text-main); font-size:0.9rem;">Mesas Selecionadas: <span id="qtd-selecionadas">0</span></strong>
                             <input type="text" id="mapa-reserva-nome" placeholder="Nome do Cliente" style="padding:10px; font-size:0.9rem; margin:0;">
-                            <button class="btn-submit" style="margin:0; background:#3b82f6; padding:10px;" onclick="salvarReservaMapa()">💾 Salvar Reserva</button>
+                            <button class="btn-submit" style="margin:0; background:var(--dark); padding:10px;" onclick="salvarReservaMapa()">💾 Salvar Reserva</button>
                             <button class="btn-submit" style="margin:0; background:#ef4444; padding:10px;" onclick="apagarMesasSelecionadas()">✂️ Apagar Mesa(s)</button>
                         </div>
                     </div>
@@ -421,7 +421,7 @@
                         <button id="btn-modo-contagem" class="btn-submit req-contrib" style="margin:0; background:var(--primary); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="ativarModoContagem()">
                             <i class="ph ph-clipboard-text"></i> FAZER CONTAGEM
                         </button>
-                        <button id="btn-transferir-area" class="btn-submit req-contrib" style="margin:0; background:#3b82f6; padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="abrirTransferenciaArea()">
+                        <button id="btn-transferir-area" class="btn-submit req-contrib" style="margin:0; background:var(--dark); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="abrirTransferenciaArea()">
                             <i class="ph ph-arrows-left-right"></i> TRANSFERIR ITENS
                         </button>
                         <button id="btn-cancelar-contagem" class="btn-submit req-contrib" style="margin:0; background:#444; padding: 8px 12px; width:auto; font-size:0.75rem; display:none;" onclick="cancelarModoContagem()">
@@ -454,7 +454,7 @@
                 <table><thead id="head-area-itens"></thead><tbody id="tabela-area-itens"></tbody></table>
             </div>
 
-            <button id="btn-salvar-contagem-geral" class="btn-submit" style="display:none; background:#10b981; margin-top:15px; position: sticky; bottom: 10px; z-index: 100; font-weight: 900; letter-spacing: 1px;" onclick="salvarContagemAuditoria()">
+            <button id="btn-salvar-contagem-geral" class="btn-submit" style="display:none; background:var(--dark); margin-top:15px; position: sticky; bottom: 10px; z-index: 100; font-weight: 900; letter-spacing: 1px;" onclick="salvarContagemAuditoria()">
                 CONCLUIR CONTAGEM E SALVAR
             </button>
         </section>
@@ -631,20 +631,20 @@
                             <input type="number" id="cat-qtd-fardo" placeholder="Unidades por fardo">
                         </div>
                     </div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid #3b82f6;">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--surface-2); border-radius: 8px; border:1px solid var(--line-strong);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-contagem-fracionada"> Contagem fracionada? (ex.: 6,5 garrafas)
                         </label>
                         <p style="font-size:0.75rem; color:#64748b; margin:8px 0 0 22px;">Útil para destilados e itens com capacidade estimada. O financeiro usa a quantidade total × preço da garrafa/unidade.</p>
                     </div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid #10b981;">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--surface-2); border-radius: 8px; border:1px solid var(--line-strong);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-has-sub" onchange="toggleSubgrupoInput()"> Especificação de categoria?
                         </label>
                         <div id="div-subgrupos" style="display:none; margin-top:10px;">
                             <div style="display:flex; gap:5px; margin-bottom:10px;">
                                 <input type="text" id="cat-new-sub" placeholder="Ex: Cachaça, Vodka..." style="margin:0; flex:1; padding:8px;">
-                                <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background: #10b981;">Adicionar</button>
+                                <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background:var(--dark);">Adicionar</button>
                             </div>
                             <div id="list-cat-subs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                         </div>
@@ -703,7 +703,7 @@
                 </button>
                 <div class="config-card-body">
                     <p style="font-size:0.85rem; margin:10px 0;">Fotos gravadas antes desta atualização estão no tamanho original do celular e são baixadas por toda a equipe a cada login. Use uma vez para reduzi-las. Um arquivo de backup com as originais é baixado neste aparelho antes.</p>
-                    <button class="btn-submit" id="btn-otimizar-fotos" style="background:#10b981;" onclick="otimizarFotosSalvas()">OTIMIZAR FOTOS SALVAS</button>
+                    <button class="btn-submit" id="btn-otimizar-fotos" style="background:var(--dark);" onclick="otimizarFotosSalvas()">OTIMIZAR FOTOS SALVAS</button>
                     <p id="status-otimizar-fotos" style="font-size:0.85rem; margin-top:10px;"></p>
                 </div>
             </div>
@@ -788,16 +788,16 @@
                     <div id="prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                 </div>
 
-                <div id="wrap-destilados-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #10b981; border-radius:8px; background: rgba(16, 185, 129, 0.1);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:#10b981;">Informações do Destilado:</p>
+                <div id="wrap-destilados-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2);">
+                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:var(--ink);">Informações do Destilado:</p>
                     <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
                     <input type="number" id="prod-ml-garrafa" placeholder="Ex: 1000">
                     <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
                     <input type="number" id="prod-preco-garrafa" placeholder="Ex: 85.00" step="0.01">
                 </div>
-                <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #f59e0b; border-radius:8px; background: rgba(245, 158, 11, 0.1);">
+                <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background: rgba(245, 158, 11, 0.1);">
 
-    <label class="check-item" style="font-weight:800; color:#f59e0b;">
+    <label class="check-item" style="font-weight:800; color:var(--ink);">
         <input type="checkbox" id="check-item-produzido" onchange="toggleItemProduzido()">
         <span>Item Produzido</span>
     </label>
@@ -823,7 +823,7 @@
             type="button"
             onclick="adicionarLinhaComposicao()"
             class="btn-submit"
-            style="background:#f59e0b;"
+            style="background:var(--dark);"
         >
             + Adicionar Ingrediente
         </button>
@@ -867,8 +867,8 @@
                     <div id="edit-prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                 </div>
 
-                <div id="wrap-destilados-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #10b981; border-radius:8px; background: rgba(16, 185, 129, 0.1);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:#10b981;">Informações do Destilado:</p>
+                <div id="wrap-destilados-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2);">
+                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:var(--ink);">Informações do Destilado:</p>
                     <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
                     <input type="number" id="edit-prod-ml-garrafa" placeholder="Ex: 1000">
                     <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
@@ -900,7 +900,7 @@
                     <div class="btn-back-styled" style="margin:0;" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
                     <h1 style="margin:0; font-size: 2.2rem;">Cardápio Digital</h1>
                 </div>
-                <button class="btn-submit" onclick="criarNovoGrupoCardapio()" style="margin:0; width:auto; padding: 10px 20px; background: #10b981; font-weight:800; display:flex; align-items:center; gap:8px;">
+                <button class="btn-submit" onclick="criarNovoGrupoCardapio()" style="margin:0; width:auto; padding: 10px 20px; background:var(--dark); font-weight:800; display:flex; align-items:center; gap:8px;">
                     <i class="ph ph-plus-circle" style="font-size:1.2rem;"></i> Criar Novo Grupo
                 </button>
             </div>
@@ -928,7 +928,7 @@
             
             <input type="text" id="input-editar-grupo-nome" placeholder="Nome do Grupo" style="margin-bottom: 15px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;">
             
-            <button onclick="abrirModalNovoProduto()" style="width: 100%; padding: 10px; border-radius: 8px; background: #3b82f6; color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <button onclick="abrirModalNovoProduto()" style="width: 100%; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
                 <i class="ph ph-plus-circle" style="font-size: 1.2rem;"></i> Criar Novo Produto
             </button>
 
@@ -945,7 +945,7 @@
 
     <div id="modalNovoProdutoCardapio" class="modal-overlay" style="z-index: 4001; display: none;">
         <div class="modal-box">
-            <h3 id="titulo-modal-produto" style="margin-bottom: 15px; color: #10b981;">Novo Produto</h3>
+            <h3 id="titulo-modal-produto" style="margin-bottom: 15px; color:var(--ink);">Novo Produto</h3>
             
             <div style="display: flex; gap: 15px; margin-bottom: 15px;">
     <div style="flex: 1; text-align: center;">
@@ -958,7 +958,7 @@
     </div>
     <div style="flex: 1; text-align: center;">
         <p style="font-size:0.7rem; font-weight:bold; margin-bottom:5px;">Exibição</p>
-        <img id="preview-prod-exibicao" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid #10b981; margin:0 auto 5px;">
+        <img id="preview-prod-exibicao" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid var(--line-strong); margin:0 auto 5px;">
         <label style="display:block; background:var(--surface-2); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
             🖼️ Escolher
             <input type="file" id="input-prod-exibicao" accept="image/*" style="display:none;" onchange="carregarFotoProduto(event, 'preview-prod-exibicao', 'fotoBase64Exibicao')">
@@ -977,7 +977,7 @@
             </label>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 <button onclick="document.getElementById('modalNovoProdutoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="salvarProdutoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer;">Salvar</button>
+                <button onclick="salvarProdutoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar</button>
             </div>
             <div id="acao-item-cardapio" style="display:none; margin-top: 12px; text-align: center;">
                 <button type="button" onclick="duplicarProdutoCardapio(produtoAtualEdicao)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #262626; color: var(--text-main); font-weight: bold; cursor: pointer; margin-bottom: 8px;">Duplicar</button>
