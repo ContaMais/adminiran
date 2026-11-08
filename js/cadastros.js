@@ -325,4 +325,128 @@ function precoParaCampo(v) {
 function atualizarPainelCadastros() {
     if (typeof telaAtiva === 'function' && telaAtiva('cadastros')) renderizarCadastros();
     if (typeof telaAtiva === 'function' && telaAtiva('inicio')) renderizarComeceAqui();
+    const imp = document.getElementById('modalImportar');
+    if (imp && imp.style.display === 'flex') preencherOpcoesImportar();
+}
+
+// ---------- Importar vários produtos ----------
+// Lista do relatório de vendas do último ano (bebidas: cervejas e refrigerantes)
+const LISTA_VENDAS = {
+    'Cervejas': ['Amstel 600ml', 'Amstel Sem Glúten Long Neck', 'Baden Cristal 600ml', 'Baden Gold 600ml', 'Baden IPA 600ml', 'Baden Peach 600ml',
+        'Baden Witbier 600ml', 'Blue Moon 355ml', 'Eisenbahn Pilsen 600ml', 'Heineken 600ml', 'Heineken Long Neck 330ml',
+        'Heineken Long Neck Ultimate 330ml', 'Heineken Zero 330ml', 'Lagunitas IPA', 'Praya Lager 330ml', 'Smirnoff Ice Long Neck'],
+    'Refrigerantes': ['Água com Gás 300ml', 'Água sem Gás 300ml', 'Água de Coco', 'Citrus Lata 350ml', 'Coca-Cola Lata 350ml', 'Coca-Cola 2L',
+        'Coca-Cola Zero 350ml', 'Coca-Cola Zero 2L', 'Fanta Laranja 350ml', 'Fanta Uva 350ml', 'Guaraná Lata 350ml', 'Guaraná 2L',
+        'Guaraná Zero Lata 350ml', 'Guaraná Zero 2L', 'H2OH Limão 500ml', 'H2OH Limoneto 500ml', 'Sprite Lata', 'Tônica Lata 350ml',
+        'Tônica Zero Lata 350ml', 'Red Bull Lata 250ml', 'Energético Monster']
+};
+
+function abrirImportar() {
+    if (currentRole !== 'dono') { showToast("Apenas o dono pode cadastrar.", "error"); return; }
+    document.getElementById('imp-linhas').value = '';
+    preencherOpcoesImportar();
+    document.getElementById('modalImportar').style.display = 'flex';
+}
+
+function fecharImportar() { document.getElementById('modalImportar').style.display = 'none'; }
+
+function carregarListaVendas() {
+    document.getElementById('imp-linhas').value = Object.entries(LISTA_VENDAS)
+        .map(([cat, itens]) => itens.map(n => `${cat}; ${n}`).join('\n')).join('\n');
+    atualizarResumoImportar();
+}
+
+// Mantém método/áreas atualizados (também quando cria um novo pelo "+")
+function preencherOpcoesImportar() {
+    const sel = document.getElementById('imp-metodo'); if (!sel) return;
+    const atual = sel.value;
+    const nomes = Object.values(metodosCompra).map(m => m.nome).filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    sel.innerHTML = '<option value="">Escolha...</option>' + nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if (nomes.includes(atual)) sel.value = atual; else if (nomes.length === 1) sel.value = nomes[0];
+    const box = document.getElementById('imp-areas');
+    const marcados = new Set(Array.from(box.querySelectorAll('input:checked')).map(i => i.value));
+    const primeira = !box.querySelector('input');
+    box.innerHTML = areas.length
+        ? areas.map(a => `<label class="check-item"><input type="checkbox" value="${esc(a.nome)}" onchange="atualizarResumoImportar()" ${(primeira || marcados.has(a.nome)) ? 'checked' : ''}> <span>${esc(a.nome)}</span></label>`).join('')
+        : '<span class="form-dica">Nenhuma área ainda. Toque em "+ Nova área".</span>';
+    atualizarResumoImportar();
+}
+
+function lerLinhasImportar() {
+    const vistos = new Set();
+    return document.getElementById('imp-linhas').value.split(/\r?\n/).map(l => {
+        const i = l.indexOf(';');
+        if (i < 0) return null;
+        const cat = l.slice(0, i).trim(), nome = l.slice(i + 1).trim();
+        if (!cat || !nome) return null;
+        const k = nome.toLowerCase();
+        if (vistos.has(k)) return null;
+        vistos.add(k);
+        return { cat, nome };
+    }).filter(Boolean);
+}
+
+function planoImportar() {
+    const linhas = lerLinhasImportar();
+    const existentes = new Set(Object.values(produtos).map(p => p && (p.nome || '').trim().toLowerCase()));
+    const novos = linhas.filter(l => !existentes.has(l.nome.toLowerCase()));
+    const catsExist = {};
+    Object.keys(categorias).forEach(k => { catsExist[(categorias[k].nome || '').trim().toLowerCase()] = k; });
+    const catsNovas = [...new Set(novos.map(l => l.cat))].filter(c => !catsExist[c.toLowerCase()]);
+    return { linhas, novos, pulados: linhas.length - novos.length, catsExist, catsNovas };
+}
+
+function atualizarResumoImportar() {
+    const el = document.getElementById('imp-resumo'); if (!el) return;
+    const p = planoImportar();
+    if (!p.linhas.length) { el.textContent = ''; return; }
+    el.textContent = `${p.novos.length} produto(s) novo(s)` + (p.pulados ? `, ${p.pulados} já existe(m)` : '') +
+        (p.catsNovas.length ? `. Categorias novas: ${p.catsNovas.join(', ')}.` : '.');
+}
+
+async function executarImportar() {
+    if (currentRole !== 'dono') return;
+    const p = planoImportar();
+    const met = document.getElementById('imp-metodo').value;
+    const areasSel = Array.from(document.querySelectorAll('#imp-areas input:checked')).map(i => i.value);
+    if (!p.linhas.length) { alert('Cole a lista ou toque em "Usar a lista de vendas".'); return; }
+    if (!p.novos.length) { alert('Todos esses produtos já estão cadastrados.'); return; }
+    if (!met) { alert('Escolha o método de compra (ou crie um em "+ Novo método").'); return; }
+    if (p.catsNovas.length && !areasSel.length) { alert('Marque pelo menos uma área.'); return; }
+    const invalida = p.catsNovas.find(c => /[.#$\[\]\/]/.test(c));
+    if (invalida) { alert(`Nome de categoria inválido: ${invalida}`); return; }
+
+    const btn = document.getElementById('imp-salvar');
+    const liberar = travarBotao(btn, 'Importando...');
+    if (liberar === null) return;
+    try {
+        const updates = {};
+        const catInfo = {}; // nome em minúsculas -> { nome, areas, fardo }
+        Object.entries(p.catsExist).forEach(([k, key]) => {
+            const c = categorias[key];
+            catInfo[k] = { nome: c.nome, areas: (c.areas && c.areas.length) ? c.areas : areasSel, fardo: Number(c.unidadesFardo) || 1 };
+        });
+        p.catsNovas.forEach(c => {
+            updates['categorias/' + db.ref('categorias').push().key] = { nome: c, areas: areasSel, unidadesFardo: 1, subgrupos: [], contagemFracionada: false };
+            catInfo[c.toLowerCase()] = { nome: c, areas: areasSel, fardo: 1 };
+        });
+        p.novos.forEach(l => {
+            const c = catInfo[l.cat.toLowerCase()];
+            const locais = c.areas.filter(a => areas.some(x => x.nome === a));
+            const usar = locais.length ? locais : areasSel;
+            const estoque = {}; usar.forEach(a => { estoque[a] = { f: 0, u: 0 }; });
+            updates['produtos/' + db.ref('produtos').push().key] = {
+                nome: l.nome, precoCusto: 0, categorias: [c.nome], metodoCompra: met,
+                estoqueMinimo: 0, locais: usar, estoque, itemProduzido: false
+            };
+        });
+        await db.ref().update(updates);
+        liberar();
+        fecharImportar();
+        showToast(`${p.novos.length} produto(s) importado(s)!`, "success");
+    } catch (e) {
+        liberar();
+        console.error(e);
+        showToast("Erro ao importar. Nada foi gravado. Confira a internet.", "error");
+    }
 }

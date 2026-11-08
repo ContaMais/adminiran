@@ -96,6 +96,27 @@
     </div>
 
 
+    <!-- IMPORTAR PRODUTOS EM LOTE -->
+    <div id="modalImportar" class="modal-overlay" onclick="if(event.target===this) fecharImportar()">
+        <div class="modal-box form-modal" style="max-width:560px;">
+            <h3 style="margin-bottom:4px;">Importar vários produtos</h3>
+            <p class="form-dica" style="margin-bottom:10px;">Um por linha, no formato <strong>Categoria; Produto</strong>. Categorias que não existirem são criadas. Produtos com nome repetido são pulados.</p>
+            <button type="button" class="btn-pill" style="width:100%; margin-bottom:8px;" onclick="carregarListaVendas()"><i class="ph ph-list-checks"></i> Usar lista de vendas (37 bebidas)</button>
+            <textarea id="imp-linhas" rows="8" placeholder="Cervejas; Heineken 600ml&#10;Refrigerantes; Coca-Cola Lata 350ml" oninput="atualizarResumoImportar()"></textarea>
+            <div class="form-label-row"><label class="form-label">Método de compra (fornecedor) <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('metodo')"><i class="ph ph-plus"></i> Novo método</button></div>
+            <select id="imp-metodo" onchange="atualizarResumoImportar()"></select>
+            <p class="form-dica">Vale para todos. Depois dá para trocar produto por produto.</p>
+            <div class="form-label-row"><label class="form-label">Onde ficam guardados? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area')"><i class="ph ph-plus"></i> Nova área</button></div>
+            <div id="imp-areas" class="areas-check-list"></div>
+            <p class="form-dica">Categoria que já existe usa as áreas dela; as novas usam as marcadas aqui.</p>
+            <p id="imp-resumo" class="form-dica" style="font-weight:700; color:var(--ink); min-height:1.2em;"></p>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="btn-pill" style="flex:1;" onclick="fecharImportar()">Cancelar</button>
+                <button class="btn-pill dark" style="flex:1;" id="imp-salvar" onclick="executarImportar()">Importar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- CADASTRO RÁPIDO (área / método / categoria) -->
     <div id="modalCadastroRapido" class="modal-overlay" onclick="if(event.target===this) fecharCadastroRapido()">
         <div class="modal-box form-modal">
@@ -970,7 +991,7 @@
 
         <!-- CADASTROS (passo a passo) -->
         <section id="cadastros" class="section req-dono">
-            <div class="page-head"><div><h1>Cadastros</h1><p class="page-sub">Siga a ordem: cada passo usa o anterior.</p></div></div>
+            <div class="page-head"><div><h1>Cadastros</h1><p class="page-sub">Siga a ordem: cada passo usa o anterior.</p></div><div class="page-actions"><button class="btn-pill dark" onclick="abrirImportar()"><i class="ph ph-upload-simple"></i> Importar vários produtos</button></div></div>
             <div id="cadastros-passos" class="passos-grid"></div>
         </section>
 

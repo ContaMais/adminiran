@@ -778,3 +778,4 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
     .so-desk { display: none; }
     .so-mob { display: inline; }
 }
+.link-btn { white-space: nowrap; flex-shrink: 0; }
