@@ -483,3 +483,77 @@ document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, 
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();
 }, true);
+
+
+// =====================================================================
+// CONEXÃO, ERROS INESPERADOS E LIMITES
+// =====================================================================
+// Aviso de "sem internet"
+(function () {
+    let offline = false;
+    function mostrar(off) {
+        offline = off;
+        const el = document.getElementById('aviso-offline');
+        if (el) el.style.display = off ? 'flex' : 'none';
+        document.body.classList.toggle('offline', off);
+    }
+    window.addEventListener('offline', () => mostrar(true));
+    window.addEventListener('online', () => mostrar(false));
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!navigator.onLine) mostrar(true);
+        try {
+            firebase.database().ref('.info/connected').on('value', snap => {
+                const conectado = snap.val() === true;
+                // Dá 4 s de tolerância antes de avisar (quedas rápidas são normais)
+                if (conectado) mostrar(false);
+                else setTimeout(() => { if (!navigator.onLine) mostrar(true); else firebase.database().ref('.info/connected').once('value', s => { if (s.val() !== true) mostrar(true); }); }, 4000);
+            });
+        } catch (e) {}
+    });
+})();
+
+// Erros inesperados: avisa em português (sem travar) e guarda os últimos no aparelho
+(function () {
+    let ultimo = 0;
+    function registrar(msg) {
+        try {
+            const lista = JSON.parse(localStorage.getItem('adminiran_erros') || '[]');
+            lista.push({ quando: new Date().toISOString(), msg: String(msg).slice(0, 300), tela: location.hash });
+            localStorage.setItem('adminiran_erros', JSON.stringify(lista.slice(-30)));
+        } catch (e) {}
+        const agora = Date.now();
+        if (agora - ultimo > 8000 && typeof showToast === 'function') { ultimo = agora; showToast('Algo deu errado. Tente de novo; se repetir, avise o administrador.', 'error'); }
+    }
+    window.addEventListener('error', e => { if (e && e.message && !/ResizeObserver|Script error/i.test(e.message)) registrar(e.message); });
+    window.addEventListener('unhandledrejection', e => { const m = e && e.reason && (e.reason.message || e.reason); if (m && !/PERMISSION_DENIED|auth\//.test(String(m))) registrar(m); });
+})();
+
+// Limite de tamanho de foto (10 MB) antes de ler o arquivo
+document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t && t.type === 'file' && t.files && t.files[0] && /^image\//.test(t.accept || 'image/') && t.files[0].size > 10 * 1024 * 1024) {
+        e.stopImmediatePropagation();
+        t.value = '';
+        avisar('Essa foto é muito grande (máximo 10 MB). Escolha outra ou reduza o tamanho.', 'Foto grande demais');
+    }
+}, true);
+
+// Limite de tentativas de login: 5 erros seguidos bloqueiam por 30 s
+(function () {
+    let falhas = 0, bloqueadoAte = 0;
+    document.addEventListener('DOMContentLoaded', () => {
+        if (typeof auth === 'undefined') return;
+        const orig = auth.signInWithEmailAndPassword.bind(auth);
+        auth.signInWithEmailAndPassword = function (email, senha) {
+            const agora = Date.now();
+            if (agora < bloqueadoAte) {
+                const seg = Math.ceil((bloqueadoAte - agora) / 1000);
+                return Promise.reject({ code: 'auth/too-many-requests', message: `Aguarde ${seg}s` });
+            }
+            return orig(email, senha).then(r => { falhas = 0; return r; }).catch(err => {
+                if (err && /wrong-password|invalid-credential|invalid-login/.test(err.code || '') && ++falhas >= 5) { bloqueadoAte = Date.now() + 30000; falhas = 0; }
+                throw err;
+            });
+        };
+    });
+})();

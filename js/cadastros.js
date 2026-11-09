@@ -450,3 +450,43 @@ async function executarImportar() {
         showToast("Erro ao importar. Nada foi gravado. Confira a internet.", "error");
     }
 }
+
+// =====================================================================
+// RESTAURAR BACKUP
+// =====================================================================
+async function restaurarBackup(ev) {
+    const input = ev.target;
+    const arq = input.files && input.files[0];
+    input.value = '';
+    const status = document.getElementById('status-restaurar');
+    if (!arq) return;
+    if (currentRole !== 'dono') { showToast("Apenas o dono pode restaurar.", "error"); return; }
+    if (arq.size > 50 * 1024 * 1024) { status.textContent = 'Arquivo grande demais (máx. 50 MB).'; return; }
+    try {
+        const bruto = JSON.parse(await arq.text());
+        const dados = bruto && bruto.dados;
+        if (!dados || typeof dados !== 'object') throw new Error('formato');
+        const nos = NOS_PARA_APAGAR.filter(n => dados[n] && typeof dados[n] === 'object' && Object.keys(dados[n]).length);
+        if (!nos.length) { status.textContent = 'Este backup está vazio.'; return; }
+        const resumo = nos.map(n => `${n}: ${Object.keys(dados[n]).length}`).join('\n');
+        const ok = await confirmar(`Gravar de volta os dados do backup${bruto.geradoEm ? ' de ' + new Date(bruto.geradoEm).toLocaleString('pt-BR') : ''}?\n\n${resumo}`, { titulo: 'Restaurar backup', ok: 'Restaurar' });
+        if (!ok) return;
+        const btn = document.getElementById('btn-restaurar-backup');
+        const liberar = travarBotao(btn, 'Restaurando...');
+        if (liberar === null) return;
+        try {
+            const updates = {};
+            nos.forEach(n => Object.keys(dados[n]).forEach(k => { updates[`${n}/${k}`] = dados[n][k]; }));
+            await db.ref().update(updates);
+            liberar();
+            status.textContent = 'Backup restaurado.';
+            showToast("Backup restaurado!", "success");
+        } catch (e) {
+            liberar();
+            console.error(e);
+            status.textContent = 'Não foi possível gravar (confira a internet e se você é o dono).';
+        }
+    } catch (e) {
+        status.textContent = 'Arquivo inválido. Use um backup gerado pelo app (.json).';
+    }
+}

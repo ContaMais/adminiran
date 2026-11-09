@@ -168,6 +168,7 @@
     </aside>
 
     <!-- Esfumado atrás das barras: o conteúdo some suavemente ao passar por baixo delas -->
+    <div id="aviso-offline" class="aviso-offline" role="status" style="display:none;"><i class="ph ph-wifi-slash"></i> Sem conexão. O que você fizer fica guardado e é enviado quando a internet voltar.</div>
     <div class="fade-barra fade-topo" aria-hidden="true"></div>
     <div class="fade-barra fade-base" aria-hidden="true"></div>
 
@@ -769,6 +770,13 @@
                         <p style="font-size:0.85rem; color:var(--ink-2); margin:6px 0 10px;">Apaga <strong>tudo</strong> o que foi cadastrado: produtos, preços, categorias, áreas, métodos de compra, receitas, histórico, cardápio digital, reservas e mapas do salão. As contas da equipe e os cargos continuam.</p>
                         <p style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">Antes de apagar, um arquivo de backup com todos os dados é baixado neste aparelho.</p>
                         <button class="btn-submit" style="background:#b91c1c; margin-top:0;" onclick="abrirRecomecarDoZero()">RECOMEÇAR DO ZERO</button>
+                    </div>
+                    <div style="margin-top: 1rem; border: 2px dashed var(--line-strong); padding:16px; border-radius:12px;">
+                        <h3><i class="ph ph-upload-simple"></i> Restaurar backup</h3>
+                        <p style="font-size:0.8rem; color:var(--muted); margin:6px 0 12px;">Escolha um arquivo de backup (.json) baixado pelo app. Os dados do arquivo são gravados de volta; o que já existe com o mesmo nome de registro é substituído e o resto fica como está.</p>
+                        <input type="file" id="input-restaurar-backup" accept="application/json,.json" style="display:none;" onchange="restaurarBackup(event)">
+                        <button class="btn-submit" style="margin-top:0;" id="btn-restaurar-backup" onclick="document.getElementById('input-restaurar-backup').click()">ESCOLHER ARQUIVO DE BACKUP</button>
+                        <p id="status-restaurar" class="form-dica" style="min-height:1.2em;"></p>
                     </div>
                 </div>
             </div>

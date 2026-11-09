@@ -872,3 +872,11 @@ input, select, textarea { font-size: max(16px, 1em); } /* iPhone não dá zoom a
 .dlg-acoes { display: flex; gap: 10px; }
 .dlg-acoes .btn-pill { flex: 1; height: 44px; }
 .dlg-ok.perigo { background: #b91c1c; border-color: #b91c1c; }
+
+/* Aviso de sem internet */
+.aviso-offline {
+    position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--gap) + 66px); z-index: 1100;
+    display: flex; align-items: center; gap: 8px; max-width: min(92vw, 520px); padding: 8px 14px; border-radius: 999px;
+    background: #7a1f1f; color: #fbeee3; font-size: .8rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+@media (max-width: 1024px) { .aviso-offline { top: 74px; border-radius: 14px; } }
