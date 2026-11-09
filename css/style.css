@@ -616,7 +616,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
     .mapa-viewport { min-height: 62vh; }
     #mapa-salao > p { display: none; }
 
-    #toast-container { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+    #toast-container { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (max-width: 640px) {
@@ -673,7 +673,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 
 /* Botão "CONCLUIR CONTAGEM" fica acima da barra inferior no celular */
 @media (max-width: 1024px) {
-    #btn-salvar-contagem-geral { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+    #btn-salvar-contagem-geral { bottom: calc(102px + env(safe-area-inset-bottom, 0px)) !important; }
 }
 
 /* A barra superior e a inferior passam por cima do painel claro ao rolar:
@@ -687,7 +687,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 
 /* Aviso (toast) acima do botão de salvar contagem no celular */
 @media (max-width: 1024px) {
-    body.contando #toast-container { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    body.contando #toast-container { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ===================== CADASTROS ===================== */
@@ -754,7 +754,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
     .form-grid, .passos-grid { grid-template-columns: 1fr; gap: 12px; }
     /* Botões de salvar fixos acima da barra inferior */
     .form-acoes {
-        position: sticky; z-index: 40; bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+        position: sticky; z-index: 40; bottom: calc(102px + env(safe-area-inset-bottom, 0px));
         margin: 14px -4px 0; padding: 10px; border-radius: 18px;
         background: rgba(250,250,250,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
         border: 1px solid rgba(255,249,241,.9); box-shadow: 0 8px 24px rgba(43,22,18,.12);
@@ -772,10 +772,75 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 .so-mob { display: none; }
 .form-acoes .btn-pill { white-space: nowrap; }
 @media (max-width: 1024px) {
-    body:has(.section.active .form-acoes) #toast-container { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
+    body:has(.section.active .form-acoes) #toast-container { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 640px) {
     .so-desk { display: none; }
     .so-mob { display: inline; }
 }
 .link-btn { white-space: nowrap; flex-shrink: 0; }
+
+/* ===================== BARRAS: busca, esfumado e aba deslizante ===================== */
+.busca-toggle, .busca-fechar { display: none; }
+.fade-barra { display: none; }
+
+/* Esfumado atrás da barra superior (computador também) */
+.fade-topo {
+    display: block; position: fixed; left: 0; right: 0; top: 0; z-index: 880; pointer-events: none;
+    height: calc(var(--gap) + 60px + 28px);
+    background: linear-gradient(to bottom, rgba(20,5,4,.97) 0%, rgba(20,5,4,.94) 74%, rgba(20,5,4,0) 100%);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    -webkit-mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+}
+main { padding-top: calc(var(--gap) * 2 + 60px + 14px); }
+
+@media (max-width: 1024px) {
+    /* Busca vira só a lupa; ao tocar, ocupa a barra */
+    .search-global { flex: 0 0 auto; position: static; }
+    .search-global .busca-ico, .search-global input[type="text"]#busca-global { display: none; }
+    .busca-toggle { display: inline-flex; }
+    body.busca-aberta .search-global {
+        position: absolute; inset: 8px; z-index: 5; display: flex; align-items: center;
+    }
+    body.busca-aberta .search-global input[type="text"]#busca-global {
+        display: block; width: 100%; height: 40px; padding: 0 44px 0 40px; margin: 0;
+    }
+    body.busca-aberta .search-global .busca-ico { display: block; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); z-index: 1; }
+    body.busca-aberta .busca-toggle { display: none; }
+    body.busca-aberta .busca-fechar {
+        display: inline-flex; align-items: center; justify-content: center; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+        width: 34px; height: 34px; border: none; border-radius: 10px; background: rgba(255,249,241,.12); color: #fbeee3; font-size: 1.05rem; cursor: pointer;
+    }
+    body.busca-aberta .search-results { top: calc(100% + 14px); left: -2px; right: -2px; }
+    body.busca-aberta .topbar-actions, body.busca-aberta #btn-menu, body.busca-aberta .topbar-logo { visibility: hidden; }
+    .search-global { margin-right: auto; }
+
+    /* Esfumados: nada aparece embaixo das barras */
+    .fade-topo { height: calc(10px + 56px + 26px); }
+    .fade-base {
+        display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 880; pointer-events: none;
+        height: calc(10px + 62px + 26px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(to top, rgba(20,5,4,.97) 0%, rgba(20,5,4,.94) 74%, rgba(20,5,4,0) 100%);
+        -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+        -webkit-mask-image: linear-gradient(to top, #000 74%, transparent 100%);
+        mask-image: linear-gradient(to top, #000 74%, transparent 100%);
+    }
+    main { padding-top: 90px; padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px)); }
+
+    /* Aba ativa: pílula que desliza */
+    .tabbar { position: fixed; }
+    .tab-ind {
+        position: absolute; top: 6px; bottom: 6px; left: 6px; width: 0; z-index: 0; opacity: 0;
+        border-radius: 14px; background: linear-gradient(135deg, #fbeee3, #e3cba6); box-shadow: 0 6px 16px rgba(0,0,0,.35);
+        transition: transform .38s cubic-bezier(.22,1,.36,1), width .38s cubic-bezier(.22,1,.36,1), opacity .2s;
+        will-change: transform;
+    }
+    .tab-btn { position: relative; z-index: 1; transition: color .25s ease; }
+    .tab-btn.active { background: transparent; box-shadow: none; color: #2b1612; }
+    .tab-btn i { transition: transform .3s cubic-bezier(.22,1,.36,1); }
+    .tab-btn.active i { transform: translateY(-1px) scale(1.08); }
+}
+@media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
+    .tab-ind, .tab-btn, .tab-btn i { transition: none; }
+}

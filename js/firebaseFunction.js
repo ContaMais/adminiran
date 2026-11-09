@@ -927,6 +927,8 @@
             document.querySelectorAll('.nav-btn[data-telas], .tab-btn[data-telas]').forEach(b => {
                 b.classList.toggle('active', b.dataset.telas.split(' ').includes(id));
             });
+            if (typeof moverIndicadorTabbar === 'function') moverIndicadorTabbar();
+            if (typeof fecharBuscaMobile === 'function') fecharBuscaMobile();
             if (typeof fecharMenuLateral === 'function') fecharMenuLateral();
             
             window.scrollTo(0, 0); 

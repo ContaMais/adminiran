@@ -167,14 +167,20 @@
         </div>
     </aside>
 
+    <!-- Esfumado atrás das barras: o conteúdo some suavemente ao passar por baixo delas -->
+    <div class="fade-barra fade-topo" aria-hidden="true"></div>
+    <div class="fade-barra fade-base" aria-hidden="true"></div>
+
     <!-- ================= BARRA SUPERIOR ================= -->
     <header class="topbar">
         <button class="icon-btn only-mobile" id="btn-menu" onclick="abrirMenuLateral()" aria-label="Abrir menu"><i class="ph ph-list"></i></button>
         <img src="images/contamais.webp" alt="AdmiNiran" class="topbar-logo only-mobile">
         <div class="search-global">
-            <i class="ph ph-magnifying-glass"></i>
+            <button type="button" class="icon-btn busca-toggle" onclick="abrirBuscaMobile()" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+            <i class="ph ph-magnifying-glass busca-ico"></i>
             <input type="text" id="busca-global" placeholder="Buscar produtos, áreas, receitas, reservas..." autocomplete="off" oninput="buscarGlobal()" onfocus="buscarGlobal()" onkeydown="teclaBuscaGlobal(event)">
             <kbd>/</kbd>
+            <button type="button" class="busca-fechar" onclick="fecharBuscaMobile()" aria-label="Fechar busca"><i class="ph ph-x"></i></button>
             <div id="busca-global-resultados" class="search-results"></div>
         </div>
         <div class="topbar-actions">
@@ -1108,6 +1114,7 @@
 
     <!-- Barra inferior (celular) -->
     <nav class="tabbar" id="tabbar">
+        <span class="tab-ind" id="tab-ind" aria-hidden="true"></span>
         <button class="tab-btn active" data-telas="inicio" onclick="navegar('inicio')"><i class="ph ph-house"></i><span>Início</span></button>
         <button class="tab-btn" data-telas="produtos-hub areas-lista detalhe-area transferencia-area produtos-categorias produtos-lista-filtrada detalhe-produto pedidos-metodos pedidos-lista recebimentos-lista recebimento-entrada" onclick="navegar('areas-lista')"><i class="ph ph-package"></i><span>Estoque</span></button>
         <button class="tab-btn" data-telas="reservas-hub agenda-view agenda-detalhe mapa-setup mapa-salao" onclick="irParaAgenda()"><i class="ph ph-calendar-blank"></i><span>Reservas</span></button>

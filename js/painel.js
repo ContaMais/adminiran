@@ -29,6 +29,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         fecharMenuLateral();
         fecharBuscaGlobal();
+        fecharBuscaMobile();
         const opts = document.getElementById('fabOptions');
         if (opts && opts.classList.contains('active')) toggleFab();
     }
@@ -107,6 +108,7 @@ function escolherResultadoBusca(i) {
     const inp = document.getElementById('busca-global');
     if (inp) { inp.value = ''; inp.blur(); }
     fecharBuscaGlobal();
+    fecharBuscaMobile();
     r.acao();
 }
 
@@ -119,8 +121,38 @@ function teclaBuscaGlobal(e) {
 
 document.addEventListener('click', (e) => {
     const area = document.querySelector('.search-global');
-    if (area && !area.contains(e.target)) fecharBuscaGlobal();
+    if (area && !area.contains(e.target)) { fecharBuscaGlobal(); fecharBuscaMobile(); }
 });
+
+// Celular: a busca fica só na lupa e abre ocupando a barra superior
+function abrirBuscaMobile() {
+    document.body.classList.add('busca-aberta');
+    const inp = document.getElementById('busca-global');
+    if (inp) setTimeout(() => inp.focus(), 30);
+}
+function fecharBuscaMobile() {
+    if (!document.body.classList.contains('busca-aberta')) return;
+    document.body.classList.remove('busca-aberta');
+    const inp = document.getElementById('busca-global');
+    if (inp) { inp.value = ''; inp.blur(); }
+    fecharBuscaGlobal();
+}
+
+// Barra inferior: a pílula desliza até a aba ativa
+function moverIndicadorTabbar(animar = true) {
+    const ind = document.getElementById('tab-ind');
+    const bar = document.getElementById('tabbar');
+    if (!ind || !bar) return;
+    const ativo = bar.querySelector('.tab-btn.active');
+    if (!ativo || !ativo.offsetWidth) { ind.style.opacity = '0'; return; }
+    if (!animar) ind.style.transition = 'none';
+    ind.style.width = ativo.offsetWidth + 'px';
+    ind.style.transform = `translateX(${ativo.offsetLeft - 6}px)`;
+    ind.style.opacity = '1';
+    if (!animar) { ind.offsetWidth; ind.style.transition = ''; }
+}
+window.addEventListener('resize', () => moverIndicadorTabbar(false));
+document.addEventListener('DOMContentLoaded', () => requestAnimationFrame(() => moverIndicadorTabbar(false)));
 
 // ---------- Cálculos usados no Início e nos contadores do menu ----------
 function produtosAbaixoDoMinimo() {
