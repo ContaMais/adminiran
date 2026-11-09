@@ -94,7 +94,7 @@ window.hideSplash = function() {
 
             // Proteção: garante que o sistema não trave se as áreas ainda não carregaram
             if (!areas || areas.length === 0) {
-                document.getElementById('grid-custos-areas').innerHTML = '<p style="padding:20px; color:#64748b;">Carregando dados das áreas...</p>';
+                document.getElementById('grid-custos-areas').innerHTML = '<p style="padding:20px; color:var(--muted);">Carregando dados das áreas...</p>';
                 return;
             }
 
@@ -164,12 +164,12 @@ window.hideSplash = function() {
                         ? `${formatarQtdNumero(d.u, true)} Un.`
                         : (d.t > 1 ? `${d.f} Fds e ${d.u} Un.` : `${d.u} Un.`);
                     return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
-                                <span style="color:var(--text-main); font-size:0.85rem; flex:1;">${esc(d.nome)} <br><small style="color:#64748b;">${txtQtd}</small></span>
+                                <span style="color:var(--text-main); font-size:0.85rem; flex:1;">${esc(d.nome)} <br><small style="color:var(--muted);">${txtQtd}</small></span>
                                 <span style="color:var(--ink); font-weight:bold; font-size:0.85rem;">${formatarReais(d.valor)}</span>
                             </div>`;
                 }).join('');
                 
-                if(!detalhesHtml) detalhesHtml = '<p style="font-size:0.8rem; color:#64748b;">Nenhum produto com valor registrado nesta área.</p>';
+                if(!detalhesHtml) detalhesHtml = '<p style="font-size:0.8rem; color:var(--muted);">Nenhum produto com valor registrado nesta área.</p>';
 
                 return `
                 <div class="card" style="margin-bottom:10px; padding: 0; overflow:hidden; border: 1px solid var(--border-color); background:var(--surface-2);">
@@ -190,7 +190,7 @@ window.hideSplash = function() {
                 </div>`;
             }).join('');
 
-            document.getElementById('grid-custos-areas').innerHTML = htmlGrid || '<p style="color:#64748b; font-size:0.9rem;">Nenhum valor calculado. Seu estoque está vazio.</p>';
+            document.getElementById('grid-custos-areas').innerHTML = htmlGrid || '<p style="color:var(--muted); font-size:0.9rem;">Nenhum valor calculado. Seu estoque está vazio.</p>';
         }
 
         // Nova função para abrir e fechar a gaveta do Financeiro
@@ -211,16 +211,16 @@ let timelineNodesGlobais = [];
             const container = document.getElementById('container-timeline');
             if (!container) return;
             if (timelineSemPermissao) {
-                container.innerHTML = `<p style="padding:20px; color:#64748b;">Sem permissão para ver o histórico.</p>`;
+                container.innerHTML = `<p style="padding:20px; color:var(--muted);">Sem permissão para ver o histórico.</p>`;
                 return;
             }
             if (!timelineCarregada) {
-                container.innerHTML = `<div style="padding:20px; color:#64748b; text-align:center;"><p>⏳ Carregando histórico...</p></div>`;
+                container.innerHTML = `<div style="padding:20px; color:var(--muted); text-align:center;"><p>⏳ Carregando histórico...</p></div>`;
                 return;
             }
             if(eventosTimeline.length === 0) {
                 container.innerHTML = `
-                    <div style="padding:20px; color:#64748b; text-align:center;">
+                    <div style="padding:20px; color:var(--muted); text-align:center;">
                         <i class="ph ph-clock-counter-clockwise" style="font-size:2rem;"></i>
                         <p>Nenhuma movimentação registrada ainda.<br>Faça uma contagem ou um recebimento.</p>
                     </div>`;
@@ -274,7 +274,7 @@ let timelineNodesGlobais = [];
                 let titulo = isContagem ? `Contagem de Estoque` : `Carga: ${esc(ev.fornecedor || '')}`;
                 
                 // Cores de distinção: Contagem (Vermelho AdmiNiran) | Recebimento (Verde Sucesso)
-                let corBase = isContagem ? '#18181b' : '#71717a';
+                let corBase = isContagem ? '#7a1f1f' : '#8a6a55';
                 let bgCard = isContagem ? 'rgba(183, 41, 41, 0.1)' : 'rgba(16, 185, 129, 0.1)';
                 let borderColor = isContagem ? 'var(--primary-line)' : 'rgba(16, 185, 129, 0.3)';
                 let nomeOperador = esc(isContagem ? "Equipe" : (ev.usuario || "Equipe"));
@@ -287,7 +287,7 @@ let timelineNodesGlobais = [];
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <strong style="color:var(--text-main); font-size:1.05rem;">${titulo}</strong><br>
-                                <span style="font-size:0.85rem; color:var(--ink-2); font-weight:bold;">Dia ${esc(ev.dataFormatada)} <span style="color:#64748b; font-weight:normal;">• ${nomeOperador}</span></span>
+                                <span style="font-size:0.85rem; color:var(--ink-2); font-weight:bold;">Dia ${esc(ev.dataFormatada)} <span style="color:var(--muted); font-weight:normal;">• ${nomeOperador}</span></span>
                             </div>
                             <button class="action-icon info-btn" style="background:${corBase};" onclick="abrirDetalheTimeline(${jsArg(ev.id)})">ⓘ</button>
                         </div>
@@ -322,7 +322,7 @@ let timelineNodesGlobais = [];
                             <div style="margin-bottom:8px;">
                                 <div style="background:var(--surface-2); padding:10px 15px; border-radius:8px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--line);" onclick="document.getElementById('${divAreaId}').style.display = document.getElementById('${divAreaId}').style.display === 'none' ? 'block' : 'none'">
                                     <strong style="color:var(--primary); font-size:0.95rem;">📍 ${esc(nomeArea)}</strong>
-                                    <span style="color:#64748b; font-size:0.8rem;">Ver itens ▼</span>
+                                    <span style="color:var(--muted); font-size:0.8rem;">Ver itens ▼</span>
                                 </div>
                                 <div id="${divAreaId}" style="display:none; padding:10px; border:1px dashed var(--line); border-top:none; border-radius: 0 0 8px 8px; background:var(--surface-2);">
                                     ${renderItensHistorico(ev.areas[nomeArea])}
@@ -330,7 +330,7 @@ let timelineNodesGlobais = [];
                             </div>`;
                         });
                     } else {
-                        html = '<p style="font-size:0.8rem; color:#64748b; padding: 10px;">Sem áreas registradas (Registro Antigo).</p>';
+                        html = '<p style="font-size:0.8rem; color:var(--muted); padding: 10px;">Sem áreas registradas (Registro Antigo).</p>';
                     }
                 } else {
                     // Recebimento mostra direto os itens (Tenta ler itens novos ou detalhes antigos)
@@ -367,7 +367,7 @@ let timelineNodesGlobais = [];
         function renderItensHistorico(itensObj, isRecebimento = false) {
             // Se o dado não existir, devolve um texto de segurança em vez de travar o sistema
             if (!itensObj || typeof itensObj !== 'object') {
-                return '<p style="font-size:0.8rem; color:#64748b; font-style:italic;">Itens não detalhados neste registro antigo.</p>';
+                return '<p style="font-size:0.8rem; color:var(--muted); font-style:italic;">Itens não detalhados neste registro antigo.</p>';
             }
 
             let html = '';
@@ -415,7 +415,7 @@ let timelineNodesGlobais = [];
                 });
             });
 
-            return html || '<p style="font-size:0.8rem; color:#64748b;">Nenhum item válido lido.</p>';
+            return html || '<p style="font-size:0.8rem; color:var(--muted);">Nenhum item válido lido.</p>';
         }
 
 function ativarModoContagem() {

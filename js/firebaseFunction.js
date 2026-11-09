@@ -328,7 +328,7 @@
         function carregarEquipeAdmin() {
             const lista = document.getElementById('lista-usuarios-admin');
             if (!lista) return;
-            lista.innerHTML = '<p style="color:#64748b; font-size:0.9rem;">Carregando equipe...</p>';
+            lista.innerHTML = '<p style="color:var(--muted); font-size:0.9rem;">Carregando equipe...</p>';
 
             pararListenerEquipeAdmin();
 
@@ -394,8 +394,8 @@
 
                 const nome = u.nome || (email ? email.split('@')[0] : 'Usuário');
                 const emailLinha = email
-                    ? `<span style="font-size:0.75rem; color:#64748b; font-weight:normal; display:block;">${esc(email)}</span>`
-                    : `<span style="font-size:0.75rem; color:#64748b; font-weight:normal; display:block;">Sem e-mail no cadastro</span>`;
+                    ? `<span style="font-size:0.75rem; color:var(--muted); font-weight:normal; display:block;">${esc(email)}</span>`
+                    : `<span style="font-size:0.75rem; color:var(--muted); font-weight:normal; display:block;">Sem e-mail no cadastro</span>`;
                 const nomeExibicao = `${esc(nome)}${emailLinha}`;
 
                 let roleAtual = u.role || 'visualizador';
@@ -417,7 +417,7 @@
             });
 
             if (!html) {
-                html = `<p style="color:#64748b; font-size:0.9rem;">Nenhum usuário em <strong>users</strong> ainda. Peça para a equipe criar conta pelo botão Entrar no app.</p>`;
+                html = `<p style="color:var(--muted); font-size:0.9rem;">Nenhum usuário em <strong>users</strong> ainda. Peça para a equipe criar conta pelo botão Entrar no app.</p>`;
             }
             lista.innerHTML = html;
         }
@@ -453,7 +453,7 @@
             navegar('recebimentos-lista');
             const grid = document.getElementById('grid-recebimentos-metodos');
             const chaves = Object.keys(metodosCompra);
-            if(chaves.length === 0) { grid.innerHTML = `<p style="color:#64748b; grid-column:1/-1;">Nenhum método de compra cadastrado.</p>`; return; }
+            if(chaves.length === 0) { grid.innerHTML = `<p style="color:var(--muted); grid-column:1/-1;">Nenhum método de compra cadastrado.</p>`; return; }
             grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="iniciarRecebimento(${jsArg(k)})">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${esc(metodosCompra[k].nome)}</h3></div>`).join('');
         }
 
@@ -468,7 +468,7 @@
             prods.sort((a,b) => compararProdutosPorCategoriaEOrdem(a, b));
             
             if(prods.length === 0) {
-                document.getElementById('tabela-recebimento-itens').innerHTML = `<tr><td colspan="3" style="text-align:center; color:#64748b;">Fornecedor não tem produtos vinculados.</td></tr>`;
+                document.getElementById('tabela-recebimento-itens').innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--muted);">Fornecedor não tem produtos vinculados.</td></tr>`;
             } else {
                 let maxF = 1;
                 prods.forEach(pk => {
@@ -616,12 +616,12 @@
                 let inputsQtd = '';
                 if (frac || t <= 1) {
                     inputsQtd = `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" inputmode="decimal" id="transf-u-${pk}" value="${totalUnPend}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>`;
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" inputmode="decimal" id="transf-u-${pk}" value="${totalUnPend}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>`;
                 } else {
                     inputsQtd = `
                     <div style="display:flex; gap:8px; flex:1;">
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (MÁX: ${totalF})</label><input type="number" inputmode="numeric" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Un. (MÁX: ${totalU})</label><input type="number" inputmode="numeric" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Fardos (MÁX: ${totalF})</label><input type="number" inputmode="numeric" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Un. (MÁX: ${totalU})</label><input type="number" inputmode="numeric" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
                     </div>`;
                 }
 
@@ -633,7 +633,7 @@
                     </div>
                     <div style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
                         <div style="flex:1; min-width: 160px;">
-                            <label style="font-size:0.7rem; color:#64748b;">Área de Destino</label>
+                            <label style="font-size:0.7rem; color:var(--muted);">Área de Destino</label>
                             <select id="aloc-area-${pk}" style="margin:0; background:var(--surface-2); color:var(--text-main); font-weight:bold; border-color:var(--line);">${optionsArea}</select>
                         </div>
                         ${inputsQtd}
@@ -655,7 +655,7 @@
                     listaAlocar.dataset.assin = assinatura;
                 } else {
                     banner.style.display = 'none';
-                    listaAlocar.innerHTML = '<p style="color:#64748b;">Nenhum item aguardando armazenagem.</p>';
+                    listaAlocar.innerHTML = '<p style="color:var(--muted);">Nenhum item aguardando armazenagem.</p>';
                     listaAlocar.dataset.assin = '';
                 }
             }
@@ -740,7 +740,7 @@
             });
 
             if (prods.length === 0) {
-                lista.innerHTML = '<p style="color:#64748b;">Nenhum item com estoque nesta área para transferir.</p>';
+                lista.innerHTML = '<p style="color:var(--muted);">Nenhum item com estoque nesta área para transferir.</p>';
                 return;
             }
 
@@ -783,17 +783,17 @@
                 const destinos = (p.locais || []).filter(l => l && l !== origem && l !== '_Pendente_');
                 if (destinos.length === 0) {
                     itensHtml.push(`<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px;">
-                        <strong>${esc(p.nome)}</strong><br><span style="color:#64748b; font-size:0.85rem;">Sem outra área vinculada.</span></div>`);
+                        <strong>${esc(p.nome)}</strong><br><span style="color:var(--muted); font-size:0.85rem;">Sem outra área vinculada.</span></div>`);
                     return;
                 }
 
                 const opts = destinos.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
                 const step = frac ? '0.01' : '1';
                 const inputF = t > 1 && !frac ? `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (máx. ${formatarQtdNumero(maxF, false)})</label>
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Fardos (máx. ${formatarQtdNumero(maxF, false)})</label>
                     <input type="number" inputmode="numeric" id="tr-area-f-${pk}" value="0" min="0" max="${maxF}" step="${step}" style="margin:0; text-align:center;"></div>` : '';
                 const inputU = `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">${t > 1 && !frac ? 'Un.' : 'Qtd.'} (máx. ${formatarQtdNumero(maxU, frac)})</label>
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">${t > 1 && !frac ? 'Un.' : 'Qtd.'} (máx. ${formatarQtdNumero(maxU, frac)})</label>
                     <input type="number" inputmode="decimal" id="tr-area-u-${pk}" value="0" min="0" max="${maxU}" step="${step}" style="margin:0; text-align:center;"></div>`;
 
                 itensHtml.push(`<div style="padding:15px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:var(--surface-2);">
@@ -803,7 +803,7 @@
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
                         <div style="flex:1; min-width:140px;">
-                            <label style="font-size:0.7rem; color:#64748b;">Destino</label>
+                            <label style="font-size:0.7rem; color:var(--muted);">Destino</label>
                             <select id="tr-area-dest-${pk}" style="margin:0;">${opts}</select>
                         </div>
                         ${inputF}
@@ -1347,7 +1347,7 @@
                 if (!montadas.has(r.nome)) {
                     resHtml += `
                     <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                        <div><strong style="font-size:0.95rem; color:var(--text-main);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:#64748b;">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
+                        <div><strong style="font-size:0.95rem; color:var(--text-main);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:var(--muted);">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
                         <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--primary); border-radius:6px;" onclick="montarReservaNoMapa(${jsArg(k)})">Montar</button>
                     </div>`;
                 } else {
@@ -1357,7 +1357,7 @@
                     </div>`;
                 }
             });
-            box.innerHTML = resHtml || '<p style="font-size:0.85rem; color:#64748b; text-align:center; margin-top:10px;">Nenhuma reserva pendente para este turno.</p>';
+            box.innerHTML = resHtml || '<p style="font-size:0.85rem; color:var(--muted); text-align:center; margin-top:10px;">Nenhuma reserva pendente para este turno.</p>';
         }
 
         function montarReservaNoMapa(resKey) {
@@ -1381,7 +1381,7 @@
             modoMontagemMapa = !modoMontagemMapa; mesasSelecionadasMapa = [];
             const btn = document.getElementById('btn-edit-layout');
             btn.innerHTML = modoMontagemMapa ? "💾 Sair Montagem" : "✏️ Modo Montagem";
-            btn.style.background = modoMontagemMapa ? "#52525b" : "var(--bg-sidebar)";
+            btn.style.background = modoMontagemMapa ? "#5a3a28" : "var(--bg-sidebar)";
             atualizarPainelDinamicoMapa(); carregarMapa();
         }
 
@@ -1657,8 +1657,8 @@
                 const btnExcluir = (currentRole === 'dono' || currentRole === 'contribuidor') ? `<span style="color:red; font-size:0.8rem; cursor:pointer; font-weight:bold;" onclick="excluirReserva(${jsArg(k)})">Excluir</span>` : '';
                 return `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); margin-bottom:8px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:1.05rem; color:var(--text-main);">${esc(r.nome)}</strong>${btnExcluir}</div>
-                    <div style="font-size:0.85rem; color:#64748b; margin-top:6px; display:flex; flex-direction:column; gap:3px;"><span>📍 ${esc(r.area)} <strong>(${esc(r.lugares)} lug.)</strong></span><span>⏰ ${esc(hor)}</span></div></div>`;
-            }).join('') || `<p style="font-size:0.85rem; color:#64748b; text-align:center; margin-top:20px;">Nenhuma reserva para este dia.</p>`;
+                    <div style="font-size:0.85rem; color:var(--muted); margin-top:6px; display:flex; flex-direction:column; gap:3px;"><span>📍 ${esc(r.area)} <strong>(${esc(r.lugares)} lug.)</strong></span><span>⏰ ${esc(hor)}</span></div></div>`;
+            }).join('') || `<p style="font-size:0.85rem; color:var(--muted); text-align:center; margin-top:20px;">Nenhuma reserva para este dia.</p>`;
             
             document.getElementById('lista-reservas-dia').innerHTML = html;
             atualizarFormReserva();
@@ -1927,7 +1927,7 @@ function atualizarOrdemCategoriasAreaEdit() {
     areaCatOrderTemp = ordenarCategoriasParaArea(areaCatOrderTemp, { config: { ordemCategorias: areaCatOrderTemp } });
 
     if (areaCatOrderTemp.length === 0) {
-        container.innerHTML = `<p style="font-size:0.8rem; color:#64748b;">Marque produtos acima para organizar as categorias.</p>`;
+        container.innerHTML = `<p style="font-size:0.8rem; color:var(--muted);">Marque produtos acima para organizar as categorias.</p>`;
         return;
     }
 
@@ -1976,7 +1976,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
         if(!grid) return;
 
         if (areas.length === 0) {
-            grid.innerHTML = `<p style="grid-column:1/-1; color:#64748b; font-size:0.95rem; padding:12px;">${currentUser ? 'Nenhuma área cadastrada ainda.' : 'Faça login para ver as áreas.'}</p>`;
+            grid.innerHTML = `<p style="grid-column:1/-1; color:var(--muted); font-size:0.95rem; padding:12px;">${currentUser ? 'Nenhuma área cadastrada ainda.' : 'Faça login para ver as áreas.'}</p>`;
             return;
         }
         
@@ -2055,11 +2055,11 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     });
                 } else { chavesFonte.sort((a, b) => (dbFonte[a]?.nome || "").localeCompare(dbFonte[b]?.nome || "")); }
 
-                if(chavesFonte.length === 0) g.innerHTML = `<p style="grid-column: 1 / -1; color:#64748b; font-size: 0.9rem;">Nenhum grupo cadastrado.</p>`;
+                if(chavesFonte.length === 0) g.innerHTML = `<p style="grid-column: 1 / -1; color:var(--muted); font-size: 0.9rem;">Nenhum grupo cadastrado.</p>`;
                 else g.innerHTML = chavesFonte.map(k => `<div class="card-nav" onclick="verGrupo(${jsArg(k)}, '${isC?'categoria':'metodo'}')">${isC ? `<i>${obterEmoji(dbFonte[k]?.nome)}</i>` : obterIconeMetodo(dbFonte[k]?.nome, true)}<h3>${esc(dbFonte[k]?.nome)}</h3></div>`).join(''); 
                 
                 const prodsSemGrupo = Object.keys(produtos).filter(k => isC ? getCategoriasProduto(produtos[k]).length === 0 : !produtos[k].metodoCompra);
-                if(prodsSemGrupo.length === 0) ts.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b;">Todos os produtos estão agrupados.</td></tr>`;
+                if(prodsSemGrupo.length === 0) ts.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Todos os produtos estão agrupados.</td></tr>`;
                 else ts.innerHTML = prodsSemGrupo.map(k => { const p = produtos[k]; const t = getTamFardoProduto(p); const tot = getUnidadesTotaisEstoque(p); return `<tr><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto(${jsArg(k)})">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto(${jsArg(k)})">ⓘ</button><span class="col-item">${esc(p.nome||'')}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(tot,t,p)}</td></tr>`; }).join('');
             } catch(e) {}
         }
@@ -2099,7 +2099,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 }
 
                 const tabela = document.getElementById('tabela-produtos-filtrada');
-                if(prodsFiltrados.length === 0) { tabela.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b;">Nenhum produto neste grupo.</td></tr>`; renderizarProdutosEmCards(); return; }
+                if(prodsFiltrados.length === 0) { tabela.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Nenhum produto neste grupo.</td></tr>`; renderizarProdutosEmCards(); return; }
                 
                 tabela.innerHTML = prodsFiltrados.map(k => { 
                     const p = produtos[k]; 
@@ -2160,7 +2160,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 });
 
                 if (prodsArea.length === 0) {
-                    lista.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:#64748b;">Nenhum item vinculado a esta área. Clique no ícone de lápis (✎) acima para adicionar.</td></tr>`;
+                    lista.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:var(--muted);">Nenhum item vinculado a esta área. Clique no ícone de lápis (✎) acima para adicionar.</td></tr>`;
                     return;
                 }
 
@@ -2217,7 +2217,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                             if (usaPadrao && areaObj.config.padroes && areaObj.config.padroes[pk] !== undefined) {
                                 padraoTxt = `<span style="color:var(--ink); font-weight:900; font-size: 0.95rem;">${esc(areaObj.config.padroes[pk])} ${usaFardoNaArea ? 'Fds.' : 'Un.'}</span>`;
                             } else if (usaPadrao) {
-                                padraoTxt = `<span style="color:#64748b;">-</span>`;
+                                padraoTxt = `<span style="color:var(--muted);">-</span>`;
                             }
 
                             const incU = frac ? 0.1 : 1;
@@ -2228,7 +2228,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                          <button class="qty-btn-up" onclick="passoContagem('cont-f-${pk}', 1, 1)">▲</button>
                                          <button class="qty-btn-down" onclick="passoContagem('cont-f-${pk}', -1, 1)">▼</button>
                                      </div>
-                                   </div>` : `<span style="color:#64748b;">-</span>`)
+                                   </div>` : `<span style="color:var(--muted);">-</span>`)
                                 : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${usaFardoNaArea ? formatarQtdNumero(qtdF, false) : '-'}</span>`;
 
                             const viewUnidade = modoContagemAtivo 
@@ -2249,7 +2249,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                 : `<td style="text-align:right; border-left: 1px solid var(--line);">
                                      <div style="display:flex; flex-direction:column; line-height:1.2;">
                                        <span style="font-weight:900; color:var(--primary); font-size:1.05rem;">${txtTopTotal}</span>
-                                       ${usaFardoNaArea ? `<span style="font-size:0.75rem; color:#64748b; font-weight:700;">${formatarQtdNumero(totalUnidades, false)} Un. Totais</span>` : ''}
+                                       ${usaFardoNaArea ? `<span style="font-size:0.75rem; color:var(--muted); font-weight:700;">${formatarQtdNumero(totalUnidades, false)} Un. Totais</span>` : ''}
                                      </div>
                                    </td>`;
 
@@ -2301,11 +2301,11 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const btn = a ? `<button class="action-icon info-btn" onclick="verArea(${jsArg(a.key)}, ${jsArg(loc)})">ⓘ</button>` : '';
                     return `<tr><td><div style="display:flex; align-items:center; gap:8px;">${btn}<span>${esc(loc)}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(q,t,p)}</td></tr>`;
                 }).join(''); 
-                document.getElementById('tabela-locais-produto').innerHTML = locaisHtml || `<tr><td colspan="2" style="text-align:center; color:#64748b;">Não alocado em nenhuma área.</td></tr>`; 
+                document.getElementById('tabela-locais-produto').innerHTML = locaisHtml || `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Não alocado em nenhuma área.</td></tr>`; 
                 
                 const boxFardosGeral = fracP
-                    ? `<div><strong style="color:var(--primary);">Total em unidades:</strong> <span style="color:#64748b;">${formatarQtdNumero(tG, true)} Un. (geral)</span></div>`
-                    : (t > 1 ? `<div><strong style="color:var(--primary);">Fardos Fechados:</strong> <span style="color:#64748b;">${Math.floor(tG/t)} Fardos (Geral)</span></div>` : '');
+                    ? `<div><strong style="color:var(--primary);">Total em unidades:</strong> <span style="color:var(--muted);">${formatarQtdNumero(tG, true)} Un. (geral)</span></div>`
+                    : (t > 1 ? `<div><strong style="color:var(--primary);">Fardos Fechados:</strong> <span style="color:var(--muted);">${Math.floor(tG/t)} Fardos (Geral)</span></div>` : '');
 
                 const precoBase = getPrecoPorUnidadeBase(p);
                 const custoParado = Math.round(getUnidadesTotaisEstoque(p) * precoBase * 100) / 100;
@@ -2336,10 +2336,10 @@ function moverCategoriaAreaEdit(cat, direcao) {
                         ${htmlCustoGeral}
                         ${htmlInfoDestilado}
                         ${hrAposCusto}
-                        <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:#64748b;">${pC.length>0?esc(pC.join(', ')):'Nenhuma'}</span></div>
-                        <div><strong style="color:var(--primary);">Método:</strong> <span style="color:#64748b;">${esc(p.metodoCompra||"Não atribuído")}</span></div>
-                        <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:#64748b;">${esc(p.subgrupo||"Nenhum")}</span></div>
-                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:#64748b;">${esc(p.estoqueMinimo||0)} ${t>1 && !fracP?'Fardos':'Unidades'}</span></div>
+                        <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:var(--muted);">${pC.length>0?esc(pC.join(', ')):'Nenhuma'}</span></div>
+                        <div><strong style="color:var(--primary);">Método:</strong> <span style="color:var(--muted);">${esc(p.metodoCompra||"Não atribuído")}</span></div>
+                        <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:var(--muted);">${esc(p.subgrupo||"Nenhum")}</span></div>
+                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(p.estoqueMinimo||0)} ${t>1 && !fracP?'Fardos':'Unidades'}</span></div>
                         ${boxFardosGeral}
                     </div>`; 
             } catch(e) { console.error('Erro ao abrir produto:', e); }
@@ -2370,12 +2370,12 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
         function renderizarMetodosConfig() { 
             const el = document.getElementById('lista-metodos-config'); if (!el) return;
-            el.innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid var(--line); margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo(${jsArg(k)})">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${esc(metodosCompra[k].nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet(${jsArg(k)})">Excluir</span></div></div>`).join('') || '<p style="font-size:0.85rem; color:#64748b;">Nenhum método cadastrado.</p>';
+            el.innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid var(--line); margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo(${jsArg(k)})">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${esc(metodosCompra[k].nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet(${jsArg(k)})">Excluir</span></div></div>`).join('') || '<p style="font-size:0.85rem; color:var(--muted);">Nenhum método cadastrado.</p>';
         }
 
         function renderizarPedidosMetodos() { 
             const grid = document.getElementById('grid-pedidos-metodos'); if(!grid) return; const chaves = Object.keys(metodosCompra);
-            if(chaves.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; color:#64748b;">Nenhum método cadastrado.</p>`; return; }
+            if(chaves.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; color:var(--muted);">Nenhum método cadastrado.</p>`; return; }
             chaves.sort((a, b) => (metodosCompra[a].nome || '').localeCompare(metodosCompra[b].nome || ''));
             grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="verPedidoPorMetodo(${jsArg(k)})">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${esc(metodosCompra[k].nome)}</h3></div>`).join(''); 
         }
@@ -2387,7 +2387,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 if (!semNavegar) navegar('pedidos-lista');
                 const met = metodosCompra[key].nome; document.getElementById('titulo-pedido-metodo').innerText = `Pedidos: ${met}`; 
                 const prodsFiltrados = Object.keys(produtos).filter(k => produtos[k] && produtos[k].metodoCompra === met).sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
-                if(prodsFiltrados.length === 0) { document.getElementById('tabela-pedidos-filtrada').innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">Nenhum produto usa este método.</td></tr>`; return; }
+                if(prodsFiltrados.length === 0) { document.getElementById('tabela-pedidos-filtrada').innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--muted);">Nenhum produto usa este método.</td></tr>`; return; }
 
                 let currentCategoria = null;
                 let currentSubgrupo = '';
@@ -2421,7 +2421,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const sg = Math.ceil(Math.max(0, Math.round((m - fAt) * 1000) / 1000));
                     const lb = emFardos ? 'Fds.' : 'Un.';
                     const atualTxt = Number.isInteger(fAt) ? fAt : fAt.toFixed(1).replace('.', ',');
-                    htmlRows.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center;">${atualTxt} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--danger)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
+                    htmlRows.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center;">${atualTxt} <br><small style="color:var(--muted)">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:var(--muted)">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--danger)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
                 });
 
                 document.getElementById('tabela-pedidos-filtrada').innerHTML = htmlRows.join(''); 
@@ -2484,7 +2484,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
     const box = document.getElementById('list-cat-subs');
 
     if (currentCatSubgrupos.length === 0) {
-        box.innerHTML = `<p style="font-size:0.8rem; color:#64748b;">Nenhuma especificação adicionada.</p>`;
+        box.innerHTML = `<p style="font-size:0.8rem; color:var(--muted);">Nenhuma especificação adicionada.</p>`;
         return;
     }
 
@@ -2563,7 +2563,7 @@ function moverCatSub(index, direcao) {
             document.getElementById('lista-categorias-config').innerHTML=Object.keys(categorias).map(k=>{ 
                 const c=categorias[k]; 
                 const hasSubs = c.subgrupos && c.subgrupos.length > 0;
-                return `<div class="preset-config-item" style="padding:12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria(${jsArg(k)})">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria(${jsArg(k)})">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${esc(c.nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat(${jsArg(k)})">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:#64748b;">Áreas: ${esc((c.areas||[]).join(', '))} <br> Fardo: ${c.unidadesFardo>1?esc(c.unidadesFardo)+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?esc(c.subgrupos.join(', ')):'Nenhuma'}</div></div>`; 
+                return `<div class="preset-config-item" style="padding:12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria(${jsArg(k)})">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria(${jsArg(k)})">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${esc(c.nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat(${jsArg(k)})">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:var(--muted);">Áreas: ${esc((c.areas||[]).join(', '))} <br> Fardo: ${c.unidadesFardo>1?esc(c.unidadesFardo)+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?esc(c.subgrupos.join(', ')):'Nenhuma'}</div></div>`; 
             }).join(''); 
         }
 
@@ -2624,7 +2624,7 @@ function moverCatSub(index, direcao) {
                         ${p.subgrupo ? `<br><span style="font-size:0.75rem; color:var(--primary);">${esc(p.subgrupo)}</span>` : ''}
                     </div>
                 </div>`;
-            }).join('') || '<p style="font-size:0.85rem; color:#64748b;">Nenhum produto listado.</p>';
+            }).join('') || '<p style="font-size:0.85rem; color:var(--muted);">Nenhum produto listado.</p>';
         }
 
         function moverProdutoOrdem(catKey, prodKey, direction) {
@@ -2671,9 +2671,9 @@ function moverCatSub(index, direcao) {
         // ==========================================
         // ATRIBUIÇÃO EM MASSA
         // ==========================================
-        function abrirAtribuirCategoria(k) { const c=categorias[k]; document.getElementById('atribuir-cat-id').value=k; document.getElementById('titulo-atribuir-cat').innerText=`Atribuir: ${c.nome}`; document.getElementById('lista-produtos-atribuir').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=getCategoriasProduto(produtos[a]).includes(c.nome)?1:0; const hB=getCategoriasProduto(produtos[b]).includes(c.nome)?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=getCategoriasProduto(p).includes(c.nome), out=getCategoriasProduto(p).filter(x=>x!==c.nome).length; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out>0||has?'#e2e8f0':'#fee2e2'}; color:${out>0||has?'#64748b':'#b91c1c'}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out>0?`+${out} cat`:(has?'OK':'Vazio')}</span></label>`; }).join(''); navegar('atribuir-categoria'); }
+        function abrirAtribuirCategoria(k) { const c=categorias[k]; document.getElementById('atribuir-cat-id').value=k; document.getElementById('titulo-atribuir-cat').innerText=`Atribuir: ${c.nome}`; document.getElementById('lista-produtos-atribuir').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=getCategoriasProduto(produtos[a]).includes(c.nome)?1:0; const hB=getCategoriasProduto(produtos[b]).includes(c.nome)?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=getCategoriasProduto(p).includes(c.nome), out=getCategoriasProduto(p).filter(x=>x!==c.nome).length; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out>0||has?'#f1e4d2':'#fee2e2'}; color:${out>0||has?'#6e5246':'#b91c1c'}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out>0?`+${out} cat`:(has?'OK':'Vazio')}</span></label>`; }).join(''); navegar('atribuir-categoria'); }
         function salvarAtribuicaoCategoria() { const n=categorias[document.getElementById('atribuir-cat-id').value].nome, u={}; document.querySelectorAll('#lista-produtos-atribuir input:checked, #lista-produtos-atribuir input:not(:checked)').forEach(cb=>{ const p=produtos[cb.value]; if(!p)return; let pc=getCategoriasProduto(p), ch=false; if(cb.checked&&!pc.includes(n)){pc.push(n);ch=true;}else if(!cb.checked&&pc.includes(n)){pc=pc.filter(x=>x!==n);ch=true;} if(ch){u[`produtos/${cb.value}/categorias`]=pc.length?pc:null;u[`produtos/${cb.value}/categoria`]=null;} }); if(Object.keys(u).length) db.ref().update(u).then(()=>navegar('configuracoes')); else navegar('configuracoes'); }
-        function abrirAtribuirMetodo(k) { const m=metodosCompra[k]; document.getElementById('atribuir-met-id').value=k; document.getElementById('titulo-atribuir-met').innerText=`Atribuir: ${m.nome}`; document.getElementById('lista-produtos-atribuir-met').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=produtos[a].metodoCompra===m.nome?1:0; const hB=produtos[b].metodoCompra===m.nome?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=p.metodoCompra===m.nome, out=p.metodoCompra&&p.metodoCompra!==m.nome; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out?'#e2e8f0':(has?'#e2e8f0':'#fee2e2')}; color:${out?'#64748b':(has?'#64748b':'#b91c1c')}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out?esc(p.metodoCompra):(has?'OK':'Sem método')}</span></label>`; }).join(''); navegar('atribuir-metodo'); }
+        function abrirAtribuirMetodo(k) { const m=metodosCompra[k]; document.getElementById('atribuir-met-id').value=k; document.getElementById('titulo-atribuir-met').innerText=`Atribuir: ${m.nome}`; document.getElementById('lista-produtos-atribuir-met').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=produtos[a].metodoCompra===m.nome?1:0; const hB=produtos[b].metodoCompra===m.nome?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=p.metodoCompra===m.nome, out=p.metodoCompra&&p.metodoCompra!==m.nome; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out?'#f1e4d2':(has?'#f1e4d2':'#fee2e2')}; color:${out?'#6e5246':(has?'#6e5246':'#b91c1c')}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out?esc(p.metodoCompra):(has?'OK':'Sem método')}</span></label>`; }).join(''); navegar('atribuir-metodo'); }
         function salvarAtribuicaoMetodo() { const n=metodosCompra[document.getElementById('atribuir-met-id').value].nome, u={}; document.querySelectorAll('#lista-produtos-atribuir-met input').forEach(cb=>{ const p=produtos[cb.value]; if(!p)return; let nm=p.metodoCompra, ch=false; if(cb.checked&&nm!==n){nm=n;ch=true;}else if(!cb.checked&&nm===n){nm=null;ch=true;} if(ch)u[`produtos/${cb.value}/metodoCompra`]=nm; }); if(Object.keys(u).length)db.ref().update(u).then(()=>navegar('configuracoes')); else navegar('configuracoes'); }
         
         function selecionarSubgrupoProduto(s, ctx) {
@@ -2813,7 +2813,7 @@ function toggleItemProduzido() {
         // ==========================================
         function abrirCadastro(id) { navegar(id); }
         function abrirCadastroProduto() { 
-            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}"> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:#64748b; font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
+            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}"> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:var(--muted); font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
             document.getElementById('checks-areas').innerHTML=checksHTML; 
             document.getElementById('prod-nome').value=""; 
             document.getElementById('prod-preco-custo').value="";
@@ -2945,7 +2945,7 @@ function toggleItemProduzido() {
             checarDestilado('edit');
             checarItemProduzido('edit');
             
-            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}" ${(p.locais||[]).includes(a.nome)?'checked':''}> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:#64748b; font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
+            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}" ${(p.locais||[]).includes(a.nome)?'checked':''}> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:var(--muted); font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
             document.getElementById('edit-checks-areas').innerHTML=checksHTML; 
             navegar('editar-produto'); 
         }
@@ -3027,10 +3027,10 @@ function toggleItemProduzido() {
                 const salvo = (areaObj.config && areaObj.config.padroes && areaObj.config.padroes[pk]) ? areaObj.config.padroes[pk] : 0;
                 const valAtual = digitados[`padrao-${pk}`] !== undefined ? digitados[`padrao-${pk}`] : salvo;
                 return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
-                    <span style="font-size:0.85rem; font-weight:bold; color: var(--text-main);">${esc(p.nome)} <small style="color:#64748b;">(${labelQtd})</small></span>
+                    <span style="font-size:0.85rem; font-weight:bold; color: var(--text-main);">${esc(p.nome)} <small style="color:var(--muted);">(${labelQtd})</small></span>
                     <input type="number" inputmode="decimal" id="padrao-${pk}" value="${esc(valAtual)}" style="width:65px; padding:5px; text-align:center; margin:0;" min="0">
                 </div>`;
-            }).join('') || '<p style="font-size:0.8rem; color:#64748b; padding:10px;">Marque os produtos acima primeiro.</p>';
+            }).join('') || '<p style="font-size:0.8rem; color:var(--muted); padding:10px;">Marque os produtos acima primeiro.</p>';
         }
 
         function habilitarEdicaoArea() { 
@@ -3044,7 +3044,7 @@ function toggleItemProduzido() {
                 const checked = (p.locais || []).includes(a.nome) ? 'checked' : '';
                 return `<label class="check-item" style="font-size:0.85rem; margin-bottom:5px;"><input type="checkbox" value="${pk}" class="area-prod-checkbox" ${checked} onchange="atualizarOrdemCategoriasAreaEdit(); if(document.getElementById('area-usar-padrao').checked) toggleConfigEstoquePadrao()"> <span>${esc(p.nome)}</span></label>`;
             }).join('');
-            document.getElementById('area-edit-produtos-list').innerHTML = htmlProds || '<p style="font-size:0.8rem; color:#64748b;">Nenhum produto cadastrado.</p>';
+            document.getElementById('area-edit-produtos-list').innerHTML = htmlProds || '<p style="font-size:0.8rem; color:var(--muted);">Nenhum produto cadastrado.</p>';
             document.getElementById('lista-itens-padrao-area').innerHTML = '';
 
             areaCatOrderTemp = (a.config && a.config.ordemCategorias) ? [...a.config.ordemCategorias] : [];
@@ -3283,7 +3283,7 @@ function toggleItemProduzido() {
                 // Mostra "carregando" só enquanto o Firebase ainda não respondeu (antes era uma espera fixa de 1,2 s)
                 grid.innerHTML = (currentUser && !receitasCarregadas)
                     ? `<div style="grid-column: 1/-1; text-align:center; padding: 30px;"><p style="color:var(--primary); font-size:1.2rem; font-weight:bold; letter-spacing:1px; animation: pulse 1s infinite;">⏳ Sincronizando com o servidor...</p></div>`
-                    : `<p style="color:#64748b; font-size:0.9rem; text-align:center; grid-column:1/-1;">${currentUser ? 'Nenhuma receita cadastrada ainda.' : 'Faça login para ver as receitas.'}</p>`;
+                    : `<p style="color:var(--muted); font-size:0.9rem; text-align:center; grid-column:1/-1;">${currentUser ? 'Nenhuma receita cadastrada ainda.' : 'Faça login para ver as receitas.'}</p>`;
                 return;
             }
             
@@ -3336,7 +3336,7 @@ function toggleItemProduzido() {
             }).join('');
 
             if (ingredientesHtml === '') {
-                ingredientesHtml = '<li style="color:#64748b; font-style:italic; list-style:none;">Nenhum ingrediente cadastrado.</li>';
+                ingredientesHtml = '<li style="color:var(--muted); font-style:italic; list-style:none;">Nenhum ingrediente cadastrado.</li>';
             }
 
             const fotoHtml = r.foto
@@ -3736,7 +3736,7 @@ function calcularCustoComposicao() {
                     </div>`);
             });
 
-            containerLista.innerHTML = linhas.join('') || '<div style="color: #64748b; text-align: center; padding: 10px;">Item zerado em todas as áreas físicas.</div>';
+            containerLista.innerHTML = linhas.join('') || '<div style="color:var(--muted); text-align: center; padding: 10px;">Item zerado em todas as áreas físicas.</div>';
 
             const txtTotalGeral = frac 
                 ? `${formatarQtdNumero(totalGeralUnidades, true)} Un.` 

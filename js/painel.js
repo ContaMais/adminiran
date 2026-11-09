@@ -292,7 +292,7 @@ function renderizarInicio() {
     // ---- Rosca: valor (ou itens) por área ----
     const donut = document.getElementById('donut-areas');
     if (donut) {
-        const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#ec4899', '#64748b'];
+        const cores = ['#9b2226', '#d4a373', '#588157', '#e9c46a', '#7a5c46', '#bc6c25', '#a3b18a', '#6d597a'];
         const verValor = podeVerCustos();
         let dados = [];
         if (verValor) {

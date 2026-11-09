@@ -399,7 +399,7 @@ function renderizarCardapioDigital() {
     if (chavesGrupos.length === 0) {
         container.innerHTML = (currentUser && !cardapioCarregado)
             ? `<p style="text-align:center; padding:20px; color:var(--primary); font-weight:bold;">⏳ Carregando cardápio...</p>`
-            : `<p style="text-align:center; padding:20px; color:#64748b; font-style:italic;">Nenhum grupo cadastrado. Clique em 'Criar Novo Grupo' para iniciar.</p>`;
+            : `<p style="text-align:center; padding:20px; color:var(--muted); font-style:italic;">Nenhum grupo cadastrado. Clique em 'Criar Novo Grupo' para iniciar.</p>`;
         return;
     }
 
