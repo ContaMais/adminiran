@@ -402,3 +402,84 @@ function renderizarInicio() {
 
 // Ao girar o celular ou redimensionar a janela, ajusta o gráfico do Início
 window.addEventListener('resize', () => { if (telaAtiva('inicio')) agendarRender('inicio-resize', renderizarInicio); });
+
+// =====================================================================
+// AVISOS E CONFIRMAÇÕES PERSONALIZADOS (substituem alert/confirm do navegador)
+// =====================================================================
+const _dlgFila = [];
+let _dlgAtivo = null;
+
+function _dlgLimpaTexto(t) {
+    return String(t == null ? '' : t).replace(/^[\s🚨⚠️❌✅ℹ️❗]+/u, '').trim();
+}
+
+function _dlgMostrar(cfg) {
+    return new Promise(res => { _dlgFila.push({ cfg, res }); if (!_dlgAtivo) _dlgProximo(); });
+}
+
+function _dlgProximo() {
+    const item = _dlgFila.shift();
+    if (!item) { _dlgAtivo = null; return; }
+    _dlgAtivo = item;
+    const c = item.cfg;
+    const ov = document.createElement('div');
+    ov.className = 'dlg-overlay';
+    ov.innerHTML = `
+        <div class="dlg-box" role="alertdialog" aria-modal="true">
+            <div class="dlg-icone ${c.perigo ? 'perigo' : ''}"><i class="ph ${c.icone}"></i></div>
+            <h3 class="dlg-titulo"></h3>
+            <p class="dlg-msg"></p>
+            <div class="dlg-acoes">
+                ${c.confirmar ? `<button type="button" class="btn-pill dlg-cancelar"></button>` : ''}
+                <button type="button" class="btn-pill dark dlg-ok ${c.perigo ? 'perigo' : ''}"></button>
+            </div>
+        </div>`;
+    ov.querySelector('.dlg-titulo').textContent = c.titulo;
+    ov.querySelector('.dlg-msg').textContent = c.msg;
+    ov.querySelector('.dlg-ok').textContent = c.ok;
+    if (c.confirmar) ov.querySelector('.dlg-cancelar').textContent = c.cancelar;
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add('aberto'));
+    const fechar = (valor) => {
+        document.removeEventListener('keydown', teclas, true);
+        ov.classList.remove('aberto');
+        setTimeout(() => ov.remove(), 180);
+        item.res(valor);
+        _dlgAtivo = null;
+        _dlgProximo();
+    };
+    const teclas = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(false); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fechar(true); }
+    };
+    document.addEventListener('keydown', teclas, true);
+    ov.querySelector('.dlg-ok').onclick = () => fechar(true);
+    if (c.confirmar) ov.querySelector('.dlg-cancelar').onclick = () => fechar(false);
+    ov.addEventListener('click', (e) => { if (e.target === ov && c.confirmar) fechar(false); });
+    setTimeout(() => { const b = ov.querySelector('.dlg-ok'); if (b) b.focus(); }, 30);
+}
+
+// Aviso simples (não trava a tela como o alert do navegador)
+function avisar(msg, titulo = 'Atenção') {
+    return _dlgMostrar({ msg: _dlgLimpaTexto(msg), titulo, ok: 'Entendi', icone: 'ph-warning-circle', confirmar: false });
+}
+
+// Pergunta com Cancelar/Confirmar. Devolve uma Promise: true ou false.
+function confirmar(msg, opc = {}) {
+    return _dlgMostrar({
+        msg: _dlgLimpaTexto(msg), titulo: opc.titulo || 'Confirmar', ok: opc.ok || 'Continuar', cancelar: opc.cancelar || 'Cancelar',
+        icone: opc.icone || 'ph-question', perigo: !!opc.perigo, confirmar: true
+    });
+}
+
+window.alert = function (msg) { avisar(msg); };
+
+// =====================================================================
+// SEM ZOOM E SEM "PUXAR PARA RECARREGAR"
+// =====================================================================
+['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
+document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();
+}, true);

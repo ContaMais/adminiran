@@ -457,7 +457,7 @@ function cancelarModoContagem() {
 }
 
 // Botão verde "CONCLUIR CONTAGEM E SALVAR"
-function salvarContagemAuditoria() {
+async function salvarContagemAuditoria() {
     if(currentRole === 'visualizador') return;
     const areaObj = areas.find(a => a.key === areaAtualKey);
     if(!areaObj) return;
@@ -497,7 +497,7 @@ function salvarContagemAuditoria() {
     // Antes, qualquer item esquecido em branco virava ZERO sem aviso.
     if (emBranco.length > 0) {
         const lista = emBranco.slice(0, 8).join(', ') + (emBranco.length > 8 ? ` e mais ${emBranco.length - 8}` : '');
-        if (!confirm(`${emBranco.length} item(ns) ficaram em branco e serão gravados como ZERO:\n${lista}\n\nSalvar mesmo assim?`)) return;
+        if (!(await confirmar(`${emBranco.length} item(ns) ficaram em branco e serão gravados como ZERO:\n${lista}\n\nSalvar mesmo assim?`, { titulo: 'Itens em branco', ok: 'Salvar mesmo assim' }))) return;
     }
 
     const btn = document.getElementById('btn-salvar-contagem-geral');

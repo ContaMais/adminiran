@@ -144,11 +144,11 @@
 
         let authMode = 'login'; 
 
-        function abrirModalAuth() {
+        async function abrirModalAuth() {
             if(currentUser) {
                 // Pergunta antes de sair (no celular o avatar é fácil de tocar sem querer)
-                if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && !confirm('Você está no meio de uma contagem. Sair da conta mesmo assim? Os números digitados serão perdidos.')) return;
-                else if (!(typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) && !confirm('Sair da conta?')) return;
+                if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && !(await confirmar('Você está no meio de uma contagem. Sair da conta mesmo assim? Os números digitados serão perdidos.', { titulo: 'Sair da conta', ok: 'Sair', perigo: true }))) return;
+                else if (!(typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) && !(await confirmar('Deseja sair da conta?', { titulo: 'Sair da conta', ok: 'Sair' }))) return;
                 if (typeof encerrarModoContagem === 'function') encerrarModoContagem();
                 auth.signOut();
                 return;
@@ -901,11 +901,13 @@
             // Saindo da área no meio de uma contagem: confirma antes de descartar o que foi digitado.
             // (Antes o modo contagem ficava "preso" e a próxima área já abria com os campos vazios.)
             if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && id !== 'detalhe-area') {
-                if (!confirm('Sair sem salvar a contagem? Os números digitados serão perdidos.')) {
-                    if (doHistorico) history.pushState({ tela: 'detalhe-area' }, "", "#detalhe-area");
-                    return;
-                }
-                encerrarModoContagem();
+                if (doHistorico) history.pushState({ tela: 'detalhe-area' }, "", "#detalhe-area");
+                confirmar('Sair sem salvar a contagem? Os números digitados serão perdidos.', { titulo: 'Contagem em andamento', ok: 'Sair sem salvar', perigo: true }).then(ok => {
+                    if (!ok) return;
+                    encerrarModoContagem();
+                    navegar(id, btn, false);
+                });
+                return;
             }
 
             // Remove a aura/brilho de qualquer botão que tenha sido clicado
@@ -1492,11 +1494,11 @@
                 
                 if(atual === 'reservada') { 
                     const nomeAlvo = layoutDia[mesaId].nome;
-                    if(confirm(`Excluir a reserva de: ${nomeAlvo}? (Isso vai liberar TODAS as mesas vinculadas a esta reserva)`)) {
+                    confirmar(`Excluir a reserva de: ${nomeAlvo}? Isso libera TODAS as mesas vinculadas a esta reserva.`, { titulo: 'Excluir reserva', ok: 'Excluir', perigo: true }).then(ok => { if (!ok) return;
                         let updates = {};
                         for(let keyMesa in layoutDia) if(layoutDia[keyMesa].status === 'reservada' && layoutDia[keyMesa].nome === nomeAlvo) updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${keyMesa}`] = { status: 'ativa' };
                         db.ref().update(updates).then(() => { mesasSelecionadasMapa = []; atualizarPainelDinamicoMapa(); carregarMapa(); });
-                    }
+                    });
                     return; 
                 }
 
@@ -1734,8 +1736,8 @@
                 .catch(err => { liberar(); console.error(err); showToast("Erro ao salvar a reserva.", "error"); });
         }
 
-        function excluirReserva(k) { 
-            if((currentRole === 'dono' || currentRole === 'contribuidor') && confirm("Excluir esta reserva?")) {
+        async function excluirReserva(k) { 
+            if((currentRole === 'dono' || currentRole === 'contribuidor') && await confirmar("Excluir esta reserva?", { titulo: 'Excluir reserva', ok: 'Excluir', perigo: true })) {
  
                 db.ref(`reservas/${dataAtualReserva}/${k}`).remove().catch(() => showToast("Erro ao excluir a reserva.", "error")); 
             }
@@ -2124,12 +2126,12 @@ function moverCategoriaAreaEdit(cat, direcao) {
         // Tela de uma área: monta todo o HTML numa string e grava UMA vez.
         // (Antes fazia "innerHTML +=" para cada produto: com 100 itens o navegador
         //  redesenhava a tabela 100 vezes — principal causa da demora ao abrir uma área.)
-        function verArea(key, nome, semNavegar = false) { 
+        async function verArea(key, nome, semNavegar = false) { 
             // No meio de uma contagem: não redesenha a mesma área (apagaria o que foi digitado)
             // e pede confirmação antes de ir para outra.
             if (!semNavegar && typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) {
                 if (key === areaAtualKey) return;
-                if (!confirm('Sair sem salvar a contagem? Os números digitados serão perdidos.')) return;
+                if (!(await confirmar('Sair sem salvar a contagem? Os números digitados serão perdidos.', { titulo: 'Contagem em andamento', ok: 'Sair sem salvar', perigo: true }))) return;
                 encerrarModoContagem();
             }
             try {
@@ -2855,7 +2857,7 @@ function toggleItemProduzido() {
             } catch (e) { console.error(e); showToast("Erro ao criar a área.", "error"); }
         }
 
-        function salvarProduto(continuar = false) {
+        async function salvarProduto(continuar = false) {
             if (currentRole !== 'dono') { showToast("Apenas o dono pode cadastrar produtos.", "error"); return; }
             const n = document.getElementById('prod-nome').value.trim();
             const pCusto = lerPreco(document.getElementById('prod-preco-custo').value);
@@ -2869,7 +2871,7 @@ function toggleItemProduzido() {
             if (s.length === 0) { alert("Assinale pelo menos uma área onde o produto fica."); return; }
 
             const existe = Object.values(produtos).some(p => p && (p.nome || '').trim().toLowerCase() === n.toLowerCase());
-            if (existe && !confirm(`Já existe um produto chamado "${n}". Cadastrar mesmo assim?`)) return;
+            if (existe && !(await confirmar(`Já existe um produto chamado "${n}". Cadastrar mesmo assim?`, { titulo: 'Produto repetido', ok: 'Cadastrar mesmo assim' }))) return;
 
             const e = {};
             s.forEach(x => e[x] = { f: 0, u: 0 });
@@ -2956,7 +2958,7 @@ function toggleItemProduzido() {
             navegar('editar-produto'); 
         }
 
-        function salvarEdicaoProduto() { 
+        async function salvarEdicaoProduto() { 
             if (currentRole !== 'dono') { showToast("Apenas o dono pode editar produtos.", "error"); return; }
             const id=document.getElementById('edit-prod-id').value;
             const p = produtos[id];
@@ -2985,7 +2987,7 @@ function toggleItemProduzido() {
                 const v = p.estoque && p.estoque[loc];
                 return v && (Number(v.f) > 0 || Number(v.u) > 0);
             });
-            if (comEstoque.length && !confirm(`O produto ainda tem estoque em: ${comEstoque.join(', ')}.\nAo desmarcar, esse estoque será apagado. Continuar?`)) return;
+            if (comEstoque.length && !(await confirmar(`O produto ainda tem estoque em: ${comEstoque.join(', ')}.\nAo desmarcar, esse estoque será apagado. Continuar?`, { titulo: 'Apagar estoque?', ok: 'Apagar e salvar', perigo: true }))) return;
 
             const updates = {};
             const base = `produtos/${id}/`;
@@ -3060,7 +3062,7 @@ function toggleItemProduzido() {
             document.getElementById('area-edit-box').style.display='block';
         }
 
-        function salvarNovoNomeArea() { 
+        async function salvarNovoNomeArea() { 
             if (currentRole !== 'dono') { showToast("Apenas o dono pode editar áreas.", "error"); return; }
             const areaObj = areas.find(a => a.key === areaAtualKey);
             if (!areaObj) return;
@@ -3081,7 +3083,7 @@ function toggleItemProduzido() {
                 const v = p.estoque && p.estoque[ant];
                 return v && (Number(v.f) > 0 || Number(v.u) > 0);
             });
-            if (perdendoEstoque.length && !confirm(`${perdendoEstoque.length} produto(s) desmarcado(s) ainda têm estoque nesta área. Esse estoque será apagado. Continuar?`)) return;
+            if (perdendoEstoque.length && !(await confirmar(`${perdendoEstoque.length} produto(s) desmarcado(s) ainda têm estoque nesta área. Esse estoque será apagado. Continuar?`, { titulo: 'Apagar estoque?', ok: 'Apagar e salvar', perigo: true }))) return;
 
             let padroes = {};
             if(usaPadrao) {
@@ -3760,7 +3762,7 @@ function calcularCustoComposicao() {
         //  2) reduz só as fotos grandes (acima de ~250 KB) e grava de volta.
         async function otimizarFotosSalvas() {
             if (currentRole !== 'dono') { showToast("Apenas o dono pode fazer isso.", "error"); return; }
-            if (!confirm("Isso vai reduzir as fotos grandes das receitas e do cardápio para deixar o app mais rápido.\n\nAntes, um arquivo de BACKUP com as fotos originais será baixado neste aparelho.\n\nContinuar?")) return;
+            if (!(await confirmar("Isso vai reduzir as fotos grandes das receitas e do cardápio para deixar o app mais rápido.\n\nAntes, um arquivo de BACKUP com as fotos originais será baixado neste aparelho.\n\nContinuar?", { titulo: 'Otimizar fotos', ok: 'Continuar' }))) return;
             const btn = document.getElementById('btn-otimizar-fotos');
             const liberar = travarBotao(btn, 'Otimizando...');
             if (liberar === null) return;
