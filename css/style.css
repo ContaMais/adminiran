@@ -598,7 +598,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 
     .tabbar {
         display: flex; position: fixed; z-index: 950; left: 10px; right: 10px;
-        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        bottom: calc(4px + env(safe-area-inset-bottom, 0px) * 0.5);
         height: 62px; border-radius: 20px; padding: 6px; gap: 4px;
     }
     .tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: none; background: transparent; color: rgba(251,238,227,.8); border-radius: 14px; font-size: .66rem; font-weight: 600; cursor: pointer; }
@@ -616,7 +616,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
     .mapa-viewport { min-height: 62vh; }
     #mapa-salao > p { display: none; }
 
-    #toast-container { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+    #toast-container { bottom: calc(94px + env(safe-area-inset-bottom, 0px) * 0.5); }
 }
 
 @media (max-width: 640px) {
@@ -673,7 +673,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 
 /* Botão "CONCLUIR CONTAGEM" fica acima da barra inferior no celular */
 @media (max-width: 1024px) {
-    #btn-salvar-contagem-geral { bottom: calc(102px + env(safe-area-inset-bottom, 0px)) !important; }
+    #btn-salvar-contagem-geral { bottom: calc(96px + env(safe-area-inset-bottom, 0px) * 0.5) !important; }
 }
 
 /* A barra superior e a inferior passam por cima do painel claro ao rolar:
@@ -687,7 +687,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 
 /* Aviso (toast) acima do botão de salvar contagem no celular */
 @media (max-width: 1024px) {
-    body.contando #toast-container { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
+    body.contando #toast-container { bottom: calc(164px + env(safe-area-inset-bottom, 0px) * 0.5); }
 }
 
 /* ===================== CADASTROS ===================== */
@@ -754,7 +754,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
     .form-grid, .passos-grid { grid-template-columns: 1fr; gap: 12px; }
     /* Botões de salvar fixos acima da barra inferior */
     .form-acoes {
-        position: sticky; z-index: 40; bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+        position: sticky; z-index: 40; bottom: calc(96px + env(safe-area-inset-bottom, 0px) * 0.5);
         margin: 14px -4px 0; padding: 10px; border-radius: 18px;
         background: rgba(250,250,250,.82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
         border: 1px solid rgba(255,249,241,.9); box-shadow: 0 8px 24px rgba(43,22,18,.12);
@@ -772,7 +772,7 @@ body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:
 .so-mob { display: none; }
 .form-acoes .btn-pill { white-space: nowrap; }
 @media (max-width: 1024px) {
-    body:has(.section.active .form-acoes) #toast-container { bottom: calc(170px + env(safe-area-inset-bottom, 0px)); }
+    body:has(.section.active .form-acoes) #toast-container { bottom: calc(164px + env(safe-area-inset-bottom, 0px) * 0.5); }
 }
 @media (max-width: 640px) {
     .so-desk { display: none; }
@@ -820,13 +820,13 @@ main { padding-top: calc(var(--gap) * 2 + 60px + 14px); }
     .fade-topo { height: calc(10px + 56px + 26px); }
     .fade-base {
         display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 880; pointer-events: none;
-        height: calc(10px + 62px + 26px + env(safe-area-inset-bottom, 0px));
+        height: calc(4px + 62px + 24px + env(safe-area-inset-bottom, 0px) * 0.5);
         background: linear-gradient(to top, rgba(20,5,4,.97) 0%, rgba(20,5,4,.94) 74%, rgba(20,5,4,0) 100%);
         -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
         -webkit-mask-image: linear-gradient(to top, #000 74%, transparent 100%);
         mask-image: linear-gradient(to top, #000 74%, transparent 100%);
     }
-    main { padding-top: 90px; padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px)); }
+    main { padding-top: 90px; padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px) * 0.5); }
 
     /* Aba ativa: pílula que desliza */
     .tabbar { position: fixed; }
