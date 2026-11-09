@@ -268,7 +268,7 @@ function renderizarInicio() {
     const agora = new Date();
     const h = agora.getHours();
     const saud = h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-    const primeiroNome = currentUser ? String(currentUserName || (currentUser.email || '').split('@')[0]).split(/\s+/)[0] : '';
+    const primeiroNome = currentUser ? String(currentUserName || '').split(/\s+/)[0] : '';
     const elSaud = document.getElementById('saudacao');
     if (elSaud) elSaud.textContent = primeiroNome ? `${saud}, ${primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1)}` : `${saud}!`;
 

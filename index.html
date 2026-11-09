@@ -38,7 +38,7 @@
             <h3 id="auth-title" style="margin-bottom: 10px; color: var(--primary);">👤 Entrar</h3>
             <p id="auth-desc" style="font-size: 0.85rem; color:var(--muted); margin-bottom: 15px;">Acesse o sistema AdmiNiran.</p>
             
-            <input type="text" id="auth-nome" placeholder="Seu Nome Completo" style="display: none;">
+            <input type="text" id="auth-nome" placeholder="Seu nome (obrigatório)" autocomplete="name" maxlength="60" style="display: none;">
             <input type="email" id="auth-email" placeholder="E-mail">
             <input type="password" id="auth-senha" placeholder="Senha" onkeydown="if(event.key==='Enter') submeterAuth()">
             

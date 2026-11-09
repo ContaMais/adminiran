@@ -198,6 +198,8 @@
                     .then((cred) => {
                         const roleNovo = email === DONO_EMAIL ? 'dono' : 'visualizador';
                         const perfil = { nome: nome, email: email, role: roleNovo };
+                        currentUserName = nome;
+                        try { cred.user.updateProfile({ displayName: nome }); } catch (e) {}
                         db.ref('users/' + cred.user.uid).set(perfil).then(() => {
                             sincronizarUsuarioIndex(cred.user.uid, perfil);
                         });
@@ -227,7 +229,7 @@
             if (user) {
                 currentUser = user;
                 currentRole = (user.email === DONO_EMAIL) ? 'dono' : 'visualizador';
-                currentUserName = user.email ? user.email.split('@')[0] : '';
+                currentUserName = user.displayName || '';
                 aplicarPermissoes();
                 iniciarListenersFirebase();
 
@@ -237,7 +239,9 @@
                     let roleDb = data ? (data.role || 'visualizador') : 'visualizador';
                     if (roleDb === 'vizualizador') roleDb = 'visualizador';
                     currentRole = (user.email === DONO_EMAIL) ? 'dono' : roleDb;
-                    currentUserName = data ? (data.nome || user.email.split('@')[0]) : user.email.split('@')[0];
+                    // Sem perfil ainda (cadastro em andamento): não mostra nem grava o e-mail como nome
+                    if (!data) { currentUserName = user.displayName || ''; aplicarPermissoes(); return; }
+                    currentUserName = data.nome || user.displayName || user.email.split('@')[0];
 
                     const perfilSync = {
                         nome: currentUserName,
@@ -283,7 +287,7 @@
             else { btnRole.innerHTML = '<i class="ph ph-eye"></i>'; btnRole.title = 'Somente visualização'; }
 
             // Avatar e nome na barra superior; cartão no rodapé do menu
-            const nomeExib = currentUser ? (currentUserName || (currentUser.email || '').split('@')[0]) : 'Entrar';
+            const nomeExib = currentUser ? (currentUserName || 'Minha conta') : 'Entrar';
             const iniciais = currentUser ? (nomeExib.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || '?') : '?';
             const elAv = document.getElementById('user-avatar'); if (elAv) elAv.textContent = iniciais;
             const elNome = document.getElementById('user-nome'); if (elNome) elNome.textContent = nomeExib;
