@@ -2182,7 +2182,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 const html = [];
 
                 nomesCategorias.forEach(catNome => {
-                    html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--group-bg); color:var(--text-main); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.78rem; padding:10px;">${esc(catNome)}</td></tr>`);
+                    html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" class="titulo-grupo">${esc(catNome)}</td></tr>`);
 
                     grupos[catNome].sort((a, b) => compararProdutosDentroDaCategoria(a, b, catNome));
 
@@ -2206,7 +2206,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
 
                     ordemSubgrupos.forEach(subKey => {
                         if (subKey !== '_sem_subgrupo_') {
-                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" style="background:var(--surface-2); color:var(--ink); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">${esc(subKey)}</td></tr>`);
+                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" class="titulo-grupo">${esc(subKey)}</td></tr>`);
                         }
 
                         subgruposDaCategoria[subKey].forEach(pk => {
@@ -2254,18 +2254,18 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                 : (t > 1 ? `${Math.floor(totalUnidades / t)} Fds | ${formatarQtdNumero(totalUnidades % t, false)} Un.` : `${Math.floor(totalUnidades)} Un.`);
                             const viewTotal = modoContagemAtivo 
                                 ? ''
-                                : `<td style="text-align:right; border-left: 1px solid var(--line);">
+                                : `<td class="cel-total" style="text-align:right; border-left: 1px solid var(--line);" data-label="Total">
                                      <div style="display:flex; flex-direction:column; line-height:1.2;">
                                        <span style="font-weight:900; color:var(--primary); font-size:1.05rem;">${txtTopTotal}</span>
                                        ${usaFardoNaArea ? `<span style="font-size:0.75rem; color:var(--muted); font-weight:700;">${formatarQtdNumero(totalUnidades, false)} Un. Totais</span>` : ''}
                                      </div>
                                    </td>`;
 
-                            html.push(`<tr>
-                                <td style="font-size: 0.95rem; font-weight:700;"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
-                                ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);">${padraoTxt}</td>` : '')}
-                                <td style="text-align:center">${viewFardo}</td>
-                                <td style="text-align:center">${viewUnidade}</td>
+                            html.push(`<tr class="linha-item">
+                                <td class="cel-item" data-label="Item"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})" aria-label="Informações do item">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
+                                ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);" data-label="Padrão">${padraoTxt}</td>` : '')}
+                                <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Fds' : 'Fds'}">${viewFardo}</td>
+                                <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Un.' : 'Un.'}">${viewUnidade}</td>
                                 ${viewTotal}
                             </tr>`);
                         });
