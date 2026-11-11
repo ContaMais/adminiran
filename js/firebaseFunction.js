@@ -1011,19 +1011,40 @@
             cont.querySelectorAll('tr.linha-item.aberto').forEach(x => x.classList.remove('aberto'));
             if (abrir) tr.classList.add('aberto');
 
+            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const EASE = 'cubic-bezier(.4,0,.2,1)';
             linhas.forEach(el => {
                 const a = antes.get(el), d = el.getBoundingClientRect();
-                if (!a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
+                if (reduz || !el.animate || !a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
                 const dx = a.left - d.left, dy = a.top - d.top;
-                const sx = a.width / d.width, sy = a.height / d.height;
-                if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
-                el.style.transition = 'none';
-                el.style.transformOrigin = 'top left';
-                el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
-                el.getBoundingClientRect();
-                el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)';
-                el.style.transform = '';
-                setTimeout(() => { el.style.transition = ''; el.style.transformOrigin = ''; }, 480);
+                const mudouW = Math.abs(a.width - d.width) > 1, mudouH = Math.abs(a.height - d.height) > 1;
+                if (!mudouW && !mudouH) {
+                    // Só muda de lugar: desliza, sem deformar
+                    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: EASE });
+                    return;
+                }
+                // Muda de tamanho: primeiro a largura (para o lado), depois a altura. Nunca os dois juntos.
+                const abrindo = d.width > a.width || d.height > a.height;
+                el.style.zIndex = '5';
+                const T = 560;
+                let frames;
+                if (abrindo) {
+                    frames = [
+                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: 0 },
+                        { width: d.width + 'px', height: a.height + 'px', transform: `translate(0px, ${dy}px)`, offset: .45 },
+                        { width: d.width + 'px', height: d.height + 'px', transform: 'translate(0px, 0px)', offset: 1 }
+                    ];
+                } else {
+                    // Fechando: a altura encolhe primeiro, depois a largura
+                    frames = [
+                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: 0 },
+                        { width: a.width + 'px', height: d.height + 'px', transform: `translate(${dx}px, 0px)`, offset: .5 },
+                        { width: d.width + 'px', height: d.height + 'px', transform: 'translate(0px, 0px)', offset: 1 }
+                    ];
+                }
+                const anim = el.animate(frames, { duration: T, easing: EASE });
+                anim.onfinish = anim.oncancel = () => { el.style.zIndex = ''; };
             });
         }
 
