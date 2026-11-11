@@ -1000,7 +1000,7 @@
         function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
 
         // Acordeão: abre um card por vez. O card aberto fica na própria linha, ocupando-a toda;
-        // os vizinhos descem. Abrir = revelação (clip-path) sem esticar o conteúdo; demais cards deslizam.
+        // os vizinhos descem. A altura do card nunca muda: só largura e posição são animadas.
         function toggleCardArea(tr, ev) {
             if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
             const cont = document.getElementById('tabela-area-itens');
@@ -1020,53 +1020,19 @@
             }
 
             if (reduz) return;
-            // Curvas amostradas em muitos quadros (linear entre eles): sem "para-e-anda" entre trechos
-            const outQuint = x => 1 - Math.pow(1 - x, 5);
-            const inOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-            const cl = x => Math.max(0, Math.min(1, x));
-            const N = 28;
-            const lerp = (u, v, k) => u + (v - u) * k;
-            const frames = fn => Array.from({ length: N + 1 }, (_, i) => Object.assign({ offset: i / N, easing: 'linear' }, fn(i / N)));
+            // Mola suave: sai rápido, assenta devagar. Só largura e posição mudam (altura nunca).
             const EASE = 'cubic-bezier(.22,1,.36,1)';
-            let ordem = 0;
-
             linhas.forEach(el => {
                 const a = antes.get(el), d = el.getBoundingClientRect();
                 if (!a || !el.animate || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
                 const dx = a.left - d.left, dy = a.top - d.top;
-                const mudou = Math.abs(a.width - d.width) > 1 || Math.abs(a.height - d.height) > 1;
-
-                if (!mudou) {
-                    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-                    // Vizinhos deslizam com pequeno atraso em cascata
-                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-                        { duration: 620, delay: Math.min(ordem++, 6) * 28, easing: EASE, fill: 'backwards' });
-                    return;
-                }
-                if (el === tr && abrir) {
-                    // Revela o card já no tamanho final: largura sai na frente, altura vem logo atrás
-                    const l = a.left - d.left, r0 = d.width - (l + a.width), b0 = d.height - a.height;
-                    el.style.zIndex = '5';
-                    const an = el.animate(frames(t => {
-                        const pw = outQuint(cl(t / .62)), ph = inOut(cl((t - .18) / .82)), py = outQuint(t);
-                        return {
-                            clipPath: `inset(0px ${lerp(r0, 0, pw)}px ${lerp(b0, 0, ph)}px ${lerp(l, 0, pw)}px round 16px)`,
-                            transform: `translateY(${lerp(dy, 0, py)}px)`
-                        };
-                    }), { duration: 640 });
-                    an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
-                } else {
-                    // Card que fecha: altura recolhe primeiro, largura acompanha
-                    el.style.zIndex = '4';
-                    const an = el.animate(frames(t => {
-                        const ph = outQuint(cl(t / .7)), pw = inOut(cl((t - .25) / .75)), py = outQuint(t);
-                        return {
-                            width: lerp(a.width, d.width, pw) + 'px', height: lerp(a.height, d.height, ph) + 'px',
-                            transform: `translate(${lerp(dx, 0, py)}px, ${lerp(dy, 0, py)}px)`
-                        };
-                    }), { duration: 520 });
-                    an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
-                }
+                const largura = Math.abs(a.width - d.width) > 1;
+                if (!largura && Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+                const k = largura
+                    ? [{ width: a.width + 'px', transform: `translate(${dx}px, ${dy}px)` }, { width: d.width + 'px', transform: 'none' }]
+                    : [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
+                const an = el.animate(k, { duration: largura ? 620 : 560, easing: EASE });
+                if (largura) { el.style.zIndex = '5'; an.onfinish = an.oncancel = () => { el.style.zIndex = ''; }; }
             });
         }
 

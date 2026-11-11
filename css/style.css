@@ -924,17 +924,15 @@ input, select, textarea { font-size: max(16px, 1em); } /* iPhone não dá zoom a
 #tabela-area-itens tr.linha-item td > span, #tabela-area-itens tr.linha-item td > div > span { font-size: 1.05rem !important; color: var(--ink) !important; }
 #tabela-area-itens tr.linha-item td .qty-box { width: 100% !important; max-width: 100px; }
 #tabela-area-itens .info-btn { width: 30px !important; height: 30px !important; flex-shrink: 0; }
-/* Card aberto: ocupa a linha inteira, nome completo e total */
-#tabela-area-itens tr.linha-item.aberto { grid-column: 1 / -1; height: auto; cursor: default; box-shadow: 0 8px 22px rgba(0,0,0,.4); border-color: var(--primary-line); }
-#tabela-area-itens tr.linha-item.aberto td.cel-item { height: auto; padding: 14px; }
-#tabela-area-itens tr.linha-item.aberto .col-item { font-size: 1.05rem; -webkit-line-clamp: unset; display: block; overflow: visible; }
-#tabela-area-itens tr.linha-item.aberto td:not(.cel-item):not(.cel-total) { padding: 14px 4px; }
+/* Card aberto: só expande para o lado (mesma altura); o total aparece ao lado dos contadores */
+#tabela-area-itens tr.linha-item.aberto { grid-column: 1 / -1; cursor: default; box-shadow: 0 8px 22px rgba(0,0,0,.4); border-color: var(--primary-line); }
+#tabela-area-itens tr.linha-item.aberto .col-item { -webkit-line-clamp: 2; }
 #tabela-area-itens tr.linha-item.aberto td.cel-total {
-    display: flex; flex: 0 0 100%; flex-direction: row; justify-content: space-between; align-items: center;
-    border-top: 1px solid var(--line) !important; padding: 12px 14px;
+    display: flex; flex: 1.7 1 0; flex-direction: column; align-items: center; justify-content: center;
+    border-left: 1px solid rgba(227,203,166,.2) !important; padding: 8px 6px; animation: totalEntra .35s ease .12s both;
 }
-#tabela-area-itens tr.linha-item.aberto td.cel-total::before { margin: 0; }
-#tabela-area-itens tr.linha-item.aberto td.cel-total > div { flex-direction: row !important; align-items: baseline; gap: 8px; text-align: right; }
+#tabela-area-itens tr.linha-item.aberto td.cel-total > div { flex-direction: column !important; align-items: center; gap: 2px; text-align: center; }
+@keyframes totalEntra { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 640px) {
     #detalhe-area .card .btn-submit { font-size: .9rem !important; padding: 12px 10px !important; width: 100% !important; }
     #detalhe-area .card > div > div:last-child { width: 100%; }
