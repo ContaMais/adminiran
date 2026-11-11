@@ -1020,7 +1020,16 @@
             }
 
             if (reduz) return;
-            const EASE = 'cubic-bezier(.32,.72,0,1)';
+            // Curvas amostradas em muitos quadros (linear entre eles): sem "para-e-anda" entre trechos
+            const outQuint = x => 1 - Math.pow(1 - x, 5);
+            const inOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+            const cl = x => Math.max(0, Math.min(1, x));
+            const N = 28;
+            const lerp = (u, v, k) => u + (v - u) * k;
+            const frames = fn => Array.from({ length: N + 1 }, (_, i) => Object.assign({ offset: i / N, easing: 'linear' }, fn(i / N)));
+            const EASE = 'cubic-bezier(.22,1,.36,1)';
+            let ordem = 0;
+
             linhas.forEach(el => {
                 const a = antes.get(el), d = el.getBoundingClientRect();
                 if (!a || !el.animate || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
@@ -1029,27 +1038,33 @@
 
                 if (!mudou) {
                     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 520, easing: EASE });
+                    // Vizinhos deslizam com pequeno atraso em cascata
+                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+                        { duration: 620, delay: Math.min(ordem++, 6) * 28, easing: EASE, fill: 'backwards' });
                     return;
                 }
                 if (el === tr && abrir) {
-                    // Revela o card já no tamanho final: primeiro para o lado, depois para baixo
-                    const l = a.left - d.left, r = d.width - (l + a.width), bt = d.height - a.height;
+                    // Revela o card já no tamanho final: largura sai na frente, altura vem logo atrás
+                    const l = a.left - d.left, r0 = d.width - (l + a.width), b0 = d.height - a.height;
                     el.style.zIndex = '5';
-                    const an = el.animate([
-                        { clipPath: `inset(0px ${r}px ${bt}px ${l}px round 16px)`, transform: `translateY(${dy}px)` },
-                        { clipPath: `inset(0px 0px ${bt}px 0px round 16px)`, transform: `translateY(${dy}px)`, offset: .4 },
-                        { clipPath: 'inset(0px 0px 0px 0px round 16px)', transform: 'none' }
-                    ], { duration: 560, easing: EASE });
+                    const an = el.animate(frames(t => {
+                        const pw = outQuint(cl(t / .62)), ph = inOut(cl((t - .18) / .82)), py = outQuint(t);
+                        return {
+                            clipPath: `inset(0px ${lerp(r0, 0, pw)}px ${lerp(b0, 0, ph)}px ${lerp(l, 0, pw)}px round 16px)`,
+                            transform: `translateY(${lerp(dy, 0, py)}px)`
+                        };
+                    }), { duration: 640 });
                     an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
                 } else {
-                    // Card que fecha: volta ao tamanho compacto (altura primeiro, depois largura)
+                    // Card que fecha: altura recolhe primeiro, largura acompanha
                     el.style.zIndex = '4';
-                    const an = el.animate([
-                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)` },
-                        { width: a.width + 'px', height: d.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: .45 },
-                        { width: d.width + 'px', height: d.height + 'px', transform: 'none' }
-                    ], { duration: 460, easing: EASE });
+                    const an = el.animate(frames(t => {
+                        const ph = outQuint(cl(t / .7)), pw = inOut(cl((t - .25) / .75)), py = outQuint(t);
+                        return {
+                            width: lerp(a.width, d.width, pw) + 'px', height: lerp(a.height, d.height, ph) + 'px',
+                            transform: `translate(${lerp(dx, 0, py)}px, ${lerp(dy, 0, py)}px)`
+                        };
+                    }), { duration: 520 });
                     an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
                 }
             });
