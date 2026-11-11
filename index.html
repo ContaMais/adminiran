@@ -69,7 +69,7 @@
             
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modalIngredienteQtd').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button onclick="confirmarIngredienteQtd()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
+                <button onclick="confirmarIngredienteQtd()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
             </div>
         </div>
     </div>
@@ -407,7 +407,7 @@
                     <h1 style="margin:0;">Áreas</h1>
                 </div>
                 <!-- Banner Novo no Topo -->
-                <div id="banner-pendentes" class="req-contrib" style="display:none; background: var(--primary); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px var(--primary-line); gap: 15px;" onclick="abrirAlocacaoModal()">
+                <div id="banner-pendentes" class="req-contrib" style="display:none; background:var(--dark); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px var(--primary-line); gap: 15px;" onclick="abrirAlocacaoModal()">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <i class="ph ph-warning-circle" style="font-size:1.6rem;"></i> 
                         <div style="text-align: left;">
@@ -461,7 +461,7 @@
                     </div>
                     
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button id="btn-modo-contagem" class="btn-submit req-contrib" style="margin:0; background:var(--primary); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="ativarModoContagem()">
+                        <button id="btn-modo-contagem" class="btn-submit req-contrib" style="margin:0; background:var(--dark); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="ativarModoContagem()">
                             <i class="ph ph-clipboard-text"></i> FAZER CONTAGEM
                         </button>
                         <button id="btn-transferir-area" class="btn-submit req-contrib" style="margin:0; background:var(--dark); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="abrirTransferenciaArea()">
@@ -835,7 +835,7 @@
         <section id="financeiro-dashboard" class="section req-dono">
             <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Financeiro</h1>
-            <div id="valor-total-estoque" class="card" style="background: var(--primary); text-align: center; border: none; padding: 2rem;">
+            <div id="valor-total-estoque" class="card" style="background:var(--dark); text-align: center; border: none; padding: 2rem;">
                 <span style="color: white; opacity: 0.9; font-size: 1rem; font-weight: bold;">Valor Total Parado em Estoque</span>
                 <h2 id="txt-custo-total-geral" style="font-size: 3rem; color: white !important; margin-top: 10px; font-weight: 900;">R$ 0,00</h2>
             </div>
@@ -1038,7 +1038,7 @@
             
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modalNovoGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="confirmarNovoGrupoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Criar</button>
+                <button onclick="confirmarNovoGrupoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Criar</button>
             </div>
         </div>
     </div>
@@ -1055,7 +1055,7 @@
 
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
+                <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
             </div>
 
             <button onclick="prepararExclusaoGrupoCardapio()" style="width: 100%; padding: 10px; border-radius: 8px; background: #ef4444; color: white; border: none; font-weight: bold; cursor: pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
@@ -1106,21 +1106,18 @@
             </div>
         </div>
     </div>
-    <div id="modalInfoItem" class="modal-overlay" style="z-index: 5000; display: none;">
-        <div class="modal-box" style="background:var(--surface-2); border: 1px solid var(--primary); max-width: 450px; width: 90%;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="titulo-info-item" style="color: var(--primary); margin: 0;">Detalhes do Item</h3>
-                <button onclick="document.getElementById('modalInfoItem').style.display='none'" style="background: transparent; border: none; color: var(--text-main); font-size: 1.5rem; cursor: pointer;">&times;</button>
+    <div id="modalInfoItem" class="sheet-overlay" onclick="if(event.target===this) fecharInfoItem()">
+        <div class="sheet-box" role="dialog" aria-modal="true">
+            <div class="sheet-alca"></div>
+            <h3 id="titulo-info-item" class="sheet-titulo">Detalhes do Item</h3>
+            <div class="sheet-grid">
+                <div class="sheet-campo"><small>Custo</small><b id="info-custo">—</b></div>
+                <div class="sheet-campo"><small>Código</small><b id="info-codigo">—</b></div>
+                <div class="sheet-campo" style="grid-column: 1 / -1;"><small>Estoque global</small><b id="total-info-item">0</b></div>
             </div>
-            
-            <p style="font-size: 0.9rem; color:var(--muted); margin-bottom: 15px;">Este item está distribuído nas seguintes áreas:</p>
-            
-            <div id="lista-locais-item" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
-                </div>
-
-            <div style="text-align: right; font-weight: 800; font-size: 1.1rem; color: var(--text-main); padding-top: 10px; border-top: 1px solid var(--line);">
-                Total Geral: <span id="total-info-item" style="color: var(--primary);">0</span>
-            </div>
+            <div class="sheet-secao">Onde é encontrado</div>
+            <div id="lista-locais-item"></div>
+            <button class="sheet-fechar" onclick="fecharInfoItem()">Fechar</button>
         </div>
     </div>
       </div>

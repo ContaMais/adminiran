@@ -999,12 +999,32 @@
         // Busca sem diferenciar maiúsculas nem acentos ("acai" encontra "Açaí").
         function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
 
-        // Acordeão: abre um card por vez; os demais voltam ao tamanho compacto
+        // Acordeão: abre um card por vez. Os demais deslizam para o novo lugar (FLIP).
         function toggleCardArea(tr, ev) {
             if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
+            const cont = document.getElementById('tabela-area-itens');
+            if (!cont) return;
+            const linhas = Array.from(cont.querySelectorAll('tr'));
+            const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
+
             const abrir = !tr.classList.contains('aberto');
-            document.querySelectorAll('#tabela-area-itens tr.linha-item.aberto').forEach(x => x.classList.remove('aberto'));
+            cont.querySelectorAll('tr.linha-item.aberto').forEach(x => x.classList.remove('aberto'));
             if (abrir) tr.classList.add('aberto');
+
+            linhas.forEach(el => {
+                const a = antes.get(el), d = el.getBoundingClientRect();
+                if (!a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
+                const dx = a.left - d.left, dy = a.top - d.top;
+                const sx = a.width / d.width, sy = a.height / d.height;
+                if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
+                el.style.transition = 'none';
+                el.style.transformOrigin = 'top left';
+                el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+                el.getBoundingClientRect();
+                el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)';
+                el.style.transform = '';
+                setTimeout(() => { el.style.transition = ''; el.style.transformOrigin = ''; }, 480);
+            });
         }
 
         function filtrarTabela(inputId, tabelaId) {
@@ -1364,7 +1384,7 @@
                     resHtml += `
                     <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
                         <div><strong style="font-size:0.95rem; color:var(--text-main);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:var(--muted);">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
-                        <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--primary); border-radius:6px;" onclick="montarReservaNoMapa(${jsArg(k)})">Montar</button>
+                        <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--dark); border-radius:6px;" onclick="montarReservaNoMapa(${jsArg(k)})">Montar</button>
                     </div>`;
                 } else {
                     resHtml += `
@@ -2595,7 +2615,7 @@ function moverCatSub(index, direcao) {
                 htmlInfo += `<p style="margin-top:10px; margin-bottom: 5px;"><strong>Especificações (Subgrupos):</strong></p>
                 <div style="display:flex; flex-wrap:wrap; gap:8px;">
                     <button class="chip active-chip" data-sub="Todos" onclick="filtrarOrdenacaoSubgrupo('Todos')">Todos</button>
-                    ${c.subgrupos.map(sub => `<button class="chip" data-sub="${esc(sub)}" onclick="filtrarOrdenacaoSubgrupo(${jsArg(sub)})" style="display:inline-flex; align-items:center; gap:5px;">${esc(sub)} <span style="background:var(--primary); color:white; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-style:italic;">i</span></button>`).join('')}
+                    ${c.subgrupos.map(sub => `<button class="chip" data-sub="${esc(sub)}" onclick="filtrarOrdenacaoSubgrupo(${jsArg(sub)})" style="display:inline-flex; align-items:center; gap:5px;">${esc(sub)} <span style="background:var(--dark); color:white; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-style:italic;">i</span></button>`).join('')}
                 </div>`;
             }
             
@@ -3727,11 +3747,21 @@ function calcularCustoComposicao() {
         // ==========================================
         // INFORMAÇÕES GLOBAIS DO ITEM NO ESTOQUE (i)
         // ==========================================
+        function fecharInfoItem() {
+            document.getElementById('modalInfoItem').classList.remove('aberto');
+        }
+
         function abrirInfoItem(pk) {
             const p = produtos[pk];
             if(!p) return;
 
+            const moeda = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             document.getElementById('titulo-info-item').innerText = p.nome;
+            document.getElementById('info-custo').innerText = podeVerCustos()
+                ? (p.precoCusto ? moeda(p.precoCusto) : '—')
+                : 'Restrito';
+            document.getElementById('info-codigo').innerText = p.codigo || '—';
+
             const containerLista = document.getElementById('lista-locais-item');
             let totalGeralUnidades = 0;
             const frac = produtoUsaContagemFracionada(p);
@@ -3749,22 +3779,20 @@ function calcularCustoComposicao() {
                     ? `${formatarQtdNumero(totalArea, true)} Un.` 
                     : (t > 1 ? `${Math.floor(totalArea / t)} Fds | ${totalArea % t} Un.` : `${totalArea} Un.`);
                 const areaObj = areas.find(a => a.nome === loc);
-                const click = areaObj ? `onclick="document.getElementById('modalInfoItem').style.display='none'; verArea(${jsArg(areaObj.key)}, ${jsArg(loc)})"` : '';
-                linhas.push(`
-                    <div ${click} style="display: flex; justify-content: space-between; padding: 12px 10px; background:var(--surface-2); border: 1px solid var(--line); border-radius: 8px; ${areaObj ? 'cursor: pointer;' : ''}">
-                        <span style="color: var(--text-main); font-weight: 600; ${areaObj ? 'text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 4px;' : ''}">${esc(loc)}</span>
-                        <span style="color: var(--primary); font-weight: 800;">${txtQtd}</span>
+                const click = areaObj ? `onclick="fecharInfoItem(); verArea(${jsArg(areaObj.key)}, ${jsArg(loc)})"` : '';
+                linhas.push(`<div class="sheet-linha" ${areaObj ? `style="cursor:pointer;" ${click}` : ''}>
+                        <span>${esc(loc)}</span><em>${txtQtd}</em>
                     </div>`);
             });
 
-            containerLista.innerHTML = linhas.join('') || '<div style="color:var(--muted); text-align: center; padding: 10px;">Item zerado em todas as áreas físicas.</div>';
+            containerLista.innerHTML = linhas.join('') || '<div style="color:var(--muted); text-align:center; padding:10px;">Item zerado em todas as áreas físicas.</div>';
 
             const txtTotalGeral = frac 
                 ? `${formatarQtdNumero(totalGeralUnidades, true)} Un.` 
                 : (t > 1 ? `${Math.floor(totalGeralUnidades / t)} Fds | ${totalGeralUnidades % t} Un.` : `${totalGeralUnidades} Un.`);
 
             document.getElementById('total-info-item').innerText = txtTotalGeral;
-            document.getElementById('modalInfoItem').style.display = 'flex';
+            document.getElementById('modalInfoItem').classList.add('aberto');
         }
         // ==========================================
         // OTIMIZAR FOTOS JÁ SALVAS (receitas e cardápio)
