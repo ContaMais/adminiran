@@ -999,43 +999,84 @@
         // Busca sem diferenciar maiúsculas nem acentos ("acai" encontra "Açaí").
         function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
 
-        // Acordeão: abre um card por vez. O card aberto fica na própria linha, ocupando-a toda;
-        // os vizinhos descem. A altura do card nunca muda: só largura e posição são animadas.
+        // Acordeão: abre um card por vez. O card aberto fica na própria linha, ocupando-a toda; os vizinhos descem.
+        // FLIP: mede posição inicial e final de cada card e anima só a diferença (largura e transform),
+        // todos juntos, com a mesma duração e curva. A altura nunca muda.
+        // Texto: o título é mantido no layout FINAL durante o movimento e faz crossfade com uma cópia
+        // do layout ANTIGO, então ele nunca reflui (2 linhas <-> 1 linha) no meio da animação.
         function toggleCardArea(tr, ev) {
             if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
             const cont = document.getElementById('tabela-area-itens');
             if (!cont) return;
             const linhas = Array.from(cont.querySelectorAll('tr'));
-            const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
             const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+            // 1) FIRST: posição atual (inclui animação em andamento, para não dar salto ao interromper)
+            const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
+
+            // limpa animação anterior
+            linhas.forEach(el => el.getAnimations({ subtree: true }).forEach(an => an.cancel()));
+            cont.querySelectorAll('.clone-anim').forEach(c => c.remove());
+            cont.querySelectorAll('td.cel-item > div').forEach(d => { d.style.width = ''; d.style.flex = ''; });
+
+            const prev = cont.querySelector('tr.linha-item.aberto');
             const abrir = !tr.classList.contains('aberto');
+            const envolvidos = [tr, prev].filter((x, i, arr) => x && arr.indexOf(x) === i);
+
+            // cópia do título no layout antigo
+            const clones = new Map();
+            if (!reduz) envolvidos.forEach(el => {
+                const cel = el.querySelector('td.cel-item'); if (!cel) return;
+                const er = el.getBoundingClientRect(), cr = cel.getBoundingClientRect();
+                const c = document.createElement('div');
+                c.className = 'clone-anim';
+                c.innerHTML = cel.innerHTML;
+                c.style.cssText = `position:absolute; left:${cr.left - er.left - 1}px; top:${cr.top - er.top - 1}px; width:${cr.width}px; height:${cr.height}px; display:flex; align-items:center; padding:10px 12px; box-sizing:border-box; pointer-events:none; z-index:2;`;
+                clones.set(el, c);
+                el.appendChild(c);
+            });
+
+            // 2) LAST: aplica o estado final
             cont.querySelectorAll('tr.linha-item.aberto').forEach(x => { x.classList.remove('aberto'); x.style.gridRow = ''; });
             if (abrir) {
-                // linha do grid onde o card está (medida com todos fechados)
                 const tops = [...new Set(linhas.map(el => Math.round(el.getBoundingClientRect().top)))].sort((x, y) => x - y);
                 const rowIdx = tops.indexOf(Math.round(tr.getBoundingClientRect().top)) + 1;
                 tr.classList.add('aberto');
                 if (rowIdx > 0) tr.style.gridRow = String(rowIdx);
             }
-
             if (reduz) return;
-            // Mola suave: sai rápido, assenta devagar. Só largura e posição mudam (altura nunca).
-            const EASE = 'cubic-bezier(.22,1,.36,1)';
+
+            // 3) INVERT + PLAY — mesma duração e curva para tudo (movimento coordenado)
+            const T = 520, EASE = 'cubic-bezier(.4, 0, .2, 1)';
+            const fim = [];
             linhas.forEach(el => {
                 const a = antes.get(el), d = el.getBoundingClientRect();
-                if (!a || !el.animate || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
+                if (!a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
                 const dx = a.left - d.left, dy = a.top - d.top;
                 const largura = Math.abs(a.width - d.width) > 1;
                 if (!largura && Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
                 const k = largura
                     ? [{ width: a.width + 'px', transform: `translate(${dx}px, ${dy}px)` }, { width: d.width + 'px', transform: 'none' }]
                     : [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
-                const an = el.animate(k, { duration: largura ? 620 : 560, easing: EASE });
-                if (largura) { el.style.zIndex = '5'; an.onfinish = an.oncancel = () => { el.style.zIndex = ''; }; }
+                // mede o título no layout final ANTES de iniciar qualquer animação
+                const c = clones.get(el), cel = el.querySelector('td.cel-item');
+                const inner = cel && cel.firstElementChild;
+                const innerW = (largura && c && inner) ? inner.getBoundingClientRect().width : 0;
+                if (largura) el.style.zIndex = (el === tr && abrir) ? '5' : '4';
+                fim.push(el.animate(k, { duration: T, easing: EASE }).finished);
+
+                if (largura && c && inner) {
+                    inner.style.width = innerW + 'px'; inner.style.flex = '0 0 auto';
+                    fim.push(c.animate([{ opacity: 1 }, { opacity: 1, offset: .08 }, { opacity: 0, offset: .55 }, { opacity: 0 }], { duration: T, easing: 'linear', fill: 'forwards' }).finished);
+                    fim.push(inner.animate([{ opacity: 0 }, { opacity: 0, offset: .3 }, { opacity: 1 }], { duration: T, easing: 'linear' }).finished);
+                }
+            });
+            Promise.allSettled(fim).then(() => {
+                cont.querySelectorAll('.clone-anim').forEach(c => c.remove());
+                cont.querySelectorAll('td.cel-item > div').forEach(d => { d.style.width = ''; d.style.flex = ''; });
+                linhas.forEach(el => { el.style.zIndex = ''; });
             });
         }
-
         function filtrarTabela(inputId, tabelaId) {
             const termo = normalizarBusca(document.getElementById(inputId).value);
             const linhas = document.querySelectorAll(`#${tabelaId} tr`);
