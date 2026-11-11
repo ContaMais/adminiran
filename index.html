@@ -487,7 +487,6 @@
                         <div id="lista-itens-padrao-area" style="display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto;"></div>
                     </div>
                     <button class="btn-submit" onclick="salvarNovoNomeArea()" style="padding:8px;">Salvar Ajustes</button>
-                    <span id="btn-excluir-area-texto" class="req-dono" onclick="prepararExclusaoArea()">Excluir Área</span>
                 </div>
             </div>
 
@@ -696,6 +695,19 @@
                 </div>
             </div>
             
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>Áreas</strong>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Exclua áreas que não existem mais. Os produtos continuam cadastrados.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div id="lista-areas-config" style="display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
+                </div>
+            </div>
+
             <div class="config-card">
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>

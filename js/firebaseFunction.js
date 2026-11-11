@@ -1346,7 +1346,7 @@
                     }
                     return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
                 }) : [];
-                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
+                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); renderizarAreasConfig(); if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
             }, () => showToast("Sem permissão para ler áreas.", "error"));
 
             escutar(db.ref('produtos'), 'produtos', s => {
@@ -3126,6 +3126,8 @@ function toggleItemProduzido() {
         }
 
         function habilitarEdicaoArea() { 
+            const box = document.getElementById('area-edit-box');
+            if (box.style.display === 'block') { box.style.display = 'none'; return; } // lápis de novo = fecha
             const a = areas.find(x => x.key === areaAtualKey);
             if (!a) return;
             document.getElementById('edit-area-input').value = a.nome;
@@ -3243,8 +3245,19 @@ function toggleItemProduzido() {
             document.getElementById('confirmDeleteBtn').onclick = acao;
         }
 
-        function prepararExclusaoArea() {
-            const a = areas.find(x => x.key === areaAtualKey);
+        function renderizarAreasConfig() {
+            const el = document.getElementById('lista-areas-config');
+            if (!el) return;
+            const lista = [...areas].sort((x, y) => x.nome.localeCompare(y.nome));
+            el.innerHTML = lista.map(a => `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;">
+                    <span style="font-weight:700; color:var(--ink); min-width:0; overflow-wrap:anywhere;">${esc(a.nome)}</span>
+                    <button type="button" class="btn-submit" style="margin:0; width:auto; min-height:36px; padding:6px 14px; background:var(--danger); font-size:.8rem;" onclick="prepararExclusaoArea(${jsArg(a.key)})">Excluir</button>
+                </div>`).join('') || '<div style="color:var(--muted);">Nenhuma área cadastrada.</div>';
+        }
+
+        function prepararExclusaoArea(key) {
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode excluir áreas.", "error"); return; }
+            const a = areas.find(x => x.key === key);
             if (!a) return;
             abrirModalExclusao(`Excluir área <strong>${esc(a.nome)}</strong>?<br><small style="font-weight:normal;">Os produtos deixam de ficar nela e o estoque registrado nesta área é apagado.</small>`, () => {
                 const updates = { [`areas/${a.key}`]: null };
@@ -3261,7 +3274,7 @@ function toggleItemProduzido() {
                     if (c && Array.isArray(c.areas) && c.areas.includes(a.nome)) updates[`categorias/${ck}/areas`] = c.areas.filter(x => x !== a.nome);
                 });
                 db.ref().update(updates).then(() => showToast("Área excluída.", "success")).catch(() => showToast("Erro ao excluir a área.", "error"));
-                fecharModal(); navegar('areas-lista');
+                fecharModal(); if (telaAtiva('detalhe-area')) navegar('areas-lista');
             });
         }
         function prepararExclusaoProd() {
