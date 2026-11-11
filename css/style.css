@@ -881,44 +881,57 @@ input, select, textarea { font-size: max(16px, 1em); } /* iPhone não dá zoom a
 }
 @media (max-width: 1024px) { .aviso-offline { top: 74px; border-radius: 14px; } }
 
-/* ===================== Estoque da área: legível no celular ===================== */
+/* ===================== Estoque da área: cards em grade (acordeão) ===================== */
 .titulo-grupo {
     background: rgba(122,31,31,.1); color: #4a0e0e; font-weight: 900; text-transform: uppercase;
     letter-spacing: .08em; font-size: .82rem; padding: 12px 16px !important; border-bottom: 1px solid var(--line-strong) !important;
 }
+#detalhe-area .table-container { overflow: visible; background: transparent; border: none; box-shadow: none; }
+#detalhe-area table { display: block; }
+#head-area-itens { display: none; }
+/* Grade: 2 colunas no celular, mais conforme a largura da tela cresce */
+#tabela-area-itens {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+    gap: 10px; padding: 6px 0; align-items: start;
+}
+#tabela-area-itens tr.linha-grupo { display: block; grid-column: 1 / -1; border-radius: 12px; overflow: hidden; margin-top: 6px; }
+#tabela-area-itens tr.linha-grupo td { display: block; }
+#tabela-area-itens tr > td[colspan] { grid-column: 1 / -1; }
+#tabela-area-itens tr.linha-item {
+    display: flex; flex-wrap: wrap; cursor: pointer; overflow: hidden;
+    background: var(--surface-strong); border: 1px solid var(--line-strong); border-radius: 16px;
+    box-shadow: 0 2px 10px rgba(43,22,18,.06); transition: box-shadow .25s ease;
+}
+#tabela-area-itens tr.linha-item td {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center !important;
+    flex: 1 1 0; min-width: 0; padding: 10px 4px; border: none !important; background: transparent !important;
+}
+#tabela-area-itens tr.linha-item td::before {
+    content: attr(data-label); font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ink-2); margin-bottom: 4px;
+}
+#tabela-area-itens tr.linha-item td.cel-item {
+    flex: 0 0 100%; flex-direction: row; justify-content: flex-start; text-align: left !important;
+    padding: 12px 12px; border-bottom: 1px solid var(--line) !important; background: rgba(255,249,241,.45) !important;
+}
+#tabela-area-itens tr.linha-item td.cel-item::before { display: none; }
+#tabela-area-itens .col-item { font-size: .95rem; font-weight: 800; color: var(--ink); min-width: 0; white-space: normal; line-height: 1.25; }
+#tabela-area-itens tr.linha-item td.cel-total { display: none; }
+#tabela-area-itens tr.linha-item td > span, #tabela-area-itens tr.linha-item td > div > span { font-size: 1.05rem !important; }
+#tabela-area-itens tr.linha-item td .qty-box { width: 100% !important; max-width: 100px; }
+#tabela-area-itens .info-btn { width: 30px !important; height: 30px !important; flex-shrink: 0; }
+/* Card aberto: ocupa a linha inteira e mostra o total */
+#tabela-area-itens tr.linha-item.aberto { grid-column: 1 / -1; cursor: default; box-shadow: 0 6px 18px rgba(43,22,18,.14); }
+#tabela-area-itens tr.linha-item.aberto td.cel-item { padding: 14px 14px; }
+#tabela-area-itens tr.linha-item.aberto td.cel-item .col-item { font-size: 1.05rem; }
+#tabela-area-itens tr.linha-item.aberto td.cel-total {
+    display: flex; flex: 0 0 100%; flex-direction: row; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--line) !important; padding: 10px 14px;
+}
+#tabela-area-itens tr.linha-item.aberto td.cel-total::before { margin: 0; }
+#tabela-area-itens tr.linha-item.aberto td.cel-total > div { flex-direction: row !important; align-items: baseline; gap: 8px; text-align: right; }
+/* Cabeçalho da área e botões */
 @media (max-width: 640px) {
-    /* Cada item vira um cartão: nome em cima, números em grade embaixo */
-    #tabela-area-itens { display: block; padding: 8px; }
-    #head-area-itens { display: none; }
-    #detalhe-area .table-container { overflow: visible; background: transparent; border: none; box-shadow: none; }
-    #tabela-area-itens tr.linha-grupo { display: block; margin: 14px 0 8px; border-radius: 12px; overflow: hidden; }
-    #tabela-area-itens tr.linha-grupo td { display: block; }
-    #tabela-area-itens tr.linha-item {
-        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-bottom: 10px;
-        background: var(--surface-strong); border: 1px solid var(--line-strong); border-radius: 16px; overflow: hidden;
-        box-shadow: 0 2px 10px rgba(43,22,18,.06);
-    }
-    #tabela-area-itens tr.linha-item td {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center !important;
-        padding: 10px 6px; border: none !important; background: transparent !important;
-    }
-    #tabela-area-itens tr.linha-item td::before {
-        content: attr(data-label); font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
-        color: var(--ink-2); margin-bottom: 4px;
-    }
-    #tabela-area-itens tr.linha-item td.cel-item {
-        grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; text-align: left !important;
-        padding: 12px 14px; border-bottom: 1px solid var(--line) !important; background: rgba(255,249,241,.45) !important;
-    }
-    #tabela-area-itens tr.linha-item td.cel-item::before { display: none; }
-    #tabela-area-itens .col-item { font-size: 1rem; font-weight: 800; color: var(--ink); min-width: 0; white-space: normal; line-height: 1.25; }
-    #tabela-area-itens tr.linha-item td.cel-total { grid-column: 1 / -1; border-top: 1px solid var(--line) !important; flex-direction: row; justify-content: space-between; padding: 10px 14px; }
-    #tabela-area-itens tr.linha-item td.cel-total::before { margin: 0; }
-    #tabela-area-itens tr.linha-item td.cel-total > div { flex-direction: row !important; align-items: baseline; gap: 8px; text-align: right; }
-    #tabela-area-itens tr.linha-item td > span, #tabela-area-itens tr.linha-item td > div > span { font-size: 1.15rem !important; }
-    #tabela-area-itens tr.linha-item td .qty-box { width: 100% !important; max-width: 110px; }
-    #tabela-area-itens .info-btn { width: 30px !important; height: 30px !important; flex-shrink: 0; }
-    /* Cabeçalho da área e botões */
     #detalhe-area .card .btn-submit { font-size: .9rem !important; padding: 12px 10px !important; width: 100% !important; }
     #detalhe-area .card > div > div:last-child { width: 100%; }
     #detalhe-area #btn-excluir-area-texto { font-size: .9rem !important; padding: 8px 0; }

@@ -999,6 +999,14 @@
         // Busca sem diferenciar maiúsculas nem acentos ("acai" encontra "Açaí").
         function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
 
+        // Acordeão: abre um card por vez; os demais voltam ao tamanho compacto
+        function toggleCardArea(tr, ev) {
+            if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
+            const abrir = !tr.classList.contains('aberto');
+            document.querySelectorAll('#tabela-area-itens tr.linha-item.aberto').forEach(x => x.classList.remove('aberto'));
+            if (abrir) tr.classList.add('aberto');
+        }
+
         function filtrarTabela(inputId, tabelaId) {
             const termo = normalizarBusca(document.getElementById(inputId).value);
             const linhas = document.querySelectorAll(`#${tabelaId} tr`);
@@ -2261,7 +2269,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                      </div>
                                    </td>`;
 
-                            html.push(`<tr class="linha-item">
+                            html.push(`<tr class="linha-item" onclick="toggleCardArea(this, event)">
                                 <td class="cel-item" data-label="Item"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})" aria-label="Informações do item">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
                                 ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);" data-label="Padrão">${padraoTxt}</td>` : '')}
                                 <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Fds' : 'Fds'}">${viewFardo}</td>
