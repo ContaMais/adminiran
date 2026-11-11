@@ -999,52 +999,59 @@
         // Busca sem diferenciar maiúsculas nem acentos ("acai" encontra "Açaí").
         function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
 
-        // Acordeão: abre um card por vez. Os demais deslizam para o novo lugar (FLIP).
+        // Acordeão: abre um card por vez. O card aberto fica na própria linha, ocupando-a toda;
+        // os vizinhos descem. Abrir = revelação (clip-path) sem esticar o conteúdo; demais cards deslizam.
         function toggleCardArea(tr, ev) {
             if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
             const cont = document.getElementById('tabela-area-itens');
             if (!cont) return;
             const linhas = Array.from(cont.querySelectorAll('tr'));
             const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
+            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
             const abrir = !tr.classList.contains('aberto');
-            cont.querySelectorAll('tr.linha-item.aberto').forEach(x => x.classList.remove('aberto'));
-            if (abrir) tr.classList.add('aberto');
+            cont.querySelectorAll('tr.linha-item.aberto').forEach(x => { x.classList.remove('aberto'); x.style.gridRow = ''; });
+            if (abrir) {
+                // linha do grid onde o card está (medida com todos fechados)
+                const tops = [...new Set(linhas.map(el => Math.round(el.getBoundingClientRect().top)))].sort((x, y) => x - y);
+                const rowIdx = tops.indexOf(Math.round(tr.getBoundingClientRect().top)) + 1;
+                tr.classList.add('aberto');
+                if (rowIdx > 0) tr.style.gridRow = String(rowIdx);
+            }
 
-            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-            const EASE = 'cubic-bezier(.4,0,.2,1)';
+            if (reduz) return;
+            const EASE = 'cubic-bezier(.32,.72,0,1)';
             linhas.forEach(el => {
                 const a = antes.get(el), d = el.getBoundingClientRect();
-                if (reduz || !el.animate || !a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
+                if (!a || !el.animate || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
                 const dx = a.left - d.left, dy = a.top - d.top;
-                const mudouW = Math.abs(a.width - d.width) > 1, mudouH = Math.abs(a.height - d.height) > 1;
-                if (!mudouW && !mudouH) {
-                    // Só muda de lugar: desliza, sem deformar
+                const mudou = Math.abs(a.width - d.width) > 1 || Math.abs(a.height - d.height) > 1;
+
+                if (!mudou) {
                     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: EASE });
+                    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 520, easing: EASE });
                     return;
                 }
-                // Muda de tamanho: primeiro a largura (para o lado), depois a altura. Nunca os dois juntos.
-                const abrindo = d.width > a.width || d.height > a.height;
-                el.style.zIndex = '5';
-                const T = 560;
-                let frames;
-                if (abrindo) {
-                    frames = [
-                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: 0 },
-                        { width: d.width + 'px', height: a.height + 'px', transform: `translate(0px, ${dy}px)`, offset: .45 },
-                        { width: d.width + 'px', height: d.height + 'px', transform: 'translate(0px, 0px)', offset: 1 }
-                    ];
+                if (el === tr && abrir) {
+                    // Revela o card já no tamanho final: primeiro para o lado, depois para baixo
+                    const l = a.left - d.left, r = d.width - (l + a.width), bt = d.height - a.height;
+                    el.style.zIndex = '5';
+                    const an = el.animate([
+                        { clipPath: `inset(0px ${r}px ${bt}px ${l}px round 16px)`, transform: `translateY(${dy}px)` },
+                        { clipPath: `inset(0px 0px ${bt}px 0px round 16px)`, transform: `translateY(${dy}px)`, offset: .4 },
+                        { clipPath: 'inset(0px 0px 0px 0px round 16px)', transform: 'none' }
+                    ], { duration: 560, easing: EASE });
+                    an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
                 } else {
-                    // Fechando: a altura encolhe primeiro, depois a largura
-                    frames = [
-                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: 0 },
-                        { width: a.width + 'px', height: d.height + 'px', transform: `translate(${dx}px, 0px)`, offset: .5 },
-                        { width: d.width + 'px', height: d.height + 'px', transform: 'translate(0px, 0px)', offset: 1 }
-                    ];
+                    // Card que fecha: volta ao tamanho compacto (altura primeiro, depois largura)
+                    el.style.zIndex = '4';
+                    const an = el.animate([
+                        { width: a.width + 'px', height: a.height + 'px', transform: `translate(${dx}px, ${dy}px)` },
+                        { width: a.width + 'px', height: d.height + 'px', transform: `translate(${dx}px, ${dy}px)`, offset: .45 },
+                        { width: d.width + 'px', height: d.height + 'px', transform: 'none' }
+                    ], { duration: 460, easing: EASE });
+                    an.onfinish = an.oncancel = () => { el.style.zIndex = ''; };
                 }
-                const anim = el.animate(frames, { duration: T, easing: EASE });
-                anim.onfinish = anim.oncancel = () => { el.style.zIndex = ''; };
             });
         }
 
