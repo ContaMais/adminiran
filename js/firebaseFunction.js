@@ -2823,7 +2823,7 @@ function toggleItemProduzido() {
         function abrirCadastroProduto() { 
             const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}"> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:var(--muted); font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
             document.getElementById('checks-areas').innerHTML=checksHTML; 
-            document.getElementById('prod-nome').value=""; 
+            document.getElementById('prod-nome').value=""; document.getElementById('prod-codigo').value=""; 
             document.getElementById('prod-preco-custo').value="";
             document.getElementById('prod-metodo-selecionado').value=""; 
             document.getElementById('prod-estoque-minimo').value="0"; 
@@ -2893,8 +2893,10 @@ function toggleItemProduzido() {
                 })).filter(c => c.produtoId && c.quantidade > 0)
                 : null;
 
+            const codigo = (document.getElementById('prod-codigo').value || '').trim();
             db.ref('produtos').push({
                 nome: n,
+                codigo: codigo || null,
                 precoCusto: custoFinal,
                 categorias: catsNovo.length ? [...catsNovo] : null,
                 subgrupo: prodSubNovo || null,
@@ -2911,6 +2913,7 @@ function toggleItemProduzido() {
               .catch(() => showToast("Erro ao cadastrar o produto.", "error"));
 
             document.getElementById('prod-nome').value = "";
+            document.getElementById('prod-codigo').value = "";
             document.getElementById('prod-preco-custo').value = "";
             document.getElementById('prod-ml-garrafa').value = "";
             document.getElementById('prod-preco-garrafa').value = "";
@@ -2932,6 +2935,7 @@ function toggleItemProduzido() {
             if (!p) return;
             document.getElementById('edit-prod-id').value=k; 
             document.getElementById('edit-prod-nome').value=p.nome || ''; 
+            document.getElementById('edit-prod-codigo').value=p.codigo || '';
             document.getElementById('edit-prod-preco-custo').value = precoParaCampo(p.precoCusto);
             document.getElementById('edit-prod-metodo-selecionado').value=p.metodoCompra||""; 
             document.getElementById('edit-prod-estoque-minimo').value=p.estoqueMinimo||0; 
@@ -2993,6 +2997,7 @@ function toggleItemProduzido() {
             const base = `produtos/${id}/`;
             Object.assign(updates, {
                 [base+'nome']: n,
+                [base+'codigo']: (document.getElementById('edit-prod-codigo').value || '').trim() || null,
                 [base+'precoCusto']: p.itemProduzido ? (p.precoCusto || 0) : pCusto,
                 [base+'categorias']: catsEdit.length ? [...catsEdit] : null,
                 [base+'categoria']: null,
