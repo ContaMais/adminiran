@@ -974,3 +974,27 @@ input, select, textarea { font-size: max(16px, 1em); } /* iPhone não dá zoom a
 .sheet-fechar { background: #6b1a1a; }
 
 #tabela-area-itens tr.linha-item td.cel-total div, #tabela-area-itens tr.linha-item td.cel-total span { white-space: nowrap; }
+
+/* ---- Tela da área: janelas escuras, igual aos cards de produto ---- */
+#detalhe-area > .card {
+    background: linear-gradient(160deg, #4a1511, #2e0d0b); border: 1px solid rgba(227,203,166,.28);
+    box-shadow: 0 2px 10px rgba(0,0,0,.25); color: #fbeee3;
+}
+#detalhe-area > .card h2 { color: #fbeee3 !important; }
+#detalhe-area > .card .edit-btn { background: rgba(251,238,227,.12) !important; color: #fbeee3 !important; border-color: rgba(251,238,227,.3) !important; }
+#detalhe-area > .card .btn-submit { background: #8a2a22 !important; border: 1px solid rgba(227,203,166,.45); color: #fbeee3; }
+#area-edit-box > p, #area-edit-box > label { color: #fbeee3 !important; }
+#area-edit-box { border-top: 1px solid rgba(227,203,166,.2); padding-top: 4px; }
+#btn-excluir-area-texto { display: block; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(227,203,166,.2); color: #ff8a80; cursor: pointer; font-size: .85rem; font-weight: 700; }
+#busca-area { background: linear-gradient(160deg, #4a1511, #2e0d0b) !important; color: #fbeee3 !important; border: 1px solid rgba(227,203,166,.28) !important; }
+#busca-area::placeholder { color: #cdb4a0; }
+#tabela-area-itens .titulo-grupo { background: linear-gradient(160deg, #4a1511, #2e0d0b); color: #e3cba6; border: 1px solid rgba(227,203,166,.28) !important; border-radius: 12px; }
+body.contando #tabela-area-itens tr.linha-item { cursor: default; }
+/* Botão de salvar contagem: destacado, com sombra, um pouco acima da barra inferior */
+#btn-salvar-contagem-geral {
+    background: linear-gradient(135deg, #fbeee3, #e3cba6) !important; color: #4a0e0e !important;
+    border: 1px solid #fff6ea; border-radius: 16px; min-height: 52px; font-size: 1rem;
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px) * .5) !important; z-index: 90 !important;
+    box-shadow: 0 0 0 4px rgba(227,203,166,.22), 0 14px 30px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.4);
+}
+#btn-salvar-contagem-geral:active { transform: scale(.98); }

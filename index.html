@@ -487,8 +487,8 @@
                         <div id="lista-itens-padrao-area" style="display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto;"></div>
                     </div>
                     <button class="btn-submit" onclick="salvarNovoNomeArea()" style="padding:8px;">Salvar Ajustes</button>
+                    <span id="btn-excluir-area-texto" class="req-dono" onclick="prepararExclusaoArea()">Excluir Área</span>
                 </div>
-                <span id="btn-excluir-area-texto" class="req-dono" style="color:var(--danger); cursor:pointer; font-size:0.75rem; display:block; margin-top:8px;" onclick="prepararExclusaoArea()">Excluir Área</span>
             </div>
 
             <input type="text" id="busca-area" class="search-bar" placeholder="🔍 Pesquisar item nesta área..." onkeyup="filtrarTabela('busca-area', 'tabela-area-itens')">

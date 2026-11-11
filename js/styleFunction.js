@@ -425,7 +425,6 @@ function ativarModoContagem() {
     document.getElementById('btn-modo-contagem').style.display = 'none';
     document.getElementById('btn-cancelar-contagem').style.display = 'block';
     document.getElementById('btn-salvar-contagem-geral').style.display = 'block';
-    document.getElementById('btn-excluir-area-texto').style.display = 'none';
     const btnTr = document.getElementById('btn-transferir-area');
     if (btnTr) btnTr.style.display = 'none';
     
@@ -443,7 +442,6 @@ function encerrarModoContagem() {
     mostrar('btn-modo-contagem', '');
     mostrar('btn-cancelar-contagem', 'none');
     mostrar('btn-salvar-contagem-geral', 'none');
-    mostrar('btn-excluir-area-texto', '');
     mostrar('btn-transferir-area', '');
 }
 

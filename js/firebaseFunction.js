@@ -1005,6 +1005,7 @@
         // Texto: o título é mantido no layout FINAL durante o movimento e faz crossfade com uma cópia
         // do layout ANTIGO, então ele nunca reflui (2 linhas <-> 1 linha) no meio da animação.
         function toggleCardArea(tr, ev) {
+            if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) return; // no modo de contagem os cards não expandem
             if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
             const cont = document.getElementById('tabela-area-itens');
             if (!cont) return;
