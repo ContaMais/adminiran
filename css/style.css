@@ -1062,3 +1062,21 @@ body:not(.auth-pronto) #sk-inicio { display: block; }
 [role="button"]:focus-visible { outline: 2px solid var(--primary-line, #e3cba6); outline-offset: 2px; }
 
 .min-tag { font-size: .66rem; font-weight: 700; color: #e3cba6; padding-left: 32px; letter-spacing: .02em; }
+
+/* ===================== Barra de rolagem do site ===================== */
+/* Fina, arredondada, na paleta; sobre fundo escuro é areia, sobre painéis claros é vinho. */
+* { --sb-thumb: rgba(227,203,166,.4); --sb-thumb-hover: rgba(227,203,166,.75); }
+.panel, .modal-box, .sheet-box, .dlg-box, .table-container, .config-card-body, #imp-v-sem, #minimo-sem-produto, select, textarea, .main-box {
+    --sb-thumb: rgba(107,26,26,.38); --sb-thumb-hover: rgba(107,26,26,.7);
+}
+@supports selector(::-webkit-scrollbar) {
+    *::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-corner { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; min-height: 40px; transition: background .2s; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: padding-box; }
+    *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
+@supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) transparent; }
+}
