@@ -275,9 +275,22 @@
         const totalSaida = 220 + Math.max(saindo.length - 1, 0) * stgOut;
         anims.push(ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, delay: Math.max(0, totalSaida - 120), fill: 'forwards' }));
 
-        // ENTRADA: blocos da tela nova entram um por vez, subindo e ficando nítidos
-        const entrando = blocosDe(nova);
+        // ENTRADA: blocos da tela nova entram um por vez, subindo e ficando nítidos.
+        // Roda numa microtarefa: quem chamou navegar() costuma preencher a tela logo depois (ex.: Financeiro).
         const inicio = totalSaida * 0.8;
+        transAtual.timer = setTimeout(encerrarTransicao, totalSaida + 900);
+        const meu = transAtual;
+        queueMicrotask(() => {
+            if (transAtual !== meu) return;
+            entradaEmSequencia(nova, inicio, anims);
+            clearTimeout(meu.timer);
+            meu.timer = setTimeout(encerrarTransicao, meu.fim + 80);
+        });
+    }
+
+    // Blocos de uma tela entram um por vez. Devolve (em transAtual.fim) quando termina.
+    function entradaEmSequencia(nova, inicio, anims) {
+        const entrando = blocosDe(nova);
         const stgIn = Math.min(60, 380 / Math.max(entrando.length - 1, 1));
         entrando.forEach((el, i) => {
             const atraso = inicio + i * stgIn;
@@ -286,10 +299,25 @@
                 { duration: 420, delay: atraso, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }));
             el.querySelectorAll('.stat-num').forEach(n => contarNumero(n, atraso + 120));
         });
-        const fimTotal = inicio + Math.max(entrando.length - 1, 0) * stgIn + 420;
-        clearTimeout(transAtual.timer);
-        transAtual.timer = setTimeout(encerrarTransicao, Math.max(totalSaida, fimTotal) + 80);
+        if (transAtual) transAtual.fim = Math.max(inicio + Math.max(entrando.length - 1, 0) * stgIn + 420, 300);
     }
+
+    // Primeira abertura: o painel entra em sequência depois do login/estado de sessão resolvido
+    function entradaInicial() {
+        document.body.classList.add('auth-pronto');
+        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        requestAnimationFrame(() => {
+            const ativa = document.querySelector('.section.active');
+            if (!ativa) return;
+            const anims = [];
+            transAtual = { ghost: null, anims, fim: 0, timer: null };
+            entradaEmSequencia(ativa, 0, anims);
+            transAtual.timer = setTimeout(encerrarTransicao, transAtual.fim + 80);
+        });
+    }
+
+    // Se a sessão demorar demais, não deixa o skeleton para sempre
+    setTimeout(() => { if (!document.body.classList.contains('auth-pronto')) entradaInicial(); }, 5000);
 
     (function envolverNavegar() {
         if (typeof window.navegar !== 'function' || window.navegar.__transicao) return;
@@ -306,7 +334,7 @@
     })();
 
     // ---------- inicialização ----------
-    window.XP = { ok, salvar, hidratar, resetar, limparCache, esqueletoCards, esqueletoLinhas, instalarFila, reenviarPendentes, atualizarPendentes, _fila: { ler: lerFila }, _setUid: u => { uidAtual = u; } };
+    window.XP = { ok, salvar, hidratar, resetar, limparCache, esqueletoCards, esqueletoLinhas, entradaInicial, instalarFila, reenviarPendentes, atualizarPendentes, _fila: { ler: lerFila }, _setUid: u => { uidAtual = u; } };
 
     try {
         if (typeof firebase !== 'undefined' && firebase.database && firebase.database.Reference) instalarFila(firebase.database.Reference.prototype);

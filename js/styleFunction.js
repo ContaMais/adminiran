@@ -10,7 +10,7 @@ window.hideSplash = function() {
         // dura ~1,5 s e só aparece na primeira abertura da sessão (recarregar a página não repete).
         (function iniciarSplash() {
             let jaViu = false;
-            try { jaViu = sessionStorage.getItem('splashVisto') === '1'; sessionStorage.setItem('splashVisto', '1'); } catch (e) {}
+            // A abertura com a logo roda em toda entrada (celular e computador).
             const rodar = () => {
                 if (jaViu) { window.hideSplash(); return; }
                 // 1. Logo aparece (0,5 s) e a sanfona começa logo em seguida

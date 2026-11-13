@@ -1054,3 +1054,10 @@ button[data-travado="1"]::before {
 /* Durante a transição entre telas a animação própria da seção fica desligada */
 body.em-transicao .section.active { animation: none !important; }
 .ghost-transicao { background: transparent; }
+
+/* Início: enquanto a sessão não foi resolvida, mostra skeleton em vez de "faça login" */
+#sk-inicio { display: none; }
+body:not(.auth-pronto) #inicio > :not(#sk-inicio) { display: none !important; }
+body:not(.auth-pronto) #sk-inicio { display: block; }
+#sk-inicio .sk-titulo { display: flex; flex-direction: column; gap: 12px; margin-bottom: 22px; }
+#sk-inicio .dash-row, #sk-inicio .stat-grid { margin-bottom: 16px; }

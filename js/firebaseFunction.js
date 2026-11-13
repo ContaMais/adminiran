@@ -231,6 +231,7 @@
         let listenerEquipeAdmin = null;
 
         auth.onAuthStateChanged((user) => {
+            if (window.XP && !document.body.classList.contains('auth-pronto')) XP.entradaInicial();
             if (perfilUserListener) {
                 db.ref('users/' + perfilUserListener).off('value');
                 perfilUserListener = null;
