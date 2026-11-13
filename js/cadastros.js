@@ -44,6 +44,10 @@ async function executarRecomecarDoZero() {
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
 
+        // O navegador não avisa se o arquivo foi mesmo salvo: só apaga com a confirmação do dono.
+        const salvou = await confirmar('O download do backup terminou e o arquivo está salvo neste aparelho?\n\nSó continue se estiver. Depois disso os dados são apagados.', { titulo: 'Backup salvo?', ok: 'Sim, apagar tudo', cancelar: 'Cancelar', perigo: true });
+        if (!salvou) { status.textContent = 'Cancelado. Nada foi apagado.'; liberar(); return; }
+
         // 2) Apaga tudo numa gravação só
         status.textContent = 'Apagando...';
         const updates = {};
@@ -202,13 +206,14 @@ async function salvarCadastroRapido() {
     const btn = document.getElementById('cr-salvar');
     const liberar = travarBotao(btn, 'Salvando...');
     if (liberar === null) return;
+    const cr = _cr; // este cadastro; se o usuário abrir outro durante a gravação, não mexemos nele
     try {
-        if (_cr.tipo === 'area') {
+        if (cr.tipo === 'area') {
             const nomes = nomesDasLinhas(document.getElementById('cr-nomes').value);
             const r = await criarAreas(nomes);
             if (!r) { liberar(); return; }
-            marcarNovasAreasNoFormulario(nomes);
-        } else if (_cr.tipo === 'metodo') {
+            if (_cr === cr) marcarNovasAreasNoFormulario(nomes);
+        } else if (cr.tipo === 'metodo') {
             const nomes = nomesDasLinhas(document.getElementById('cr-nomes').value);
             if (!nomes.length) { alert('Digite pelo menos um nome.'); liberar(); return; }
             const existentes = new Set(Object.values(metodosCompra).map(m => (m.nome || '').trim().toLowerCase()));
@@ -219,8 +224,8 @@ async function salvarCadastroRapido() {
             if (novos.length) await db.ref().update(updates);
             showToast(`${novos.length} método(s) criado(s)${repetidos ? `, ${repetidos} já existia(m)` : ''}.`, "success");
             // Seleciona no formulário de produto o primeiro criado
-            if (_cr.ctx && novos[0]) document.getElementById(_cr.ctx === 'novo' ? 'prod-metodo-selecionado' : 'edit-prod-metodo-selecionado').value = novos[0];
-        } else if (_cr.tipo === 'categoria') {
+            if (cr.ctx && novos[0]) document.getElementById(cr.ctx === 'novo' ? 'prod-metodo-selecionado' : 'edit-prod-metodo-selecionado').value = novos[0];
+        } else if (cr.tipo === 'categoria') {
             const nome = document.getElementById('cr-cat-nome').value.trim();
             const usaFardo = document.getElementById('cr-cat-fardo').checked;
             const qtd = parseInt(document.getElementById('cr-cat-fardo-qtd').value) || 0;
@@ -232,9 +237,9 @@ async function salvarCadastroRapido() {
             const ref = db.ref('categorias').push();
             await ref.set({ nome, areas: sel, unidadesFardo: usaFardo ? qtd : 1, subgrupos: [], contagemFracionada: document.getElementById('cr-cat-frac').checked });
             showToast("Categoria criada!", "success");
-            if (_cr.ctx) {
+            if (cr.ctx) {
                 // Seleciona a nova categoria no formulário assim que ela chegar do banco
-                const ctx = _cr.ctx;
+                const ctx = cr.ctx;
                 esperarAte(() => categorias[ref.key]).then(ok => {
                     const lista = ctx === 'novo' ? catsNovo : catsEdit;
                     if (ok && !lista.includes(nome)) togglePreset(ref.key, ctx);
@@ -242,7 +247,7 @@ async function salvarCadastroRapido() {
             }
         }
         liberar();
-        fecharCadastroRapido();
+        if (_cr === cr) fecharCadastroRapido();
         agendarRender('cadastros', () => { renderizarCadastros(); renderizarComeceAqui(); renderizarPresets(); renderizarPresetsMetodos(); });
     } catch (e) {
         liberar();
@@ -392,7 +397,9 @@ function planoImportar() {
     const novos = linhas.filter(l => !existentes.has(l.nome.toLowerCase()));
     const catsExist = {};
     Object.keys(categorias).forEach(k => { catsExist[(categorias[k].nome || '').trim().toLowerCase()] = k; });
-    const catsNovas = [...new Set(novos.map(l => l.cat))].filter(c => !catsExist[c.toLowerCase()]);
+    const vistasCat = new Map();
+    novos.forEach(l => { const k = l.cat.toLowerCase(); if (!catsExist[k] && !vistasCat.has(k)) vistasCat.set(k, l.cat); });
+    const catsNovas = [...vistasCat.values()];
     return { linhas, novos, pulados: linhas.length - novos.length, catsExist, catsNovas };
 }
 
@@ -475,6 +482,9 @@ async function restaurarBackup(ev) {
         const liberar = travarBotao(btn, 'Restaurando...');
         if (liberar === null) return;
         try {
+            const cats = dados.categorias || {};
+            const ruins = Object.keys(cats).filter(k => !cats[k] || typeof cats[k].nome !== 'string' || !cats[k].nome.trim());
+            if (ruins.length) { liberar(); status.textContent = 'Backup recusado: ' + ruins.length + ' categoria(s) sem nome válido. Nada foi gravado.'; return; }
             const updates = {};
             nos.forEach(n => Object.keys(dados[n]).forEach(k => { updates[`${n}/${k}`] = dados[n][k]; }));
             await db.ref().update(updates);

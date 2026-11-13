@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AdmiNiran - Gestão Logística</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/png" href="images/favicon.png">
@@ -806,34 +806,8 @@
             
 
 
-            <div id="modalRecomecar" class="modal-overlay" style="z-index: 5000;">
-                <div class="modal-box" style="max-width: 380px; border: 2px solid #ef4444 !important;">
-                    <h3 style="color: #b91c1c; margin-bottom: 10px; font-size:1.15rem;"><i class="ph ph-warning-octagon"></i> Recomeçar do zero</h3>
-                    <p style="font-size: 0.88rem; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; text-align:left;">Isto apaga <strong>todos os cadastros e dados</strong> do sistema. <strong>Não dá para desfazer</strong> (só restaurando o backup).</p>
-                    <label class="form-label" style="text-align:left;">Digite <strong>APAGAR TUDO</strong> para confirmar</label>
-                    <input type="text" id="input-recomecar-frase" autocomplete="off" placeholder="APAGAR TUDO" style="text-align:center; font-weight:700;">
-                    <label class="form-label" style="text-align:left;">Sua senha de acesso</label>
-                    <input type="password" id="input-recomecar-senha" placeholder="Senha" autocomplete="new-password" data-lpignore="true" style="text-align:center;">
-                    <p id="status-recomecar" class="form-dica" style="min-height:1.2em;"></p>
-                    <div style="display: flex; gap: 10px; margin-top:6px;">
-                        <button class="btn-pill" style="flex:1;" onclick="document.getElementById('modalRecomecar').style.display='none'">Cancelar</button>
-                        <button class="btn-pill" id="btn-recomecar-confirmar" style="flex:1; background:#b91c1c; color:#fff; border-color:#b91c1c;" onclick="executarRecomecarDoZero()">Apagar tudo</button>
-                    </div>
-                </div>
-            </div>
-            <div id="modalZerarEstoque" class="modal-overlay" style="z-index: 5000;">
-                <div class="modal-box" style="background:var(--modal-bg); border: 2px solid #ef4444; max-width: 350px;">
-                    <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
-                    <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 15px; line-height: 1.5;">Esta ação é irreversível e vai remover todas as contagens físicas do sistema.<br><br>Para confirmar, digite sua <strong style="color:#ef4444;">SENHA DE ACESSO</strong>:</p>
-                    
-                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" autocomplete="new-password" data-lpignore="true" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
-                    
-                    <div style="display: flex; gap: 10px;">
-                        <button onclick="document.getElementById('modalZerarEstoque').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
-                        <button onclick="validarLimpezaGeral()" style="flex: 1; padding: 10px; border-radius: 8px; background: #ef4444; color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
-                    </div>
-                </div>
-            </div>
+            
+            
 
             <button class="btn-submit" style="background:#5a3a28; margin-top:30px;" onclick="auth.signOut(); navegar('inicio')">Sair da Conta (Logout)</button>
         </section>
@@ -1168,5 +1142,35 @@
     <script src="js/painel.js"></script>
     <script src="js/cadastros.js"></script>
     <script src="js/experiencia.js"></script>
+
+    <!-- Modais fora das seções animadas: o position:fixed usa a janela, não a seção -->
+    <div id="modalRecomecar" class="modal-overlay" style="z-index: 5000;">
+                <div class="modal-box" style="max-width: 380px; border: 2px solid #ef4444 !important;">
+                    <h3 style="color: #b91c1c; margin-bottom: 10px; font-size:1.15rem;"><i class="ph ph-warning-octagon"></i> Recomeçar do zero</h3>
+                    <p style="font-size: 0.88rem; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; text-align:left;">Isto apaga <strong>todos os cadastros e dados</strong> do sistema. <strong>Não dá para desfazer</strong> (só restaurando o backup).</p>
+                    <label class="form-label" style="text-align:left;">Digite <strong>APAGAR TUDO</strong> para confirmar</label>
+                    <input type="text" id="input-recomecar-frase" autocomplete="off" placeholder="APAGAR TUDO" style="text-align:center; font-weight:700;">
+                    <label class="form-label" style="text-align:left;">Sua senha de acesso</label>
+                    <input type="password" id="input-recomecar-senha" placeholder="Senha" autocomplete="new-password" data-lpignore="true" style="text-align:center;">
+                    <p id="status-recomecar" class="form-dica" style="min-height:1.2em;"></p>
+                    <div style="display: flex; gap: 10px; margin-top:6px;">
+                        <button class="btn-pill" style="flex:1;" onclick="document.getElementById('modalRecomecar').style.display='none'">Cancelar</button>
+                        <button class="btn-pill" id="btn-recomecar-confirmar" style="flex:1; background:#b91c1c; color:#fff; border-color:#b91c1c;" onclick="executarRecomecarDoZero()">Apagar tudo</button>
+                    </div>
+                </div>
+            </div>
+    <div id="modalZerarEstoque" class="modal-overlay" style="z-index: 5000;">
+                <div class="modal-box" style="background:var(--modal-bg); border: 2px solid #ef4444; max-width: 350px;">
+                    <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 15px; line-height: 1.5;">Esta ação é irreversível e vai remover todas as contagens físicas do sistema.<br><br>Para confirmar, digite sua <strong style="color:#ef4444;">SENHA DE ACESSO</strong>:</p>
+                    
+                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" autocomplete="new-password" data-lpignore="true" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="document.getElementById('modalZerarEstoque').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
+                        <button onclick="validarLimpezaGeral()" style="flex: 1; padding: 10px; border-radius: 8px; background: #ef4444; color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
+                    </div>
+                </div>
+            </div>
 </body>
 </html>
