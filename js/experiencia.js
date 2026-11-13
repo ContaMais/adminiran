@@ -187,6 +187,124 @@
         return enviados;
     }
 
+    // ---------- 5) Transição entre telas: blocos saem um a um, os novos entram um a um ----------
+    const BLOCO_UNICO = '.card, .card-nav, .stat-card, .product-card, .linha-item, .page-head, .btn-pill, .segmented, table, .table-container, .search-bar, input, form, .form-card, .stepper, .passo, button';
+    const MAX_BLOCOS = 12;
+    let transAtual = null;
+
+    function ehContainer(el) {
+        if (el.matches(BLOCO_UNICO)) return false;
+        const filhos = Array.from(el.children).filter(c => c.getBoundingClientRect().height > 0);
+        if (filhos.length >= 3) return true;
+        return filhos.length === 1 && el.tagName === 'DIV' && !el.className;
+    }
+
+    // Lista os blocos visíveis (um "bloco" = um card, um item de lista, um título...)
+    function blocosDe(raiz) {
+        const out = [];
+        const vh = window.innerHeight;
+        (function coletar(el, prof) {
+            Array.from(el.children).forEach(c => {
+                const cs = getComputedStyle(c);
+                if (cs.display === 'none' || cs.position === 'fixed' || cs.position === 'sticky') return;
+                const r = c.getBoundingClientRect();
+                if (r.height < 1 || r.width < 1) return;
+                if (prof < 3 && ehContainer(c)) { coletar(c, prof + 1); return; }
+                if (r.top < vh && r.bottom > 0) out.push(c);
+            });
+        })(raiz, 0);
+        // ordem de leitura: de cima para baixo, esquerda para direita
+        out.sort((a, b) => { const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect(); return (Math.round(ra.top / 24) - Math.round(rb.top / 24)) || (ra.left - rb.left); });
+        return out.slice(0, MAX_BLOCOS);
+    }
+
+    function encerrarTransicao() {
+        if (!transAtual) return;
+        transAtual.anims.forEach(a => { try { a.cancel(); } catch (e) {} });
+        if (transAtual.ghost) transAtual.ghost.remove();
+        clearTimeout(transAtual.timer);
+        document.body.classList.remove('em-transicao');
+        transAtual = null;
+    }
+
+    function contarNumero(el, atraso) {
+        const alvo = parseInt(String(el.textContent).replace(/\D/g, ''), 10);
+        if (!isFinite(alvo) || alvo <= 0 || String(el.textContent).trim() !== String(alvo)) return;
+        el.textContent = '0';
+        const dur = 700;
+        setTimeout(() => {
+            const t0 = performance.now();
+            (function passo(t) {
+                const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+                el.textContent = String(Math.round(alvo * e));
+                if (k < 1) requestAnimationFrame(passo);
+            })(t0);
+        }, atraso);
+    }
+
+    function prepararTransicao(idNovo) {
+        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+        const velha = document.querySelector('.section.active');
+        const nova = document.getElementById(idNovo);
+        if (!velha || !nova || velha === nova || document.hidden) return null;
+        const r = velha.getBoundingClientRect();
+        if (r.height < 20 || r.width < 20) return null;
+        encerrarTransicao();
+        const ghost = velha.cloneNode(true);
+        ghost.classList.add('ghost-transicao');
+        ghost.style.cssText = `position:fixed; left:${r.left}px; top:${r.top}px; width:${r.width}px; height:${Math.max(0, Math.min(r.height, window.innerHeight - r.top))}px; overflow:hidden; margin:0; pointer-events:none; z-index:40; animation:none; display:block;`;
+        document.body.appendChild(ghost);
+        return { ghost };
+    }
+
+    function iniciarTransicao(ctx, idNovo) {
+        const nova = document.getElementById(idNovo);
+        const ghost = ctx.ghost;
+        const anims = [];
+        transAtual = { ghost, anims, timer: setTimeout(encerrarTransicao, 2200) };
+        document.body.classList.add('em-transicao');
+
+        // SAÍDA: blocos da tela antiga somem um por vez (cap ~320 ms no total)
+        const saindo = blocosDe(ghost);
+        const stgOut = Math.min(30, 100 / Math.max(saindo.length - 1, 1));
+        saindo.forEach((el, i) => {
+            anims.push(el.animate(
+                [{ opacity: 1, transform: 'none', filter: 'blur(0px)' }, { opacity: 0, transform: 'translateY(-8px)', filter: 'blur(3px)' }],
+                { duration: 220, delay: i * stgOut, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }));
+        });
+        const totalSaida = 220 + Math.max(saindo.length - 1, 0) * stgOut;
+        anims.push(ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, delay: Math.max(0, totalSaida - 120), fill: 'forwards' }));
+
+        // ENTRADA: blocos da tela nova entram um por vez, subindo e ficando nítidos
+        const entrando = blocosDe(nova);
+        const inicio = totalSaida * 0.8;
+        const stgIn = Math.min(60, 380 / Math.max(entrando.length - 1, 1));
+        entrando.forEach((el, i) => {
+            const atraso = inicio + i * stgIn;
+            anims.push(el.animate(
+                [{ opacity: 0, transform: 'translateY(14px)', filter: 'blur(4px)' }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }],
+                { duration: 420, delay: atraso, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' }));
+            el.querySelectorAll('.stat-num').forEach(n => contarNumero(n, atraso + 120));
+        });
+        const fimTotal = inicio + Math.max(entrando.length - 1, 0) * stgIn + 420;
+        clearTimeout(transAtual.timer);
+        transAtual.timer = setTimeout(encerrarTransicao, Math.max(totalSaida, fimTotal) + 80);
+    }
+
+    (function envolverNavegar() {
+        if (typeof window.navegar !== 'function' || window.navegar.__transicao) return;
+        const original = window.navegar;
+        const envolvida = function () {
+            let ctx = null;
+            try { ctx = prepararTransicao(arguments[0]); } catch (e) { console.error('Transição:', e); }
+            const r = original.apply(this, arguments);
+            if (ctx) { try { iniciarTransicao(ctx, arguments[0]); } catch (e) { console.error('Transição:', e); encerrarTransicao(); } }
+            return r;
+        };
+        envolvida.__transicao = true;
+        window.navegar = envolvida;
+    })();
+
     // ---------- inicialização ----------
     window.XP = { ok, salvar, hidratar, resetar, limparCache, esqueletoCards, esqueletoLinhas, instalarFila, reenviarPendentes, atualizarPendentes, _fila: { ler: lerFila }, _setUid: u => { uidAtual = u; } };
 

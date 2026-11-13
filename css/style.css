@@ -207,7 +207,7 @@ main {
 
 /* Seções (telas) */
 .section { display: none; }
-.section.active { display: block; animation: aparecer .22s ease-out; }
+.section.active { display: block; }
 @keyframes aparecer { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .section.active { animation: none; } }
 
@@ -1050,3 +1050,7 @@ button[data-travado="1"]::before {
     @supports (height: 100dvh) { main { min-height: 100dvh; } }
     main > .panel { min-height: 0; flex: 1 0 auto; }
 }
+
+/* Durante a transição entre telas a animação própria da seção fica desligada */
+body.em-transicao .section.active { animation: none !important; }
+.ghost-transicao { background: transparent; }
