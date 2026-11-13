@@ -289,7 +289,6 @@
     }
 
     function prepararTransicao(idNovo) {
-        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
         const velha = document.querySelector('.section.active');
         const nova = document.getElementById(idNovo);
         if (!velha || !nova || velha === nova || document.hidden) return null;
@@ -351,7 +350,6 @@
     // Primeira abertura: o painel entra em sequência depois do login/estado de sessão resolvido
     function entradaInicial() {
         document.body.classList.add('auth-pronto');
-        if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         requestAnimationFrame(() => {
             const ativa = document.querySelector('.section.active');
             if (!ativa) return;

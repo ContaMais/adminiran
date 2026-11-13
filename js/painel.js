@@ -160,7 +160,7 @@ function produtosAbaixoDoMinimo() {
     Object.keys(produtos).forEach(pk => {
         const p = produtos[pk];
         if (!p) return;
-        const m = Number(p.estoqueMinimo || 0);
+        const m = minimoEfetivo(p).valor;
         if (m <= 0) return;
         const frac = produtoUsaContagemFracionada(p);
         const t = getTamFardoProduto(p);

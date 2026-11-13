@@ -1023,7 +1023,7 @@
             const cont = document.getElementById('tabela-area-itens');
             if (!cont) return;
             const linhas = Array.from(cont.querySelectorAll('tr'));
-            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const reduz = false; // as animações do app valem mesmo com "reduzir movimento" ligado no sistema (no Windows ele vem ligado em muitos PCs)
 
             // 1) FIRST: posição atual (inclui animação em andamento, para não dar salto ao interromper)
             const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
@@ -1305,6 +1305,7 @@
             _listenerReservas = null; reservasDesde = '';
             _listenerMapa = null; _mapaEscutandoData = ''; _mapaCarregadoData = '';
             _listenerTimeline = null; timelineCarregada = false;
+            if (typeof pararListenersVendas === 'function') pararListenersVendas();
             if (typeof pararListenersCardapio === 'function') pararListenersCardapio();
             if (!listenersFirebaseAtivos) return;
             listenersFirebaseAtivos = false;
@@ -1395,6 +1396,7 @@
             });
 
             garantirReservasDesde(inicioPadraoReservas());
+            if (typeof iniciarListenersVendas === 'function') iniciarListenersVendas();
 
             escutar(db.ref('receitas'), 'receitas', s => {
                 receitasDB = s.val() || {};
@@ -2363,7 +2365,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                                    </td>`;
 
                             html.push(`<tr class="linha-item" onclick="toggleCardArea(this, event)">
-                                <td class="cel-item" data-label="Item"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})" aria-label="Informações do item">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
+                                <td class="cel-item" data-label="Item"><div style="display:flex; flex-direction:column; align-items:flex-start !important; gap:2px;"><div style="display:flex; align-items:center; gap:8px; width:100%;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})" aria-label="Informações do item">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div>${(() => { const mm = minimoEfetivo(p); return mm.valor > 0 ? `<small class="min-tag">mín. ${mm.valor}${mm.emFardos ? ' Fds' : ''}</small>` : ''; })()}</div></td>
                                 ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);" data-label="Padrão">${padraoTxt}</td>` : '')}
                                 <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Fds' : 'Fds'}">${viewFardo}</td>
                                 <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Un.' : 'Un.'}">${viewUnidade}</td>
@@ -2448,7 +2450,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                         <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:var(--muted);">${pC.length>0?esc(pC.join(', ')):'Nenhuma'}</span></div>
                         <div><strong style="color:var(--primary);">Método:</strong> <span style="color:var(--muted);">${esc(p.metodoCompra||"Não atribuído")}</span></div>
                         <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:var(--muted);">${esc(p.subgrupo||"Nenhum")}</span></div>
-                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(p.estoqueMinimo||0)} ${t>1 && !fracP?'Fardos':'Unidades'}</span></div>
+                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(minimoEfetivo(p).valor)} ${t>1 && !fracP?'Fardos':'Unidades'}</span>${minimoEfetivo(p).origem==='vendas' ? `<br><small style="color:var(--muted)">${esc(textoMinimo(p))}</small>` : ''}</div>
                         ${boxFardosGeral}
                     </div>`; 
             } catch(e) { console.error('Erro ao abrir produto:', e); }
@@ -2526,7 +2528,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const pend = (p.estoque && p.estoque['_Pendente_']) || { f: 0, u: 0 };
                     const totalUn = getUnidadesTotaisEstoque(p) + parseQtdValor(pend.f, frac) * t + parseQtdValor(pend.u, frac);
                     const fAt = emFardos ? totalUn / t : totalUn;
-                    const m = Number(p.estoqueMinimo||0);
+                    const m = minimoEfetivo(p).valor;
                     const sg = Math.ceil(Math.max(0, Math.round((m - fAt) * 1000) / 1000));
                     const lb = emFardos ? 'Fds.' : 'Un.';
                     const atualTxt = Number.isInteger(fAt) ? fAt : fAt.toFixed(1).replace('.', ',');
@@ -3847,6 +3849,7 @@ function calcularCustoComposicao() {
                 ? (p.precoCusto ? moeda(p.precoCusto) : '—')
                 : 'Restrito';
             document.getElementById('info-codigo').innerText = p.codigo || '—';
+            { const mm = minimoEfetivo(p), tf = getTamFardoProduto(p), fr = produtoUsaContagemFracionada(p); document.getElementById('info-minimo').innerText = mm.valor > 0 ? `${mm.valor} ${tf > 1 && !fr ? 'Fds' : 'Un.'}` + (mm.origem === 'vendas' ? ` · ${textoMinimo(p)}` : '') : '—'; }
 
             const containerLista = document.getElementById('lista-locais-item');
             let totalGeralUnidades = 0;
