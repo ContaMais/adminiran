@@ -555,7 +555,7 @@ body.role-visualizador .qty-input { pointer-events: none; }
 #valor-total-estoque { background: linear-gradient(135deg, #2b1612, #3a3a40) !important; color: #fff; border-radius: var(--radius); }
 
 /* Sem login: o painel mostra só o aviso e a saudação */
-body:not(.logado) #inicio .dash-row, body:not(.logado) #inicio .stat-grid, body:not(.logado) #inicio .page-actions { display: none; }
+body:not(.logado) #inicio > .dash-row, body:not(.logado) #inicio > .stat-grid, body:not(.logado) #inicio > .page-head .page-actions { display: none; }
 
 /* ---------------- Utilitários ---------------- */
 .only-mobile { display: none !important; }
@@ -1000,18 +1000,27 @@ body.contando #tabela-area-itens tr.linha-item { cursor: default; }
 #btn-salvar-contagem-geral:active { transform: scale(.98); }
 
 /* ===================== Experiência de app: skeletons, toque, atualizando ===================== */
-@keyframes skBrilho { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.sk-card, tr.sk-tr {
-    border-radius: 16px; border: 1px solid var(--line-strong);
-    background: linear-gradient(100deg, rgba(74,21,17,.92) 30%, rgba(122,40,32,.9) 50%, rgba(74,21,17,.92) 70%);
-    background-size: 300% 100%; animation: skBrilho 1.6s linear infinite;
+@keyframes skVarre { 0% { transform: translateX(-100%); } 65%, 100% { transform: translateX(100%); } }
+.sk {
+    position: relative; overflow: hidden; display: block; flex-shrink: 0;
+    border-radius: 999px; background: var(--sk-base, rgba(43,22,18,.09));
 }
-.sk-card { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 18px; }
-.sk-linha { height: 12px; border-radius: 999px; background: rgba(251,238,227,.16); }
-.sk-l1 { width: 62%; } .sk-l2 { width: 38%; }
-#tabela-area-itens tr.sk-tr { display: block; height: 150px; }
-#tabela-area-itens tr.sk-tr td { display: none; }
-#grid-areas .sk-card { min-height: 110px; }
+.sk::after {
+    content: ''; position: absolute; inset: 0; will-change: transform;
+    background: linear-gradient(100deg, transparent 15%, var(--sk-brilho, rgba(255,255,255,.42)) 50%, transparent 85%);
+    transform: translateX(-100%);
+    animation: skVarre 2.8s cubic-bezier(.4,0,.3,1) infinite; animation-delay: var(--d, 0s);
+}
+.sk-vivo, .sk-tr { pointer-events: none; cursor: default; }
+.sk-vivo:hover { transform: none; background: var(--surface); box-shadow: var(--shadow-card); }
+.sk-ico { width: 42px; height: 42px; border-radius: 12px; }
+.sk-tit { height: 14px; }
+.sk-anel { width: 150px; height: 150px; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 56%, #000 57%); mask: radial-gradient(circle, transparent 56%, #000 57%); }
+.sk-barras { align-items: flex-end; }
+.sk-barras .sk { flex: 1; border-radius: 8px 8px 4px 4px; }
+.card.sk-vivo:hover { background: var(--surface); }
+/* Card de item é escuro: barras claras */
+#tabela-area-itens tr.sk-tr { --sk-base: rgba(251,238,227,.13); --sk-brilho: rgba(251,238,227,.2); }
 
 /* Toque: afunda ao pressionar e solta um anel ao soltar */
 button, .btn-submit, .btn-pill, .tab-btn, .config-card-header, [onclick] { -webkit-tap-highlight-color: transparent; }
@@ -1038,11 +1047,8 @@ button[data-travado="1"]::before {
 .chip-spin { width: 11px; height: 11px; border: 2px solid #e3cba6; border-right-color: transparent; border-radius: 50%; animation: giraBtn .7s linear infinite; }
 #fila-pendente { display: none; width: 100%; font-weight: 800; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) {
-    .sk-card, tr.sk-tr, .chip-spin, button[data-travado="1"]::before { animation: none; }
+    .sk::after, .chip-spin, button[data-travado="1"]::before { animation: none; }
 }
-#tabela-area-itens tr.sk-tr::before, #tabela-area-itens tr.sk-tr::after { content: ''; display: block; height: 12px; border-radius: 999px; background: rgba(251,238,227,.16); margin-left: 16px; }
-#tabela-area-itens tr.sk-tr::before { width: 58%; margin-top: 24px; }
-#tabela-area-itens tr.sk-tr::after { width: 34%; margin-top: 14px; }
 
 /* Telas curtas não ganham rolagem sobrando: main = altura da tela; o painel preenche o que sobra */
 @media (max-width: 1024px) {
@@ -1059,5 +1065,4 @@ body.em-transicao .section.active { animation: none !important; }
 #sk-inicio { display: none; }
 body:not(.auth-pronto) #inicio > :not(#sk-inicio) { display: none !important; }
 body:not(.auth-pronto) #sk-inicio { display: block; }
-#sk-inicio .sk-titulo { display: flex; flex-direction: column; gap: 12px; margin-bottom: 22px; }
 #sk-inicio .dash-row, #sk-inicio .stat-grid { margin-bottom: 16px; }

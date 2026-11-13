@@ -75,17 +75,21 @@
     }
 
     // ---------- 2) Skeletons ----------
-    function esqueletoCards(n, altura) {
+    const SK_LARGURAS = [58, 44, 66, 50, 62, 40, 54, 48];
+    function esqueletoCards(n) {
         let h = '';
         for (let i = 0; i < (n || 4); i++) {
-            h += `<div class="sk-card" aria-hidden="true" style="height:${altura || 120}px; animation-delay:${i * 90}ms"><div class="sk-linha sk-l1"></div><div class="sk-linha sk-l2"></div></div>`;
+            h += `<div class="card-nav sk-vivo" aria-hidden="true" style="--d:${(i % 4) * 0.18}s"><span class="sk sk-ico"></span><span class="sk sk-tit" style="width:${SK_LARGURAS[i % SK_LARGURAS.length]}%"></span></div>`;
         }
         return h;
     }
 
     function esqueletoLinhas(n) {
         let h = '';
-        for (let i = 0; i < (n || 6); i++) h += `<tr class="sk-tr" aria-hidden="true" style="animation-delay:${i * 90}ms"><td></td></tr>`;
+        const col = '<span class="sk" style="height:10px;width:30px"></span><span class="sk" style="height:38px;width:100%;max-width:100px;border-radius:10px;margin-top:6px"></span>';
+        for (let i = 0; i < (n || 6); i++) {
+            h += `<tr class="linha-item sk-tr" aria-hidden="true" style="--d:${(i % 4) * 0.18}s"><td class="cel-item"><div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%"><span class="sk" style="height:13px;width:${SK_LARGURAS[i % SK_LARGURAS.length] + 20}%"></span><span class="sk" style="height:13px;width:${SK_LARGURAS[(i + 3) % SK_LARGURAS.length] - 10}%"></span></div></td><td>${col}</td><td>${col}</td></tr>`;
+        }
         return h;
     }
 
