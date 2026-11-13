@@ -1,3 +1,22 @@
+// Abertura: o navegador às vezes deixa a página rolada para baixo enquanto o conteúdo carrega.
+// Até o usuário mexer na página (roda, toque, tecla), mantém no topo.
+(function () {
+    if (typeof window.addEventListener !== 'function' || typeof requestAnimationFrame !== 'function') return;
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+    let mexeu = false;
+    const marca = () => { mexeu = true; };
+    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(ev => window.addEventListener(ev, marca, { passive: true, once: true }));
+    const topo = () => {
+        if (mexeu) return;
+        const se = document.scrollingElement || document.documentElement;
+        if (se.scrollTop > 0) { window.scrollTo(0, 0); se.scrollTop = 0; }
+    };
+    window.addEventListener('scroll', topo, { passive: true });
+    window.addEventListener('load', topo);
+    const fim = performance.now() + 6000;
+    const laco = () => { topo(); if (!mexeu && performance.now() < fim) requestAnimationFrame(laco); };
+    requestAnimationFrame(laco);
+})();
 // Experiência de app: cache do último estado, skeletons, feedback de toque e fila offline.
 // Carregado depois de cadastros.js. Compartilha as variáveis globais do firebaseFunction.js.
 (function () {
