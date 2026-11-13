@@ -613,3 +613,22 @@ document.addEventListener('change', (e) => {
         };
     });
 })();
+
+
+// O navegador às vezes preenche o e-mail salvo na barra de busca. Se isso acontecer sem a pessoa digitar, limpa.
+(function () {
+    function limpar() {
+        const el = document.getElementById('busca-global');
+        if (!el || document.activeElement === el) return;
+        if (el.value && /@/.test(el.value) && !el.dataset.digitado) {
+            el.value = '';
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const el = document.getElementById('busca-global');
+        if (el) el.addEventListener('keydown', () => { el.dataset.digitado = '1'; }, true);
+        [0, 300, 900, 2000, 4000].forEach(t => setTimeout(limpar, t));
+        window.addEventListener('pageshow', limpar);
+    });
+})();

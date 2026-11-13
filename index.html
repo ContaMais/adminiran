@@ -39,8 +39,8 @@
             <p id="auth-desc" style="font-size: 0.85rem; color:var(--muted); margin-bottom: 15px;">Acesse o sistema AdmiNiran.</p>
             
             <input type="text" id="auth-nome" placeholder="Seu nome (obrigatório)" autocomplete="name" maxlength="60" style="display: none;">
-            <input type="email" id="auth-email" placeholder="E-mail">
-            <input type="password" id="auth-senha" placeholder="Senha" onkeydown="if(event.key==='Enter') submeterAuth()">
+            <input type="email" id="auth-email" name="email" placeholder="E-mail" autocomplete="username" autocapitalize="off" spellcheck="false">
+            <input type="password" id="auth-senha" name="senha" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') submeterAuth()">
             
             <button class="btn-submit" onclick="submeterAuth()" id="btn-submit-auth">Entrar</button>
             <button onclick="fecharModalAuth()" style="width: 100%; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; margin-top:10px;">Cancelar</button>
@@ -179,7 +179,7 @@
         <div class="search-global">
             <button type="button" class="icon-btn busca-toggle" onclick="abrirBuscaMobile()" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
             <i class="ph ph-magnifying-glass busca-ico"></i>
-            <input type="text" id="busca-global" placeholder="Buscar produtos, áreas, receitas, reservas..." autocomplete="off" oninput="buscarGlobal()" onfocus="buscarGlobal()" onkeydown="teclaBuscaGlobal(event)">
+            <input type="text" id="busca-global" name="busca-global-sem-preenchimento" placeholder="Buscar produtos, áreas, receitas, reservas..." autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" oninput="buscarGlobal()" onfocus="buscarGlobal()" onkeydown="teclaBuscaGlobal(event)">
             <kbd>/</kbd>
             <button type="button" class="busca-fechar" onclick="fecharBuscaMobile()" aria-label="Fechar busca"><i class="ph ph-x"></i></button>
             <div id="busca-global-resultados" class="search-results"></div>
@@ -815,7 +815,7 @@
                     <label class="form-label" style="text-align:left;">Digite <strong>APAGAR TUDO</strong> para confirmar</label>
                     <input type="text" id="input-recomecar-frase" autocomplete="off" placeholder="APAGAR TUDO" style="text-align:center; font-weight:700;">
                     <label class="form-label" style="text-align:left;">Sua senha de acesso</label>
-                    <input type="password" id="input-recomecar-senha" placeholder="Senha" style="text-align:center;">
+                    <input type="password" id="input-recomecar-senha" placeholder="Senha" autocomplete="new-password" data-lpignore="true" style="text-align:center;">
                     <p id="status-recomecar" class="form-dica" style="min-height:1.2em;"></p>
                     <div style="display: flex; gap: 10px; margin-top:6px;">
                         <button class="btn-pill" style="flex:1;" onclick="document.getElementById('modalRecomecar').style.display='none'">Cancelar</button>
@@ -828,7 +828,7 @@
                     <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
                     <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 15px; line-height: 1.5;">Esta ação é irreversível e vai remover todas as contagens físicas do sistema.<br><br>Para confirmar, digite sua <strong style="color:#ef4444;">SENHA DE ACESSO</strong>:</p>
                     
-                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
+                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" autocomplete="new-password" data-lpignore="true" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
                     
                     <div style="display: flex; gap: 10px;">
                         <button onclick="document.getElementById('modalZerarEstoque').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
