@@ -481,9 +481,10 @@ window.alert = function (msg) { avisar(msg); };
 document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
-// Sem "elástico" no topo: no começo da página, puxar para baixo não faz nada (nem rola para cima).
+// Elástico sutil nas pontas: ao puxar além do topo ou do fim, a tela cede poucos pixels e volta.
 (function () {
-    let y0 = 0, interno = false;
+    const MAX = 10, RESIST = 0.2;
+    let y0 = 0, ancora = null, dir = 0, interno = false, off = 0, alvo = null;
     function rolavel(el) {
         for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
             const oy = getComputedStyle(el).overflowY;
@@ -491,13 +492,47 @@ document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, 
         }
         return null;
     }
-    document.addEventListener('touchstart', e => { if (e.touches.length === 1) { y0 = e.touches[0].clientY; const r = rolavel(e.target); interno = !!r && r.scrollTop > 0; } }, { passive: true });
+    const topoAtingido = () => (window.scrollY || document.documentElement.scrollTop) <= 0;
+    const fimAtingido = () => {
+        const se = document.documentElement;
+        return Math.ceil((window.scrollY || se.scrollTop) + window.innerHeight) >= se.scrollHeight - 1;
+    };
+    function aplicar(px) {
+        off = px;
+        if (!alvo) alvo = document.querySelector('main');
+        if (!alvo) return;
+        alvo.style.transition = 'none';
+        alvo.style.transform = px ? `translate3d(0, ${px}px, 0)` : '';
+    }
+    function soltar() {
+        if (alvo && off !== 0) {
+            alvo.style.transition = 'transform .38s cubic-bezier(.2, .9, .3, 1)';
+            alvo.style.transform = '';
+            const a = alvo; setTimeout(() => { if (off === 0) a.style.transition = ''; }, 420);
+        }
+        off = 0; ancora = null; dir = 0;
+    }
+    document.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        y0 = e.touches[0].clientY; ancora = null; dir = 0;
+        const r = rolavel(e.target); interno = !!r;
+    }, { passive: true });
     document.addEventListener('touchmove', e => {
         if (e.touches.length !== 1 || interno || !e.cancelable) return;
-        const r = rolavel(e.target);
-        if (r && r.scrollTop > 0) return;
-        if (e.touches[0].clientY > y0 && (window.scrollY || document.documentElement.scrollTop) <= 0) e.preventDefault();
+        const y = e.touches[0].clientY, d = y - y0;
+        if (ancora === null) {
+            if (d > 0 && topoAtingido()) { ancora = y; dir = 1; }
+            else if (d < 0 && fimAtingido()) { ancora = y; dir = -1; }
+            else { y0 = y; return; }
+            e.preventDefault(); // o 1º movimento precisa ser cancelado, senão o navegador trava o resto
+        }
+        const delta = (y - ancora) * dir;
+        if (delta < 0) { aplicar(0); ancora = null; y0 = y; return; }
+        if (delta === 0) { e.preventDefault(); return; }
+        e.preventDefault();
+        aplicar(dir * Math.min(MAX, delta * RESIST));
     }, { passive: false });
+    ['touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, soltar, { passive: true }));
 })();
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();

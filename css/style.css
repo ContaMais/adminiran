@@ -1047,3 +1047,10 @@ button[data-travado="1"]::before {
 #tabela-area-itens tr.sk-tr::before, #tabela-area-itens tr.sk-tr::after { content: ''; display: block; height: 12px; border-radius: 999px; background: rgba(251,238,227,.16); margin-left: 16px; }
 #tabela-area-itens tr.sk-tr::before { width: 58%; margin-top: 24px; }
 #tabela-area-itens tr.sk-tr::after { width: 34%; margin-top: 14px; }
+
+/* Telas curtas não ganham rolagem sobrando: main = altura da tela; o painel preenche o que sobra */
+@media (max-width: 1024px) {
+    main { min-height: 100vh; display: flex; flex-direction: column; }
+    @supports (height: 100dvh) { main { min-height: 100dvh; } }
+    main > .panel { min-height: 0; flex: 1 0 auto; }
+}
