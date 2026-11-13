@@ -2,6 +2,7 @@
 // Planilha importada uma vez (período informado) vira a base de venda média semanal.
 // Mínimo = média semanal × (1 + (margem base + acréscimo por pessoa × pessoas reservadas na semana) / 100).
 let vendasBase = null;                      // { de, ate, importadoEm, arquivo, itens: { codigo: { nome, qtd, valor } } }
+let ligacoesVendas = {};                    // { codigoDaVenda: chaveDoProduto } ligações feitas à mão
 let cfgMinimo = { margemBase: 20, porPessoa: 0.025 };
 let _importVendas = null;                   // importação em andamento (pré-visualização)
 
@@ -148,10 +149,42 @@ function _semanasDaBase() {
     return dias > 0 ? dias / 7 : 0;
 }
 
-function _itemDeVendas(p) {
-    if (!vendasBase || !vendasBase.itens || !p || p.codigo === undefined || p.codigo === '') return null;
-    return vendasBase.itens[_codigoNorm(p.codigo)] || null;
+function _nomeNorm(n) {
+    return String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
+
+// Ligação venda → produto: 1) ligação feita à mão, 2) mesmo código, 3) mesmo nome (ignorando acento e maiúscula).
+let _idxCache = { base: null, prods: null, lig: null, mapa: null };
+function _indiceVendas() {
+    if (_idxCache.base === vendasBase && _idxCache.prods === produtos && _idxCache.lig === ligacoesVendas && _idxCache.mapa) return _idxCache.mapa;
+    const mapa = new Map(), motivos = {};
+    if (vendasBase && vendasBase.itens) {
+        const porCodigo = {}, porNome = {};
+        Object.keys(produtos).forEach(pk => {
+            const p = produtos[pk]; if (!p) return;
+            if (p.codigo !== undefined && p.codigo !== '') porCodigo[_codigoNorm(p.codigo)] = pk;
+            const nn = _nomeNorm(p.nome); if (nn) porNome[nn] = porNome[nn] === undefined ? pk : null;   // nome repetido: não adivinha
+        });
+        Object.keys(vendasBase.itens).forEach(cod => {
+            const it = vendasBase.itens[cod];
+            let pk = null, como = '';
+            if (ligacoesVendas[cod] && produtos[ligacoesVendas[cod]]) { pk = ligacoesVendas[cod]; como = 'manual'; }
+            else if (porCodigo[cod]) { pk = porCodigo[cod]; como = 'código'; }
+            else if (porNome[_nomeNorm(it.nome)]) { pk = porNome[_nomeNorm(it.nome)]; como = 'nome'; }
+            if (pk) {
+                const p = produtos[pk];
+                const ant = mapa.get(p);
+                mapa.set(p, ant ? { nome: ant.nome, qtd: ant.qtd + it.qtd, valor: ant.valor + it.valor } : it);   // dois códigos no mesmo produto somam
+                motivos[cod] = { pk, como };
+            }
+        });
+    }
+    mapa.motivos = motivos;
+    _idxCache = { base: vendasBase, prods: produtos, lig: ligacoesVendas, mapa };
+    return mapa;
+}
+
+function _itemDeVendas(p) { return p ? (_indiceVendas().get(p) || null) : null; }
 
 // Mínimo do produto na mesma unidade do estoque dele (fardos quando há fardo, senão unidades).
 // Sem venda importada para o produto, vale o mínimo digitado no cadastro.
@@ -181,6 +214,10 @@ function iniciarListenersVendas() {
         vendasBase = s.val() || null;
         agendarRender('vendas', _atualizarTelasVendas);
     });
+    escutar(db.ref('vendas_ligacoes'), 'ligações de vendas', s => {
+        ligacoesVendas = s.val() || {};
+        agendarRender('vendas', _atualizarTelasVendas);
+    });
     escutar(db.ref('config/estoqueMinimo'), 'config mínimo', s => {
         const v = s.val() || {};
         cfgMinimo = { margemBase: v.margemBase !== undefined ? Number(v.margemBase) : 20, porPessoa: v.porPessoa !== undefined ? Number(v.porPessoa) : 0.025 };
@@ -190,6 +227,7 @@ function iniciarListenersVendas() {
 
 function pararListenersVendas() {
     vendasBase = null;
+    ligacoesVendas = {};
     cfgMinimo = { margemBase: 20, porPessoa: 0.025 };
 }
 
@@ -218,6 +256,7 @@ function renderizarCardMinimo() {
     const n = Object.keys(vendasBase.itens || {}).length;
     const f = iso => iso.split('-').reverse().join('/');
     box.textContent = `Período: ${f(vendasBase.de)} a ${f(vendasBase.ate)} (${Math.round(_semanasDaBase() * 10) / 10} semanas) · ${n} produtos · importada em ${dt}`;
+    renderizarVendasSemProduto();
     const linhas = [];
     Object.keys(produtos).forEach(pk => {
         const p = produtos[pk]; const r = minimoEfetivo(p);
@@ -257,10 +296,12 @@ async function escolherPlanilhaVendas(input) {
 }
 
 function _casamento(itens) {
-    const porCodigo = {};
-    Object.keys(produtos).forEach(pk => { const p = produtos[pk]; if (p && p.codigo !== undefined && p.codigo !== '') porCodigo[_codigoNorm(p.codigo)] = p; });
+    const baseAnt = vendasBase;
+    vendasBase = { de: '2000-01-01', ate: '2000-01-07', itens };   // usa a mesma regra de ligação, sem gravar
+    let motivos;
+    try { motivos = _indiceVendas().motivos; } finally { vendasBase = baseAnt; _idxCache.base = null; }
     const ligados = [], sem = [];
-    Object.keys(itens).forEach(c => (porCodigo[c] ? ligados : sem).push({ codigo: c, ...itens[c] }));
+    Object.keys(itens).forEach(c => (motivos[c] ? ligados : sem).push({ codigo: c, ...itens[c] }));
     return { ligados, sem };
 }
 
@@ -268,7 +309,7 @@ function abrirImportVendas() {
     const { ligados, sem } = _casamento(_importVendas.itens);
     document.getElementById('imp-v-arquivo').textContent = _importVendas.arquivo;
     document.getElementById('imp-v-resumo').textContent = `${Object.keys(_importVendas.itens).length} produtos na planilha: ${ligados.length} ligados a produtos cadastrados, ${sem.length} sem produto com esse código.`;
-    document.getElementById('imp-v-sem').innerHTML = sem.length ? '<strong>Sem cadastro (ficam guardados, mas não geram mínimo):</strong><br>' + sem.map(s => esc(s.codigo + ' · ' + s.nome)).join('<br>') : '';
+    document.getElementById('imp-v-sem').innerHTML = sem.length ? '<strong>Sem produto correspondente (você poderá ligar à mão depois):</strong><br>' + sem.map(s => esc(s.codigo + ' · ' + s.nome)).join('<br>') : '';
     document.getElementById('imp-v-de').value = vendasBase ? vendasBase.de : '';
     document.getElementById('imp-v-ate').value = vendasBase ? vendasBase.ate : '';
     document.getElementById('imp-v-aviso').textContent = vendasBase ? 'Já existe uma planilha importada: esta vai substituir a anterior.' : '';
@@ -294,4 +335,48 @@ function confirmarImportVendas() {
         console.error(e);
         showToast('Não foi possível salvar. Confira a internet e se você é o dono.', 'error');
     });
+}
+
+
+// ---------- Vendas que não acharam produto: ligação à mão ----------
+function _sugestao(nome) {
+    const tk = new Set(_nomeNorm(nome).split(' ').filter(Boolean));
+    let melhor = null, nota = 0;
+    Object.keys(produtos).forEach(pk => {
+        const p = produtos[pk]; if (!p) return;
+        const t2 = _nomeNorm(p.nome).split(' ').filter(Boolean);
+        if (!t2.length || !tk.size) return;
+        const comum = t2.filter(t => tk.has(t)).length;
+        const n = comum / Math.max(tk.size, t2.length);
+        if (n > nota) { nota = n; melhor = pk; }
+    });
+    return nota >= 0.5 ? melhor : null;
+}
+
+function renderizarVendasSemProduto() {
+    const box = document.getElementById('minimo-sem-produto');
+    if (!box) return;
+    if (!vendasBase) { box.innerHTML = ''; return; }
+    const motivos = _indiceVendas().motivos;
+    const sem = Object.keys(vendasBase.itens).filter(c => !motivos[c]).sort((a, b) => vendasBase.itens[a].nome.localeCompare(vendasBase.itens[b].nome, 'pt-BR'));
+    const total = Object.keys(vendasBase.itens).length;
+    const resumo = `<p style="font-size:.85rem; margin:10px 0;"><strong>${total - sem.length} de ${total}</strong> itens da planilha estão ligados a um produto.</p>`;
+    if (!sem.length) { box.innerHTML = resumo; return; }
+    const opcoes = Object.keys(produtos).filter(pk => produtos[pk]).sort((a, b) => String(produtos[a].nome).localeCompare(String(produtos[b].nome), 'pt-BR'));
+    box.innerHTML = resumo + `<details open><summary style="cursor:pointer; font-size:.85rem; font-weight:700;">Sem produto (${sem.length}): ligue à mão</summary>` + sem.map(c => {
+        const sug = _sugestao(vendasBase.itens[c].nome);
+        return `<div class="liga-linha" style="display:flex; gap:6px; align-items:center; margin:6px 0; flex-wrap:wrap;">
+            <span style="flex:1 1 150px; font-size:.8rem;">${esc(c)} · ${esc(vendasBase.itens[c].nome)}</span>
+            <select data-cod="${esc(c)}" style="flex:1 1 150px;"><option value="">Escolha o produto…</option>${opcoes.map(pk => `<option value="${esc(pk)}"${pk === sug ? ' selected' : ''}>${esc(produtos[pk].nome)}${produtos[pk].codigo ? ' · ' + esc(produtos[pk].codigo) : ''}</option>`).join('')}</select>
+            <button type="button" class="btn-pill" onclick="ligarVendaProduto(this)">Ligar</button>
+        </div>`;
+    }).join('') + '</details>';
+}
+
+function ligarVendaProduto(btn) {
+    const sel = btn.parentElement.querySelector('select');
+    if (!sel || !sel.value) { showToast('Escolha o produto primeiro.', 'error'); return; }
+    db.ref('vendas_ligacoes/' + sel.dataset.cod).set(sel.value)
+        .then(() => showToast('Ligado.', 'success'))
+        .catch(() => showToast('Não foi possível salvar. Confira a internet e se você é o dono.', 'error'));
 }
