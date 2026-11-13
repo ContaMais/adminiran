@@ -90,15 +90,7 @@
     }
 
     // ---------- 3) Feedback de toque ----------
-    const ALVOS = 'button, .btn-submit, .btn-pill, .tab-btn, .config-card-header, .linha-item, .card-nav, .fab-item, .sub-tab, .stat-card, .chip, .cal-btn, .nav-btn, .link-btn, .btn-back-styled';
-    document.addEventListener('pointerup', ev => {
-        const el = ev.target.closest && ev.target.closest(ALVOS);
-        if (!el || el.disabled || el.matches('input, select, textarea')) return;
-        el.classList.remove('toque');
-        void el.offsetWidth;
-        el.classList.add('toque');
-        setTimeout(() => el.classList.remove('toque'), 420);
-    }, { passive: true });
+
 
     // ---------- 4) Fila offline persistente ----------
     const CHAVE_FILA = 'adminiran_fila';

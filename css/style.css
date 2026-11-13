@@ -1021,11 +1021,7 @@ button:not(:disabled):active, .btn-submit:active, .btn-pill:active, .tab-btn:act
 #tabela-area-itens tr.linha-item:not(.aberto):active {
     transform: scale(.965); filter: brightness(.9); transition: transform .08s ease, filter .08s ease;
 }
-@keyframes toqueAnel {
-    0% { outline: 2px solid rgba(227,203,166,.75); outline-offset: 0; }
-    100% { outline: 2px solid rgba(227,203,166,0); outline-offset: 9px; }
-}
-.toque { animation: toqueAnel .42s ease-out; }
+
 body.contando #tabela-area-itens tr.linha-item:active { transform: none; filter: none; }
 /* Botão aguardando o servidor: roda um indicador, sem parecer travado */
 button[data-travado="1"]::before {
@@ -1042,7 +1038,7 @@ button[data-travado="1"]::before {
 .chip-spin { width: 11px; height: 11px; border: 2px solid #e3cba6; border-right-color: transparent; border-radius: 50%; animation: giraBtn .7s linear infinite; }
 #fila-pendente { display: none; width: 100%; font-weight: 800; margin-top: 2px; }
 @media (prefers-reduced-motion: reduce) {
-    .sk-card, tr.sk-tr, .toque, .chip-spin, button[data-travado="1"]::before { animation: none; }
+    .sk-card, tr.sk-tr, .chip-spin, button[data-travado="1"]::before { animation: none; }
 }
 #tabela-area-itens tr.sk-tr::before, #tabela-area-itens tr.sk-tr::after { content: ''; display: block; height: 12px; border-radius: 999px; background: rgba(251,238,227,.16); margin-left: 16px; }
 #tabela-area-itens tr.sk-tr::before { width: 58%; margin-top: 24px; }

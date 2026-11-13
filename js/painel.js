@@ -282,7 +282,7 @@ function renderizarInicio() {
         const d = dataTxt.charAt(0).toUpperCase() + dataTxt.slice(1);
         elSub.textContent = !currentUser ? `${d} · faça login para ver o painel`
             : atencao ? `${d} · ${atencao} ${atencao === 1 ? 'coisa precisa' : 'coisas precisam'} da sua atenção`
-            : `${d} · tudo em ordem por aqui`;
+            : d;
     }
 
     // ---- Gráfico de reservas (próximos dias) ----
