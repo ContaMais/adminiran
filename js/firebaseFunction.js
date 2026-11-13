@@ -40,6 +40,18 @@
             });
         }
 
+        // Toda guia abre no topo absoluto (sem sobra para rolar "para cima").
+        function irParaOTopo() {
+            const topo = () => {
+                const se = document.scrollingElement || document.documentElement;
+                se.style.scrollBehavior = 'auto';
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                se.scrollTop = 0; document.body.scrollTop = 0;
+            };
+            topo();
+            requestAnimationFrame(() => { topo(); setTimeout(topo, 260); });
+        }
+
         function telaAtiva(id) {
             const el = document.getElementById(id);
             return !!(el && el.classList.contains('active'));
@@ -937,7 +949,7 @@
             if (typeof fecharBuscaMobile === 'function') fecharBuscaMobile();
             if (typeof fecharMenuLateral === 'function') fecharMenuLateral();
             
-            window.scrollTo(0, 0); 
+            irParaOTopo();
             
             // Ao entrar nas Configurações, todos os cards começam retraídos.
             // (Antes um "observador" fechava os cards a cada atualização do banco, inclusive o card

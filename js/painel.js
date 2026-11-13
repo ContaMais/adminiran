@@ -480,6 +480,25 @@ window.alert = function (msg) { avisar(msg); };
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
 document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
 document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+
+// Sem "elástico" no topo: no começo da página, puxar para baixo não faz nada (nem rola para cima).
+(function () {
+    let y0 = 0, interno = false;
+    function rolavel(el) {
+        for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+            const oy = getComputedStyle(el).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+        }
+        return null;
+    }
+    document.addEventListener('touchstart', e => { if (e.touches.length === 1) { y0 = e.touches[0].clientY; const r = rolavel(e.target); interno = !!r && r.scrollTop > 0; } }, { passive: true });
+    document.addEventListener('touchmove', e => {
+        if (e.touches.length !== 1 || interno || !e.cancelable) return;
+        const r = rolavel(e.target);
+        if (r && r.scrollTop > 0) return;
+        if (e.touches[0].clientY > y0 && (window.scrollY || document.documentElement.scrollTop) <= 0) e.preventDefault();
+    }, { passive: false });
+})();
 document.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();
 }, true);
