@@ -1,0 +1,63 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')",
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')",
+        ".write": "auth != null && $uid === auth.uid && ((!data.exists() && (newData.child('role').val() === 'visualizador' || (auth.token.email === 'pedrosoaresctt@gmail.com' && newData.child('role').val() === 'dono'))) || (data.exists() && !newData.child('role').exists()))",
+        "role": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')"
+        }
+      }
+    },
+    "meta": {
+      "usuariosIndex": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')",
+        "$uid": {
+          ".write": "auth != null && ($uid === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')"
+        }
+      }
+    },
+    "areas": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "categorias": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "metodos": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "receitas": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "produtos": {
+      ".read": "auth != null",
+      "$prodId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || root.child('users').child(auth.uid).child('role').val() === 'contribuidor')"
+      }
+    },
+    "cardapio": {
+      ".read": true,
+      ".write": true
+    },
+    "reservas": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || root.child('users').child(auth.uid).child('role').val() === 'contribuidor')"
+    },
+    "mapas": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || root.child('users').child(auth.uid).child('role').val() === 'contribuidor')"
+    },
+    "historico_timeline": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'",
+      "$eventId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || root.child('users').child(auth.uid).child('role').val() === 'contribuidor')",
+        ".validate": "newData.hasChildren(['timestamp', 'tipo'])"
+      }
+    }
+  }
+}
