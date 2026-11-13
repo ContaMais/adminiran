@@ -493,9 +493,11 @@ document.addEventListener('keydown', e => {
     let offline = false;
     function mostrar(off) {
         offline = off;
+        window.__offline = off;
         const el = document.getElementById('aviso-offline');
         if (el) el.style.display = off ? 'flex' : 'none';
         document.body.classList.toggle('offline', off);
+        if (window.XP) XP.atualizarPendentes();
     }
     window.addEventListener('offline', () => mostrar(true));
     window.addEventListener('online', () => mostrar(false));

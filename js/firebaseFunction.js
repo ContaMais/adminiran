@@ -1295,6 +1295,7 @@
             if (typeof pararListenersCardapio === 'function') pararListenersCardapio();
             if (!listenersFirebaseAtivos) return;
             listenersFirebaseAtivos = false;
+            if (window.XP) XP.resetar();
             receitasCarregadas = false;
             areas = [];
             produtos = {};
@@ -1337,6 +1338,7 @@
         function iniciarListenersFirebase() {
             if (listenersFirebaseAtivos || !currentUser) return;
             listenersFirebaseAtivos = true;
+            if (window.XP) XP.hidratar(); // mostra o último estado salvo enquanto o Firebase responde
 
             escutar(db.ref('areas'), 'áreas', s => {
                 const val = s.val();
@@ -1346,16 +1348,19 @@
                     }
                     return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
                 }) : [];
+                if (window.XP) XP.salvar('areas', areas);
                 agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); renderizarAreasConfig(); if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
             }, () => showToast("Sem permissão para ler áreas.", "error"));
 
             escutar(db.ref('produtos'), 'produtos', s => {
                 produtos = s.val() || {};
+                if (window.XP) XP.salvar('produtos', produtos);
                 agendarRender('produtos', atualizarTelasDeProdutos);
             }, () => showToast("Sem permissão para ler produtos.", "error"));
 
             escutar(db.ref('categorias'), 'categorias', s => {
                 categorias = s.val() || {};
+                if (window.XP) XP.salvar('categorias', categorias);
                 reindexarCategorias();
                 agendarRender('categorias', () => {
                     renderizarPresets();
@@ -1366,6 +1371,7 @@
 
             escutar(db.ref('metodos'), 'métodos', s => {
                 metodosCompra = s.val() || {};
+                if (window.XP) XP.salvar('metodos', metodosCompra);
                 agendarRender('metodos', () => {
                     renderizarMetodosConfig();
                     renderizarPresetsMetodos();
@@ -2062,6 +2068,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
         const grid = document.getElementById('grid-areas'); 
         if(!grid) return;
 
+        if (areas.length === 0 && currentUser && window.XP && !XP.ok.areas) { grid.innerHTML = XP.esqueletoCards(4, 110); return; }
         if (areas.length === 0) {
             grid.innerHTML = `<p style="grid-column:1/-1; color:var(--muted); font-size:0.95rem; padding:12px;">${currentUser ? 'Nenhuma área cadastrada ainda.' : 'Faça login para ver as áreas.'}</p>`;
             return;
@@ -2132,6 +2139,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 
                 const dbFonte = isC ? categorias : metodosCompra; 
                 let chavesFonte = Object.keys(dbFonte);
+                if (currentUser && window.XP && !XP.ok[isC ? 'categorias' : 'metodos'] && chavesFonte.length === 0) { g.innerHTML = XP.esqueletoCards(6, 110); return; }
                 
                 if (isC) {
                     chavesFonte.sort((a, b) => {
@@ -2246,6 +2254,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     return vinculado || temEstoqueSalvo;
                 });
 
+                if (prodsArea.length === 0 && window.XP && !XP.ok.produtos) { lista.innerHTML = XP.esqueletoLinhas(6); return; }
                 if (prodsArea.length === 0) {
                     lista.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:var(--muted);">Nenhum item vinculado a esta área. Clique no ícone de lápis (✎) acima para adicionar.</td></tr>`;
                     return;
