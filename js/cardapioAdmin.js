@@ -162,11 +162,17 @@ function moverGrupoCardapio(key, direcao, event) {
 
 // 4. PRODUTOS: CARREGAR FOTO (já reduzida para não pesar no banco)
 // Miniatura: até 400 px. Exibição: até 1080 px.
+let sessaoEditorFoto = 0;           // muda sempre que o editor de produto é aberto
+const selecaoFoto = {};             // última seleção por campo de foto
 function carregarFotoProduto(event, previewId, variavelAlvo) {
     const file = event.target.files[0];
     if (!file) return;
     const ehMini = variavelAlvo === 'fotoBase64Miniatura';
+    const minhaSessao = sessaoEditorFoto;
+    const minhaSelecao = selecaoFoto[variavelAlvo] = (selecaoFoto[variavelAlvo] || 0) + 1;
     comprimirImagem(file, ehMini ? 400 : 1080, ehMini ? 0.82 : 0.8).then(dataUrl => {
+        // Descarta se o editor mudou (outro produto) ou se uma seleção mais nova foi iniciada
+        if (minhaSessao !== sessaoEditorFoto || minhaSelecao !== selecaoFoto[variavelAlvo]) return;
         if (ehMini) fotoBase64Miniatura = dataUrl;
         else fotoBase64Exibicao = dataUrl;
         const preview = document.getElementById(previewId);
@@ -178,6 +184,7 @@ function carregarFotoProduto(event, previewId, variavelAlvo) {
 
 // 4.1 PRODUTOS: ABRIR MODAL (MODO CRIAÇÃO NOVO)
 function abrirModalNovoProduto() {
+    sessaoEditorFoto++;
     produtoAtualEdicao = null;
     fotoBase64Miniatura = "";
     fotoBase64Exibicao = "";
@@ -207,6 +214,7 @@ function editarProdutoCardapio(key, event) {
     const item = cardapioItens[key];
     if(!item) return;
 
+    sessaoEditorFoto++;
     produtoAtualEdicao = key;
     grupoAtualEdicao = item.idGrupo; // Preserva o vínculo de categoria do item
     
@@ -269,6 +277,13 @@ function salvarProdutoCardapio() {
         oculto: document.getElementById('input-prod-oculto').checked ? true : false
     };
 
+    if (produtoAtualEdicao && !cardapioItens[produtoAtualEdicao]) {
+        // Outra pessoa excluiu este produto enquanto ele estava aberto: não recria.
+        alert("Este produto foi excluído por outra pessoa. Nada foi salvo.");
+        document.getElementById('modalNovoProdutoCardapio').style.display = 'none';
+        produtoAtualEdicao = null;
+        return;
+    }
     if (produtoAtualEdicao) {
         db.ref(`cardapio/itens/${produtoAtualEdicao}`).update(dadosProduto).then(() => {
             document.getElementById('modalNovoProdutoCardapio').style.display = 'none';

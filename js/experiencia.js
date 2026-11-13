@@ -38,7 +38,9 @@
         atualizarChip();
         if (!uidAtual) return;
         clearTimeout(timers[nome]);
+        const uidDoValor = uidAtual;
         timers[nome] = setTimeout(() => {
+            if (!uidAtual || uidAtual !== uidDoValor) return; // sessão mudou: não grava dado de outra conta
             try { localStorage.setItem(chaveCache(nome), JSON.stringify(valor)); } catch (e) { /* cota cheia: ignora */ }
         }, 800);
     }
@@ -65,13 +67,17 @@
         atualizarChip();
     }
 
+    function cancelarTimers() { Object.keys(timers).forEach(k => { clearTimeout(timers[k]); delete timers[k]; }); }
+
     function limparCache() {
+        cancelarTimers();
         try {
             Object.keys(localStorage).filter(k => k.indexOf('adminiran_cache_') === 0).forEach(k => localStorage.removeItem(k));
         } catch (e) {}
     }
 
     function resetar() {
+        cancelarTimers();
         Object.keys(ok).forEach(k => { ok[k] = false; });
         document.body.classList.remove('usando-cache');
         atualizarChip();
@@ -133,8 +139,14 @@
         span.style.display = n > 0 ? 'block' : 'none';
     }
 
+    function erroDefinitivo(e) {
+        const t = String((e && (e.code || e.message)) || e || '');
+        return /permission_denied|invalid|validation/i.test(t);
+    }
+
     function estaOffline() { return (typeof navigator !== 'undefined' && navigator.onLine === false) || window.__offline === true; }
 
+    let reenvioAberto = null;
     let avisouOffline = 0;
     function avisarSalvoLocal() {
         const agora = Date.now();
@@ -153,6 +165,8 @@
             originais[op] = Proto[op];
             Proto[op] = function () {
                 const args = Array.prototype.slice.call(arguments);
+                // Há gravações antigas por enviar: as novas esperam, para não serem sobrescritas por valores velhos.
+                if (reenvioAberto && op !== 'push') { const alvo = this; return reenvioAberto.then(() => Proto[op].apply(alvo, args)); }
                 let id = null;
                 const p = originais[op].apply(this, args);
                 try {
@@ -166,7 +180,9 @@
                             f.push({ id, uid: uidAtual, sessao: SESSAO, t: Date.now(), url, op: tipo, v: JSON.parse(JSON.stringify(valor === undefined ? null : valor)) });
                             gravarFila(f);
                             const tirar = () => gravarFila(lerFila().filter(x => x.id !== id));
-                            if (p && typeof p.then === 'function') p.then(tirar, tirar);
+                            // Sucesso confirmado: sai da fila. Falha recuperável (rede): fica para nova tentativa.
+                            // Falha definitiva (permissão): sai da fila, o erro já chega a quem gravou.
+                            if (p && typeof p.then === 'function') p.then(tirar, e => { if (erroDefinitivo(e)) tirar(); });
                         }
                     }
                 } catch (e) { console.error('Fila:', e); }
@@ -191,7 +207,7 @@
         if (validas.length !== todas.length) gravarFila(validas);
         const velhas = validas.filter(x => x.uid === uidAtual && x.sessao !== SESSAO).sort((x, y) => x.t - y.t);
         if (!velhas.length) return 0;
-        let enviados = 0;
+        let enviados = 0, falhou = 0;
         window.__reenviando = true;
         try {
             const Proto = firebase.database.Reference.prototype;
@@ -202,10 +218,17 @@
                     const fn = it.v === null && it.op !== 'update' ? (orig.set || Proto.set) : (orig[it.op] || Proto[it.op]);
                     await fn.call(ref, it.v);
                     enviados++;
-                } catch (e) { console.error('Reenvio falhou:', e); }
-                gravarFila(lerFila().filter(x => x.id !== it.id));
+                    gravarFila(lerFila().filter(x => x.id !== it.id));
+                } catch (e) {
+                    console.error('Reenvio falhou:', e);
+                    if (erroDefinitivo(e)) {
+                        gravarFila(lerFila().filter(x => x.id !== it.id));
+                        falhou++;
+                    }
+                }
             }
         } finally { window.__reenviando = false; }
+        if (falhou && typeof showToast === 'function') showToast(falhou + (falhou === 1 ? ' alteração pendente foi recusada pelo servidor e descartada.' : ' alterações pendentes foram recusadas pelo servidor e descartadas.'), 'error');
         if (enviados && typeof showToast === 'function') showToast(enviados + (enviados === 1 ? ' alteração pendente foi enviada.' : ' alterações pendentes foram enviadas.'), 'success');
         return enviados;
     }
@@ -368,7 +391,11 @@
             uidAtual = user ? user.uid : null;
             if (!user) { resetar(); limparCache(); return; }
             atualizarPendentes();
-            setTimeout(reenviarPendentes, 1500);
+            if (lerFila().some(x => x.uid === uidAtual && x.sessao !== SESSAO)) {
+                reenvioAberto = new Promise(res => setTimeout(() => {
+                    reenviarPendentes().catch(() => {}).then(() => { reenvioAberto = null; res(); });
+                }, 1500));
+            }
         });
     } catch (e) {}
 })();

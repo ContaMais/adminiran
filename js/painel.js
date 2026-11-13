@@ -440,8 +440,12 @@ function _dlgProximo() {
     if (c.confirmar) ov.querySelector('.dlg-cancelar').textContent = c.cancelar;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add('aberto'));
+    let fechado = false;
     const fechar = (valor) => {
+        if (fechado) return;
+        fechado = true;
         document.removeEventListener('keydown', teclas, true);
+        ov.style.pointerEvents = 'none';
         ov.classList.remove('aberto');
         setTimeout(() => ov.remove(), 180);
         item.res(valor);
@@ -450,7 +454,11 @@ function _dlgProximo() {
     };
     const teclas = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(false); }
-        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fechar(true); }
+        else if (e.key === 'Enter') {
+            // Com o foco num botão (ex.: Cancelar), o Enter ativa esse botão.
+            if (e.target && e.target.closest && e.target.closest('.dlg-acoes button')) return;
+            e.preventDefault(); e.stopPropagation(); fechar(true);
+        }
     };
     document.addEventListener('keydown', teclas, true);
     ov.querySelector('.dlg-ok').onclick = () => fechar(true);
@@ -475,11 +483,8 @@ function confirmar(msg, opc = {}) {
 window.alert = function (msg) { avisar(msg); };
 
 // =====================================================================
-// SEM ZOOM E SEM "PUXAR PARA RECARREGAR"
+// SEM "PUXAR PARA RECARREGAR" (o zoom do navegador continua liberado, por acessibilidade)
 // =====================================================================
-['gesturestart', 'gesturechange', 'gestureend'].forEach(ev => document.addEventListener(ev, e => e.preventDefault()));
-document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
-document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 
 // Elástico sutil nas pontas: ao puxar além do topo ou do fim, a tela cede poucos pixels e volta.
 (function () {
@@ -534,9 +539,6 @@ document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, 
     }, { passive: false });
     ['touchend', 'touchcancel'].forEach(ev => document.addEventListener(ev, soltar, { passive: true }));
 })();
-document.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '_', '0'].includes(e.key)) e.preventDefault();
-}, true);
 
 
 // =====================================================================
@@ -630,5 +632,32 @@ document.addEventListener('change', (e) => {
         if (el) el.addEventListener('keydown', () => { el.dataset.digitado = '1'; }, true);
         [0, 300, 900, 2000, 4000].forEach(t => setTimeout(limpar, t));
         window.addEventListener('pageshow', limpar);
+    });
+})();
+
+
+// =====================================================================
+// TECLADO: cards e atalhos clicáveis (div com onclick) viram botões acessíveis
+// =====================================================================
+(function () {
+    const ALVO = '.card-nav[onclick], .stat-card[onclick], .link-btn[onclick], .btn-back-styled[onclick], .grid-home > div[onclick]';
+    function marcar(raiz) {
+        if (!raiz || !raiz.querySelectorAll) return;
+        const lista = raiz.matches && raiz.matches(ALVO) ? [raiz] : [];
+        raiz.querySelectorAll(ALVO).forEach(el => lista.push(el));
+        lista.forEach(el => {
+            if (/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.hasAttribute('tabindex')) return;
+            el.setAttribute('tabindex', '0');
+            el.setAttribute('role', 'button');
+        });
+    }
+    marcar(document);
+    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && marcar(n)))).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const el = e.target;
+        if (!el || el.getAttribute('role') !== 'button' || /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+        e.preventDefault();
+        el.click();
     });
 })();
