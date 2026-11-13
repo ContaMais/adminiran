@@ -1023,7 +1023,7 @@
             const cont = document.getElementById('tabela-area-itens');
             if (!cont) return;
             const linhas = Array.from(cont.querySelectorAll('tr'));
-            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const reduz = false; // as animações do app valem mesmo com "reduzir movimento" ligado no sistema (no Windows ele vem ligado em muitos PCs)
 
             // 1) FIRST: posição atual (inclui animação em andamento, para não dar salto ao interromper)
             const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
