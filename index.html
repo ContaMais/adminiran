@@ -745,6 +745,31 @@
                     <button class="btn-submit" id="btn-salvar-met" onclick="salvarMetodo()">Salvar Método</button>
                 </div>
             </div>
+
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
+                        <strong>📉 Estoque mínimo pelas vendas</strong>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Importe a planilha de vendas do xMenu e ajuste a margem de segurança.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <p style="font-size:.85rem; color:var(--muted); margin-bottom:10px;">Mínimo = venda média por semana + margem. A margem é a base mais um acréscimo por pessoa reservada na semana atual (segunda a domingo).</p>
+                    <label class="form-label" for="cfg-min-base">Margem sem reservas (%)</label>
+                    <input type="text" id="cfg-min-base" inputmode="decimal" placeholder="20" autocomplete="off">
+                    <label class="form-label" for="cfg-min-pessoa" style="margin-top:10px;">Acréscimo por pessoa reservada (%)</label>
+                    <input type="text" id="cfg-min-pessoa" inputmode="decimal" placeholder="0,025" autocomplete="off">
+                    <p id="minimo-previa" style="font-size:.84rem; margin:10px 0;"></p>
+                    <button class="btn-submit" type="button" onclick="salvarCfgMinimo()">Salvar margem</button>
+                    <hr style="margin:16px 0; border:none; border-top:1px solid var(--line);">
+                    <p id="minimo-resumo" style="font-size:.85rem; margin-bottom:10px;"></p>
+                    <input type="file" id="arq-vendas" accept=".xlsx,.csv" style="display:none" onchange="escolherPlanilhaVendas(this)">
+                    <button class="btn-submit" type="button" onclick="document.getElementById('arq-vendas').click()">Importar planilha de vendas (.xlsx ou .csv)</button>
+                    <div id="minimo-tabela" class="table-container" style="margin-top:12px;"></div>
+                </div>
+            </div>
+
             
             <div class="config-card">
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
@@ -1110,6 +1135,7 @@
             <div class="sheet-grid">
                 <div class="sheet-campo"><small>Custo</small><b id="info-custo">—</b></div>
                 <div class="sheet-campo"><small>Código</small><b id="info-codigo">—</b></div>
+                <div class="sheet-campo"><small>Estoque mínimo</small><b id="info-minimo">—</b></div>
                 <div class="sheet-campo" style="grid-column: 1 / -1;"><small>Estoque global</small><b id="total-info-item">0</b></div>
             </div>
             <div class="sheet-secao">Onde é encontrado</div>
@@ -1141,6 +1167,7 @@
     <script src="js/cardapioAdmin.js"></script>
     <script src="js/painel.js"></script>
     <script src="js/cadastros.js"></script>
+    <script src="js/vendas.js"></script>
     <script src="js/experiencia.js"></script>
 
     <!-- Modais fora das seções animadas: o position:fixed usa a janela, não a seção -->
@@ -1172,5 +1199,24 @@
                     </div>
                 </div>
             </div>
+
+    <div id="modalVendasImport" class="modal-overlay" style="z-index: 4500;">
+        <div class="modal-box" style="max-width: 440px; text-align:left;">
+            <h3 style="margin-bottom:6px;">Importar vendas</h3>
+            <p id="imp-v-arquivo" style="font-size:.8rem; color:var(--muted); margin-bottom:8px; word-break:break-all;"></p>
+            <p id="imp-v-resumo" style="font-size:.88rem; margin-bottom:8px;"></p>
+            <div id="imp-v-sem" style="font-size:.78rem; color:var(--muted); max-height:120px; overflow-y:auto; margin-bottom:10px;"></div>
+            <p style="font-size:.85rem; margin-bottom:6px;"><strong>Período que a planilha cobre</strong></p>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="date" id="imp-v-de" aria-label="De" style="flex:1;">
+                <input type="date" id="imp-v-ate" aria-label="Até" style="flex:1;">
+            </div>
+            <p id="imp-v-aviso" style="font-size:.8rem; color:var(--muted); margin-bottom:10px;"></p>
+            <div style="display:flex; gap:8px;">
+                <button class="btn-pill" type="button" style="flex:1;" onclick="fecharImportVendas()">Cancelar</button>
+                <button class="btn-pill dark" type="button" id="imp-v-ok" style="flex:1;" onclick="confirmarImportVendas()">Importar</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
