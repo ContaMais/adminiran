@@ -5,44 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AdmiNiran - Gestão Logística</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="icon" type="image/png" href="logoproj.png">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="apple-touch-icon" href="images/favicon.png">
+    <meta name="theme-color" content="#1a0404">
+    <link rel="preload" as="image" href="images/contamais.webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Ícones: só o peso "regular" (o script antigo baixava os 6 pesos, ~3 MB) -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 </head>
 <body class="role-visualizador">
     <!-- SPLASH SCREEN -->
     <div id="splash-bg">
-        <img src="images/contamais.svg" alt="Logo" class="splash-logo">
+        <img src="images/contamais.webp" alt="Logo" class="splash-logo">
     </div>
     <div id="splash-bands">
-        <div class="band" style="background-color: #FBEEE3;"></div>
-        <div class="band" style="background-color: #9F302C;"></div>
-        <div class="band" style="background-color: #6E0606;"></div>
-        <div class="band" style="background-color: #250902;"></div>
+        <div class="band" style="background-color: #fbeee3;"></div>
+        <div class="band" style="background-color: #d6b78c;"></div>
+        <div class="band" style="background-color: #9b2226;"></div>
+        <div class="band" style="background-color: #4a0e0e;"></div>
     </div>
+    <!-- Fundo do app (gradiente leve, sem imagem) -->
+    <div class="app-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
     <div id="fab-overlay" onclick="toggleFab()"></div>
-
-    <!-- TOPO MOBILE COM LOGO -->
-    <div class="mobile-topbar"><img src="images/contamais.svg" alt="ContaMais Logo" style="height: 50px; width: auto;"></div>
-
-    <!-- BOTÃO TOPO ESQUERDA (ENGRENAGEM OU CARGO) -->
-    <button id="btn-top-role" class="btn-config" onclick="if(currentRole==='dono') abrirConfig()"></button>
+    <div id="drawer-overlay" onclick="fecharMenuLateral()"></div>
     
 
     <!-- MODAL DE AUTENTICAÇÃO -->
     <div id="modalAuth" class="modal-overlay">
         <div class="modal-box">
             <h3 id="auth-title" style="margin-bottom: 10px; color: var(--primary);">👤 Entrar</h3>
-            <p id="auth-desc" style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">Acesse o sistema AdmiNiran.</p>
+            <p id="auth-desc" style="font-size: 0.85rem; color:var(--muted); margin-bottom: 15px;">Acesse o sistema AdmiNiran.</p>
             
-            <input type="text" id="auth-nome" placeholder="Seu Nome Completo" style="display: none;">
-            <input type="email" id="auth-email" placeholder="E-mail">
-            <input type="password" id="auth-senha" placeholder="Senha" onkeydown="if(event.key==='Enter') submeterAuth()">
+            <input type="text" id="auth-nome" placeholder="Seu nome (obrigatório)" autocomplete="name" maxlength="60" style="display: none;">
+            <input type="email" id="auth-email" name="email" placeholder="E-mail" autocomplete="username" autocapitalize="off" spellcheck="false">
+            <input type="password" id="auth-senha" name="senha" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') submeterAuth()">
             
             <button class="btn-submit" onclick="submeterAuth()" id="btn-submit-auth">Entrar</button>
-            <button onclick="fecharModalAuth()" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; margin-top:10px;">Cancelar</button>
+            <button onclick="fecharModalAuth()" style="width: 100%; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; margin-top:10px;">Cancelar</button>
             
             <p style="font-size:0.8rem; margin-top:15px; cursor:pointer; color:var(--primary); font-weight:bold;" onclick="toggleAuthMode()" id="auth-toggle-link">Ainda não tem conta? Cadastre-se</p>
         </div>
@@ -53,8 +54,8 @@
         <div class="modal-box">
             <p id="modalMsg" style="margin-bottom: 20px; font-weight: 600;"></p>
             <div style="display: flex; gap: 10px;">
-                <button onclick="fecharModal()" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer;">Não</button>
-                <button id="confirmDeleteBtn" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Excluir</button>
+                <button onclick="fecharModal()" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer;">Não</button>
+                <button id="confirmDeleteBtn" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--danger); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Excluir</button>
             </div>
         </div>
     </div>
@@ -67,76 +68,191 @@
             <input type="number" id="ingrediente-modal-qtd" placeholder="Ex: 50" style="margin-bottom: 15px;">
             
             <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('modalIngredienteQtd').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button onclick="confirmarIngredienteQtd()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
+                <button onclick="document.getElementById('modalIngredienteQtd').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer;">Cancelar</button>
+                <button onclick="confirmarIngredienteQtd()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Confirmar</button>
             </div>
         </div>
     </div>
     <!-- MODAL ALOCAR MERCADORIAS PENDENTES -->
     <div id="modalAlocar" class="modal-overlay" style="z-index: 4000;">
-        <div class="modal-box" style="max-width: 600px; background: #1a0404; border: 1px solid var(--border-color);">
+        <div class="modal-box" style="max-width: 600px; background:var(--surface-2); border: 1px solid var(--border-color);">
             <h3 style="color:var(--primary); margin-bottom:10px; font-size:1.2rem; text-align:left;"><i class="ph ph-box-arrow-down"></i> Itens aguardando armazenagem</h3>
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom:15px; text-align:left;">Transfira os itens para seus determinados estoques</p>
+            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:15px; text-align:left;">Transfira os itens para seus determinados estoques</p>
             <div id="lista-pendentes-alocar" style="max-height: 55vh; overflow-y:auto; text-align:left; display:flex; flex-direction:column; gap:10px; padding-right:5px;"></div>
-            <button class="btn-submit" onclick="document.getElementById('modalAlocar').style.display='none'" style="background: white; color: black; margin-top:20px;">FECHAR JANELA</button>
+            <button class="btn-submit" onclick="document.getElementById('modalAlocar').style.display='none'" style="margin-top:20px;">FECHAR JANELA</button>
         </div>
     </div>
 
     <!-- MODAL CONFIRMAÇÃO TRANSFERÊNCIA -->
     <div id="modalConfirmTransfer" class="modal-overlay" style="z-index: 4001;">
-        <div class="modal-box" style="max-width: 350px; background: var(--bg-body); border: 2px solid var(--primary);">
+        <div class="modal-box" style="max-width: 350px; background:var(--modal-bg); border: 2px solid var(--primary);">
             <h3 style="color:var(--text-main); margin-bottom:15px; font-size:1.1rem;">Confirmar Transferência</h3>
             <p id="msgConfirmTransfer" style="margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; color:var(--text-main);"></p>
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('modalConfirmTransfer').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
-                <button id="btnConfirmTransferAction" style="flex: 1; padding: 10px; border-radius: 8px; background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Transferir</button>
+                <button id="btnConfirmTransferAction" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Sim, Transferir</button>
             </div>
         </div>
     </div>
 
- <aside>
-        <div class="logo-container"><img src="images/contamais.svg" alt="ContaMais Logo" class="logo-img"></div>
-        <nav id="menu-navegacao">
-            <button class="nav-btn active" id="nav-inicio" onclick="navegar('inicio', this)"><i class="ph ph-house" style="font-size:1.3rem;"></i> <span>Início</span></button>
-            <button class="nav-btn" id="nav-produtos-hub" onclick="navegar('produtos-hub', this)"><i class="ph ph-package" style="font-size:1.3rem;"></i> <span>Produtos</span></button>
-            <button class="nav-btn" id="nav-reservas-hub" onclick="navegar('reservas-hub', this)"><i class="ph ph-calendar-blank" style="font-size:1.3rem;"></i> <span>Reservas</span></button>
-            <button class="nav-btn" id="nav-receitas-hub" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:1.3rem;"></i> <span>Receitas</span></button>
-            <button class="nav-btn req-dono" id="nav-financeiro" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:1.3rem;"></i> <span>Financeiro</span></button>
-            <button class="nav-btn req-dono" id="nav-cardapio" onclick="navegar('cardapio-digital', this)"><i class="ph ph-book-open" style="font-size:1.3rem;"></i> <span>Cardápio Digital</span></button>
 
-            <div style="margin-top: auto;"></div> 
-            <button class="nav-btn" onclick="abrirModalAuth()" id="btn-login-sidebar"><i class="ph ph-user" style="font-size:1.3rem;"></i> <span>Entrar</span></button>
+    <!-- IMPORTAR PRODUTOS EM LOTE -->
+    <div id="modalImportar" class="modal-overlay" onclick="if(event.target===this) fecharImportar()">
+        <div class="modal-box form-modal" style="max-width:560px;">
+            <h3 style="margin-bottom:4px;">Importar vários produtos</h3>
+            <p class="form-dica" style="margin-bottom:10px;">Um por linha, no formato <strong>Categoria; Produto</strong>. Categorias que não existirem são criadas. Produtos com nome repetido são pulados.</p>
+            <button type="button" class="btn-pill" style="width:100%; margin-bottom:8px;" onclick="carregarListaVendas()"><i class="ph ph-list-checks"></i> Usar lista de vendas (37 bebidas)</button>
+            <textarea id="imp-linhas" rows="8" placeholder="Cervejas; Heineken 600ml&#10;Refrigerantes; Coca-Cola Lata 350ml" oninput="atualizarResumoImportar()"></textarea>
+            <div class="form-label-row"><label class="form-label">Método de compra (fornecedor) <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('metodo')"><i class="ph ph-plus"></i> Novo método</button></div>
+            <select id="imp-metodo" onchange="atualizarResumoImportar()"></select>
+            <p class="form-dica">Vale para todos. Depois dá para trocar produto por produto.</p>
+            <div class="form-label-row"><label class="form-label">Onde ficam guardados? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area')"><i class="ph ph-plus"></i> Nova área</button></div>
+            <div id="imp-areas" class="areas-check-list"></div>
+            <p class="form-dica">Categoria que já existe usa as áreas dela; as novas usam as marcadas aqui.</p>
+            <p id="imp-resumo" class="form-dica" style="font-weight:700; color:var(--ink); min-height:1.2em;"></p>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button class="btn-pill" style="flex:1;" onclick="fecharImportar()">Cancelar</button>
+                <button class="btn-pill dark" style="flex:1;" id="imp-salvar" onclick="executarImportar()">Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CADASTRO RÁPIDO (área / método / categoria) -->
+    <div id="modalCadastroRapido" class="modal-overlay" onclick="if(event.target===this) fecharCadastroRapido()">
+        <div class="modal-box form-modal">
+            <h3 id="cr-titulo" style="margin-bottom:4px;">Cadastro rápido</h3>
+            <p id="cr-sub" class="form-dica" style="margin-bottom:10px;"></p>
+            <div id="cr-corpo"></div>
+            <div style="display:flex; gap:8px; margin-top:14px;">
+                <button class="btn-pill" style="flex:1;" onclick="fecharCadastroRapido()">Cancelar</button>
+                <button class="btn-pill dark" style="flex:1;" id="cr-salvar" onclick="salvarCadastroRapido()">Salvar</button>
+            </div>
+        </div>
+    </div>
+    <!-- ================= MENU LATERAL ================= -->
+    <aside id="sidebar" class="sidebar">
+        <div class="brand">
+            <img src="images/contamais.webp" alt="AdmiNiran" class="logo-img">
+            <span class="brand-sub">Gestão do Adoniran Bar</span>
+        </div>
+        <nav id="menu-navegacao" class="side-nav">
+            <p class="nav-label">Painel</p>
+            <button class="nav-btn active" id="nav-inicio" data-telas="inicio" onclick="navegar('inicio')"><i class="ph ph-house"></i><span>Início</span></button>
+            <button class="nav-btn req-dono" id="nav-financeiro" data-telas="financeiro-dashboard" onclick="abrirDashboard()"><i class="ph ph-chart-line-up"></i><span>Financeiro</span></button>
+
+            <p class="nav-label">Estoque</p>
+            <button class="nav-btn req-dono" id="nav-cadastros" data-telas="cadastros nova-area novo-produto editar-produto" onclick="abrirCadastros()"><i class="ph ph-list-plus"></i><span>Cadastros</span></button>
+            <button class="nav-btn" id="nav-produtos-hub" data-telas="produtos-hub" onclick="navegar('produtos-hub')"><i class="ph ph-squares-four"></i><span>Visão geral</span></button>
+            <button class="nav-btn" id="nav-areas" data-telas="areas-lista detalhe-area transferencia-area" onclick="navegar('areas-lista')"><i class="ph ph-map-pin"></i><span>Áreas</span><em class="nav-badge" id="badge-pendentes"></em></button>
+            <button class="nav-btn" id="nav-itens" data-telas="produtos-categorias produtos-lista-filtrada detalhe-produto" onclick="navegar('produtos-categorias')"><i class="ph ph-tag"></i><span>Itens</span></button>
+            <button class="nav-btn" id="nav-pedidos" data-telas="pedidos-metodos pedidos-lista" onclick="navegar('pedidos-metodos')"><i class="ph ph-shopping-cart"></i><span>Pedidos</span><em class="nav-badge" id="badge-pedidos"></em></button>
+            <button class="nav-btn" id="nav-recebimentos" data-telas="recebimentos-lista recebimento-entrada" onclick="abrirRecebimentos()"><i class="ph ph-truck"></i><span>Recebimentos</span></button>
+            <button class="nav-btn req-dono" id="nav-historico" data-telas="timeline-estoque" onclick="abrirTimeline()"><i class="ph ph-clock-counter-clockwise"></i><span>Histórico</span></button>
+
+            <p class="nav-label">Reservas</p>
+            <button class="nav-btn" id="nav-reservas-hub" data-telas="reservas-hub agenda-view agenda-detalhe" onclick="irParaAgenda()"><i class="ph ph-calendar-blank"></i><span>Agenda</span><em class="nav-badge" id="badge-reservas"></em></button>
+            <button class="nav-btn" id="nav-mapa" data-telas="mapa-setup mapa-salao" onclick="navegar('mapa-setup')"><i class="ph ph-map-trifold"></i><span>Mapa do salão</span></button>
+
+            <p class="nav-label">Cardápio</p>
+            <button class="nav-btn" id="nav-receitas-hub" data-telas="receitas-lista detalhe-receita nova-receita editar-receita selecionar-ingrediente" onclick="abrirReceitas()"><i class="ph ph-martini"></i><span>Receitas</span></button>
+            <button class="nav-btn req-dono" id="nav-cardapio" data-telas="cardapio-digital" onclick="abrirCardapioDigital()"><i class="ph ph-book-open"></i><span>Cardápio digital</span></button>
+
+            <p class="nav-label">Sistema</p>
+            <button class="nav-btn req-dono" id="nav-config" data-telas="configuracoes detalhe-categoria-admin atribuir-categoria atribuir-metodo" onclick="abrirConfig()"><i class="ph ph-gear-six"></i><span>Configurações</span></button>
+            <button class="nav-btn" onclick="abrirModalAuth()" id="btn-login-sidebar"><i class="ph ph-user"></i><span>Entrar</span></button>
         </nav>
+        <div class="side-foot" id="side-foot">
+            <span id="side-foot-role">Visitante</span>
+            <small id="side-foot-sub">Faça login para usar o sistema</small>
+        </div>
     </aside>
 
-    <main>
-        <div id="aviso-login" style="display:none; margin-bottom:1rem; padding:14px 18px; border-radius:12px; background:rgba(183,41,41,0.25); border:2px solid var(--primary); color:#fbeee3; font-weight:700; text-align:center;">
-            Faça login para carregar produtos, áreas e reservas.
-            <button type="button" onclick="abrirModalAuth()" style="display:block; margin:12px auto 0; padding:10px 24px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:800; cursor:pointer;">Entrar agora</button>
+    <!-- Esfumado atrás das barras: o conteúdo some suavemente ao passar por baixo delas -->
+    <div id="aviso-offline" class="aviso-offline" role="status" style="display:none;"><i class="ph ph-wifi-slash"></i> Sem conexão. O que você fizer fica guardado e é enviado quando a internet voltar.</div>
+    <div class="fade-barra fade-topo" aria-hidden="true"></div>
+    <div class="fade-barra fade-base" aria-hidden="true"></div>
+
+    <!-- ================= BARRA SUPERIOR ================= -->
+    <header class="topbar">
+        <button class="icon-btn only-mobile" id="btn-menu" onclick="abrirMenuLateral()" aria-label="Abrir menu"><i class="ph ph-list"></i></button>
+        <img src="images/contamais.webp" alt="AdmiNiran" class="topbar-logo only-mobile">
+        <div class="search-global">
+            <button type="button" class="icon-btn busca-toggle" onclick="abrirBuscaMobile()" aria-label="Buscar"><i class="ph ph-magnifying-glass"></i></button>
+            <i class="ph ph-magnifying-glass busca-ico"></i>
+            <input type="text" id="busca-global" name="busca-global-sem-preenchimento" placeholder="Buscar produtos, áreas, receitas, reservas..." autocomplete="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other" oninput="buscarGlobal()" onfocus="buscarGlobal()" onkeydown="teclaBuscaGlobal(event)">
+            <kbd>/</kbd>
+            <button type="button" class="busca-fechar" onclick="fecharBuscaMobile()" aria-label="Fechar busca"><i class="ph ph-x"></i></button>
+            <div id="busca-global-resultados" class="search-results"></div>
         </div>
-       <div class="fab-container req-dono">
-            <button class="fab-main" id="fabMain" onclick="event.stopPropagation(); toggleFab()">
-                <span style="font-weight: 900; font-size: 42px; color: white; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; padding: 0; line-height: 1;">+</span>
-            </button>
-            <div id="fabOptions" class="fab-options">
-                <button class="fab-item" onclick="abrirCadastro('nova-area'); toggleFab()"><i class="ph ph-map-pin" style="margin-right:5px; font-size:1.1rem;"></i> Nova Área</button>
-                <button class="fab-item" onclick="abrirCadastroProduto(); toggleFab()"><i class="ph ph-wine" style="margin-right:5px; font-size:1.1rem;"></i> Novo Produto</button>
-                <button class="fab-item" onclick="abrirNovaReceita(); toggleFab()"><i class="ph ph-martini" style="margin-right:5px; font-size:1.1rem;"></i> Nova Receita</button>
+        <div class="topbar-actions">
+            <div class="fab-container req-dono">
+                <button class="icon-btn btn-novo" id="fabMain" onclick="event.stopPropagation(); toggleFab()" aria-label="Novo"><i class="ph ph-plus"></i><span class="only-desktop">Novo</span></button>
+                <div id="fabOptions" class="fab-options">
+                    <button class="fab-item" onclick="abrirCadastro('nova-area')"><i class="ph ph-map-pin"></i> Nova área</button>
+                    <button class="fab-item" onclick="abrirCadastroProduto()"><i class="ph ph-wine"></i> Novo produto</button>
+                    <button class="fab-item" onclick="abrirNovaReceita()"><i class="ph ph-martini"></i> Nova receita</button>
+                </div>
             </div>
+            <button id="btn-top-role" class="icon-btn btn-config" onclick="if(currentRole==='dono') abrirConfig()" aria-label="Cargo"></button>
+            <button class="user-chip" id="user-chip" onclick="abrirModalAuth()">
+                <span class="avatar" id="user-avatar">?</span>
+                <span class="user-txt only-desktop"><strong id="user-nome">Entrar</strong><small id="user-cargo">Visitante</small></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= ÁREA PRINCIPAL ================= -->
+    <main>
+      <div class="panel">
+        <div id="aviso-login" class="aviso-login" style="display:none;">
+            <div><strong>Faça login para carregar produtos, áreas e reservas.</strong><br><small>Seus dados ficam salvos no servidor e aparecem em qualquer aparelho.</small></div>
+            <button type="button" class="btn-pill dark" onclick="abrirModalAuth()">Entrar agora</button>
         </div>
 
-        <!-- 1. GUIA: INÍCIO -->
+        <!-- 1. INÍCIO (painel) -->
         <section id="inicio" class="section active">
-            <h1>Início</h1>
-            <div class="grid-home">
-                <div class="card-nav" onclick="navegar('produtos-hub', document.getElementById('nav-produtos-hub'))"><i class="ph ph-beer-bottle" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Produtos e Pedidos</h3></div>
-                <div class="card-nav" onclick="navegar('reservas-hub', document.getElementById('nav-reservas-hub'))"><i class="ph ph-calendar-blank" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Reservas e Mapa</h3></div>
-                <div class="card-nav" onclick="abrirReceitas()"><i class="ph ph-martini" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Receitas</h3></div>
-                <div class="card-nav" onclick="abrirDashboard()"><i class="ph ph-chart-line-up" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Financeiro</h3></div>
-                <div class="card-nav" onclick="navegar('cardapio-digital')"><i class="ph ph-book-open" style="font-size:2.5rem; margin-bottom:10px; color:var(--primary);"></i><h3>Cardápio Digital</h3></div>
+            <div id="sk-inicio" aria-hidden="true">
+                <div class="page-head">
+                    <div style="flex:1"><span class="sk" style="height:30px;width:min(240px,60%);margin-bottom:10px"></span><span class="sk" style="height:13px;width:min(180px,45%)"></span></div>
+                    <div class="page-actions"><span class="sk" style="height:38px;width:112px"></span><span class="sk" style="height:38px;width:128px"></span></div>
+                </div>
+                <div class="dash-row">
+                    <div class="card dash-chart sk-vivo"><div class="card-head"><div style="flex:1"><span class="sk" style="height:16px;width:150px;margin-bottom:8px"></span><span class="sk" style="height:11px;width:190px"></span></div><span class="sk" style="height:30px;width:120px"></span></div><div class="bar-chart sk-barras"><span class="sk" style="height:46%"></span><span class="sk" style="height:70%"></span><span class="sk" style="height:38%"></span><span class="sk" style="height:84%"></span><span class="sk" style="height:58%"></span><span class="sk" style="height:76%"></span><span class="sk" style="height:52%"></span></div></div>
+                    <div class="card dash-donut sk-vivo" style="--d:.12s"><div class="card-head"><div style="flex:1"><span class="sk" style="height:16px;width:130px;margin-bottom:8px"></span><span class="sk" style="height:11px;width:160px"></span></div></div><div class="donut-wrap"><span class="sk sk-anel"></span><div class="donut-legenda" style="gap:8px"><span class="sk" style="height:12px;width:80%"></span><span class="sk" style="height:12px;width:65%"></span><span class="sk" style="height:12px;width:72%"></span></div></div></div>
+                </div>
+                <div class="stat-grid"><div class="stat-card sk-vivo" style="--d:0.0s"><div class="stat-top"><span class="sk" style="width:34px;height:34px;border-radius:50%"></span><span class="sk" style="width:46px;height:20px"></span></div><span class="sk" style="height:28px;width:46%;margin-bottom:6px"></span><span class="sk" style="height:12px;width:68%;margin-bottom:5px"></span><span class="sk" style="height:10px;width:50%"></span></div><div class="stat-card sk-vivo" style="--d:0.1s"><div class="stat-top"><span class="sk" style="width:34px;height:34px;border-radius:50%"></span><span class="sk" style="width:46px;height:20px"></span></div><span class="sk" style="height:28px;width:46%;margin-bottom:6px"></span><span class="sk" style="height:12px;width:68%;margin-bottom:5px"></span><span class="sk" style="height:10px;width:50%"></span></div><div class="stat-card sk-vivo" style="--d:0.2s"><div class="stat-top"><span class="sk" style="width:34px;height:34px;border-radius:50%"></span><span class="sk" style="width:46px;height:20px"></span></div><span class="sk" style="height:28px;width:46%;margin-bottom:6px"></span><span class="sk" style="height:12px;width:68%;margin-bottom:5px"></span><span class="sk" style="height:10px;width:50%"></span></div><div class="stat-card sk-vivo" style="--d:0.30000000000000004s"><div class="stat-top"><span class="sk" style="width:34px;height:34px;border-radius:50%"></span><span class="sk" style="width:46px;height:20px"></span></div><span class="sk" style="height:28px;width:46%;margin-bottom:6px"></span><span class="sk" style="height:12px;width:68%;margin-bottom:5px"></span><span class="sk" style="height:10px;width:50%"></span></div></div>
             </div>
+            <div class="page-head">
+                <div>
+                    <h1 id="saudacao">Olá!</h1>
+                    <p class="page-sub" id="saudacao-sub"></p>
+                </div>
+                <div class="page-actions">
+                    <button class="btn-pill req-dono" onclick="abrirTimeline()"><i class="ph ph-clock-counter-clockwise"></i> Histórico</button>
+                    <button class="btn-pill dark req-contrib" onclick="abrirNovaReservaHoje()"><i class="ph ph-plus"></i> Nova reserva</button>
+                </div>
+            </div>
+
+            <div id="comece-aqui" class="req-dono"></div>
+            <div class="dash-row">
+                <div class="card dash-chart">
+                    <div class="card-head">
+                        <div><h3 id="chart-reservas-titulo">Reservas da semana</h3><p class="card-sub" id="chart-reservas-sub">Pessoas reservadas por dia</p></div>
+                        <div class="segmented" id="seg-periodo">
+                            <button class="active" onclick="mudarPeriodoGrafico(7, this)">7 dias</button>
+                            <button onclick="mudarPeriodoGrafico(14, this)">14 dias</button>
+                        </div>
+                    </div>
+                    <div class="bar-chart" id="chart-reservas"></div>
+                </div>
+                <div class="card dash-donut">
+                    <div class="card-head"><div><h3 id="donut-titulo">Estoque por área</h3><p class="card-sub" id="donut-sub">Toque numa área para abrir</p></div></div>
+                    <div class="donut-wrap" id="donut-areas"></div>
+                </div>
+            </div>
+
+            <div class="stat-grid" id="stat-grid"></div>
         </section>
-      <!-- 2. GUIA: HUB DE PRODUTOS -->
         <section id="produtos-hub" class="section">
             <h1>Produtos e Logística</h1>
             <div class="grid-home">
@@ -147,11 +263,11 @@
             </div>
 
             <div class="req-dono" style="margin-top: 20px;">
-                <button class="card" onclick="abrirTimeline()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 15px; padding: 20px; border: 1px dashed var(--primary); background: rgba(183, 41, 41, 0.05); cursor: pointer; transition: 0.3s;">
+                <button class="card" onclick="abrirTimeline()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 15px; padding: 20px; border: 1px dashed var(--primary); background:var(--primary-soft); cursor: pointer; transition: 0.3s;">
                     <i class="ph ph-clock-counter-clockwise" style="font-size:2rem; color:var(--primary);"></i>
                     <div style="text-align: left;">
                         <h3 style="margin:0; color:var(--text-main); font-size:1.1rem;">Histórico Semanal</h3>
-                        <p style="margin:0; font-size:0.8rem; color:#64748b;">Linha do tempo de contagens e entradas</p>
+                        <p style="margin:0; font-size:0.8rem; color:var(--muted);">Linha do tempo de contagens e entradas</p>
                     </div>
                 </button>
             </div>
@@ -162,14 +278,14 @@
         <section id="recebimentos-lista" class="section">
             <div class="btn-back-styled" onclick="navegar('produtos-hub')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Entrada de Mercadoria</h1>
-            <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Selecione o fornecedor/método da carga que acabou de chegar:</p>
+            <p style="font-size:0.9rem; color:var(--muted); margin-bottom:15px;">Selecione o fornecedor/método da carga que acabou de chegar:</p>
             <div id="grid-recebimentos-metodos" class="grid-areas-layout"></div>
         </section>
 
         <section id="recebimento-entrada" class="section">
             <div class="btn-back-styled" onclick="navegar('recebimentos-lista')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1 id="titulo-recebimento-metodo" style="font-size: 1.3rem;">Recebendo</h1>
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom:10px;">Aponte o que chegou. O estoque ficará retido como "Pendente" até ser guardado fisicamente.</p>
+            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:10px;">Aponte o que chegou. O estoque ficará retido como "Pendente" até ser guardado fisicamente.</p>
             <div class="table-container">
                 <table>
                     <thead id="head-recebimento"></thead>
@@ -194,9 +310,9 @@
             <div class="btn-back-styled" onclick="navegar('reservas-hub')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Acessar Mapa de Salão</h1>
             <div class="card" style="max-width: 400px;">
-                <p style="font-weight: 700; margin-bottom: 5px; color: var(--bg-sidebar);">Data da Operação:</p>
+                <p style="font-weight: 700; margin-bottom: 5px; color:var(--text-main);">Data da Operação:</p>
                 <input type="date" id="setup-mapa-data" style="margin-bottom: 15px;">
-                <p style="font-weight: 700; margin-bottom: 5px; color: var(--bg-sidebar);">Turno:</p>
+                <p style="font-weight: 700; margin-bottom: 5px; color:var(--text-main);">Turno:</p>
                 <select id="setup-mapa-turno" style="margin-bottom: 20px;">
                     <option value="dia">Dia (Almoço)</option>
                     <option value="tarde_noite">Tarde/Noite</option>
@@ -216,7 +332,7 @@
                 </div>
             </div>
             
-            <p style="font-size:0.85rem; color:#64748b; margin-bottom: 10px;">Selecione os blocos para dar zoom nas áreas. O sistema fará o corte espacial de 1 mesa automaticamente nas reservas.</p>
+            <p style="font-size:0.85rem; color:var(--muted); margin-bottom: 10px;">Selecione os blocos para dar zoom nas áreas. O sistema fará o corte espacial de 1 mesa automaticamente nas reservas.</p>
 
             <div class="mapa-layout-flex">
                 <div class="mapa-coluna-controles">
@@ -224,21 +340,21 @@
                         <h3 style="color:var(--primary); font-size:1rem; margin-bottom: 8px;">📋 Reservas do Turno</h3>
                         <div id="lista-reservas-turno-mapa" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; flex-grow:1;"></div>
                     </div>
-                    <button class="btn-submit" id="btn-voltar-mapa" style="display:none; margin-top:0; margin-bottom:0; background:#64748b; font-size:0.85rem;" onclick="desfocarArea()">⬅️ Voltar Visão Geral</button>
+                    <button class="btn-submit" id="btn-voltar-mapa" style="display:none; margin-top:0; margin-bottom:0; background:#6e5246; font-size:0.85rem;" onclick="desfocarArea()">⬅️ Voltar Visão Geral</button>
 
                     <div id="painel-controles-mapa" class="card req-contrib" style="display:none; margin-bottom:0; padding:10px; border-color: var(--primary);">
                         <button class="btn-toggle-grupo" id="btn-edit-layout" style="margin-bottom:10px; width:100%; justify-content:center;" onclick="toggleModoLayoutMapa()">✏️ Modo Montagem</button>
                         
                         <strong style="color:var(--primary); font-size:1rem; margin-bottom:10px; display:block;">⚙️ Controles da Área</strong>
                         <div style="display:flex; gap:10px; margin-bottom:15px;">
-                            <button class="btn-submit" style="margin:0; flex:1; background:#10b981; font-size:0.8rem; padding:8px;" onclick="adicionarMesaFileira()">➕ Add Ponta</button>
-                            <button class="btn-submit" style="margin:0; flex:1; background:#f59e0b; font-size:0.8rem; padding:8px;" onclick="subtrairMesaFileira()">➖ Sub Ponta</button>
+                            <button class="btn-submit" style="margin:0; flex:1; background:var(--dark); font-size:0.8rem; padding:8px;" onclick="adicionarMesaFileira()">➕ Add Ponta</button>
+                            <button class="btn-submit" style="margin:0; flex:1; background:var(--dark); font-size:0.8rem; padding:8px;" onclick="subtrairMesaFileira()">➖ Sub Ponta</button>
                         </div>
                         
                         <div id="dynamic-selected-controls" style="display:none; flex-direction:column; gap:8px; padding-top:15px; border-top:1px solid var(--border-color);">
-                            <strong style="color:var(--bg-sidebar); font-size:0.9rem;">Mesas Selecionadas: <span id="qtd-selecionadas">0</span></strong>
+                            <strong style="color:var(--text-main); font-size:0.9rem;">Mesas Selecionadas: <span id="qtd-selecionadas">0</span></strong>
                             <input type="text" id="mapa-reserva-nome" placeholder="Nome do Cliente" style="padding:10px; font-size:0.9rem; margin:0;">
-                            <button class="btn-submit" style="margin:0; background:#3b82f6; padding:10px;" onclick="salvarReservaMapa()">💾 Salvar Reserva</button>
+                            <button class="btn-submit" style="margin:0; background:var(--dark); padding:10px;" onclick="salvarReservaMapa()">💾 Salvar Reserva</button>
                             <button class="btn-submit" style="margin:0; background:#ef4444; padding:10px;" onclick="apagarMesasSelecionadas()">✂️ Apagar Mesa(s)</button>
                         </div>
                     </div>
@@ -260,7 +376,7 @@
             <div class="card" style="padding: 1.5rem 1rem;">
                 <div class="cal-header">
                     <button class="cal-btn" onclick="mudarMes(-1)">◀</button>
-                    <h2 id="cal-mes-ano" style="margin: 0; font-size: 1.1rem; color: var(--bg-sidebar);"></h2>
+                    <h2 id="cal-mes-ano" style="margin: 0; font-size: 1.1rem; color:var(--text-main);"></h2>
                     <button class="cal-btn" onclick="mudarMes(1)">▶</button>
                 </div>
                 <div class="cal-grid" id="cal-dias-semana">
@@ -278,7 +394,7 @@
             <div class="card req-contrib">
                 <h3 style="margin-bottom: 10px; color: var(--primary); font-size: 1rem;">Criar Nova Reserva (Manual)</h3>
                 <select id="res-periodo" onchange="atualizarFormReserva()"><option value="dia">Dia</option><option value="tarde_noite">Tarde/Noite</option></select>
-                <div id="res-time-dia" style="padding: 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 8px; font-weight: bold; text-align: center; color: #fbeee3; margin: 6px 0;">12:00 - 18:00</div>
+                <div id="res-time-dia" style="padding: 10px; background:var(--surface-2); border: 1px solid var(--border-color); border-radius: 8px; font-weight: bold; text-align: center; color:var(--text-main); margin: 6px 0;">12:00 - 18:00</div>
                 <div id="res-time-tarde" style="display: none; align-items: center; gap: 10px;"><input type="text" id="res-horario-tarde" list="lista-horarios" placeholder="18:00" style="flex:1;"><datalist id="lista-horarios"><option value="18:00"><option value="18:30"><option value="19:00"><option value="19:30"><option value="20:00"></datalist><span id="res-time-tarde-end" style="font-weight: bold; color: var(--primary); white-space: nowrap;">- 01:00</span></div>
                 <select id="res-area" onchange="atualizarFormReserva()">
                     <option value="Varanda">Varanda</option><option value="Salão 1 - Frente">Salão 1 - Frente</option><option value="Salão 1 - Corredor">Salão 1 - Corredor</option><option value="Salão 2 - Parede">Salão 2 - Parede</option><option value="Salão 2 - Meio">Salão 2 - Meio</option><option value="Salão 2 - Corrimão">Salão 2 - Corrimão</option><option value="Salão 2 - Mesas Redondas">Salão 2 - Mesas Redondas</option><option value="Salão 2 - Bistrôs">Salão 2 - Bistrôs</option><option value="Salão 2 - Brinquedão">Salão 2 - Brinquedão</option><option value="Laje">Laje</option>
@@ -302,7 +418,7 @@
                     <h1 style="margin:0;">Áreas</h1>
                 </div>
                 <!-- Banner Novo no Topo -->
-                <div id="banner-pendentes" class="req-contrib" style="display:none; background: var(--primary); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px rgba(183, 41, 41, 0.4); gap: 15px;" onclick="abrirAlocacaoModal()">
+                <div id="banner-pendentes" class="req-contrib" style="display:none; background:var(--dark); color: white; padding: 8px 15px; border-radius: 12px; flex-direction: row; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 15px var(--primary-line); gap: 15px;" onclick="abrirAlocacaoModal()">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <i class="ph ph-warning-circle" style="font-size:1.6rem;"></i> 
                         <div style="text-align: left;">
@@ -346,7 +462,7 @@
         </section>
 
         <section id="detalhe-area" class="section">
-            <div class="btn-back-styled" onclick="cancelarModoContagem(); navegar('areas-lista')">✕</div>
+            <div class="btn-back-styled" onclick="navegar('areas-lista')">✕</div>
             
             <div class="card" style="padding: 1rem; margin-bottom: 10px;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap: wrap;">
@@ -356,13 +472,13 @@
                     </div>
                     
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <button id="btn-modo-contagem" class="btn-submit req-contrib" style="margin:0; background:var(--primary); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="ativarModoContagem()">
+                        <button id="btn-modo-contagem" class="btn-submit req-contrib" style="margin:0; background:var(--dark); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="ativarModoContagem()">
                             <i class="ph ph-clipboard-text"></i> FAZER CONTAGEM
                         </button>
-                        <button id="btn-transferir-area" class="btn-submit req-contrib" style="margin:0; background:#3b82f6; padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="abrirTransferenciaArea()">
+                        <button id="btn-transferir-area" class="btn-submit req-contrib" style="margin:0; background:var(--dark); padding: 8px 12px; width:auto; font-size:0.75rem; font-weight:800;" onclick="abrirTransferenciaArea()">
                             <i class="ph ph-arrows-left-right"></i> TRANSFERIR ITENS
                         </button>
-                        <button id="btn-cancelar-contagem" class="btn-submit req-contrib" style="margin:0; background:#444; padding: 8px 12px; width:auto; font-size:0.75rem; display:none;" onclick="cancelarModoContagem()">
+                        <button id="btn-cancelar-contagem" class="btn-submit req-contrib" style="margin:0; background:#5a3a28; padding: 8px 12px; width:auto; font-size:0.75rem; display:none;" onclick="cancelarModoContagem()">
                             CANCELAR
                         </button>
                     </div>
@@ -378,12 +494,11 @@
                     <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:10px;">
                         <input type="checkbox" id="area-usar-padrao" onchange="toggleConfigEstoquePadrao()"> Sim
                     </label>
-                    <div id="div-config-estoque-padrao" style="display:none; margin-top:10px; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                    <div id="div-config-estoque-padrao" style="display:none; margin-top:10px; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
                         <div id="lista-itens-padrao-area" style="display:flex; flex-direction:column; gap:8px; max-height:250px; overflow-y:auto;"></div>
                     </div>
                     <button class="btn-submit" onclick="salvarNovoNomeArea()" style="padding:8px;">Salvar Ajustes</button>
                 </div>
-                <span id="btn-excluir-area-texto" class="req-dono" style="color:var(--primary); cursor:pointer; font-size:0.75rem; display:block; margin-top:8px;" onclick="prepararExclusaoArea()">Excluir Área</span>
             </div>
 
             <input type="text" id="busca-area" class="search-bar" placeholder="🔍 Pesquisar item nesta área..." onkeyup="filtrarTabela('busca-area', 'tabela-area-itens')">
@@ -392,7 +507,7 @@
                 <table><thead id="head-area-itens"></thead><tbody id="tabela-area-itens"></tbody></table>
             </div>
 
-            <button id="btn-salvar-contagem-geral" class="btn-submit" style="display:none; background:#10b981; margin-top:15px; position: sticky; bottom: 10px; z-index: 100; font-weight: 900; letter-spacing: 1px;" onclick="salvarContagemAuditoria()">
+            <button id="btn-salvar-contagem-geral" class="btn-submit" style="display:none; background:var(--dark); margin-top:15px; position: sticky; bottom: 10px; z-index: 100; font-weight: 900; letter-spacing: 1px;" onclick="salvarContagemAuditoria()">
                 CONCLUIR CONTAGEM E SALVAR
             </button>
         </section>
@@ -400,7 +515,7 @@
         <section id="transferencia-area" class="section">
             <div class="btn-back-styled" onclick="voltarDeTransferenciaArea()"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1 id="titulo-transferencia-area" style="font-size:1.3rem;">Transferir itens</h1>
-            <p id="subtitulo-transferencia-area" style="font-size:0.9rem; color:#64748b; margin-bottom:15px;"></p>
+            <p id="subtitulo-transferencia-area" style="font-size:0.9rem; color:var(--muted); margin-bottom:15px;"></p>
             <div id="lista-transferencia-area" class="card" style="padding:12px;"></div>
         </section>
 
@@ -450,9 +565,9 @@
                         <img id="receita-foto-preview-novo" class="crop-img" alt="Preview">
                     </div>
                     <div id="wrap-slider-novo" style="display:none; margin-top:8px; width: 135px;">
-                        <span style="font-size:0.7rem; color:#64748b; font-weight:bold; display:block; text-align:center;">🔍 Zoom</span>
+                        <span style="font-size:0.7rem; color:var(--muted); font-weight:bold; display:block; text-align:center;">🔍 Zoom</span>
                         <input type="range" id="receita-foto-zoom-novo" class="slider-zoom" min="1" max="3" step="0.1" value="1" oninput="ajustarEnquadramento('novo')">
-                        <span style="font-size:0.7rem; color:#64748b; font-weight:bold; display:block; text-align:center; margin-top:5px;">↕️↔️ Posição X / Y</span>
+                        <span style="font-size:0.7rem; color:var(--muted); font-weight:bold; display:block; text-align:center; margin-top:5px;">↕️↔️ Posição X / Y</span>
                         <input type="range" id="receita-foto-posx-novo" class="slider-enquadramento" min="0" max="100" value="50" oninput="ajustarEnquadramento('novo')">
                         <input type="range" id="receita-foto-posy-novo" class="slider-enquadramento" min="0" max="100" value="50" oninput="ajustarEnquadramento('novo')">
                     </div>
@@ -460,7 +575,7 @@
 
                 <h3 style="margin-top: 20px; font-size:1rem; color:var(--primary);">Ingredientes:</h3>
                 <div id="lista-ingredientes-receita" style="margin-top: 10px; display:flex; flex-direction:column; gap:8px;"></div>
-                <button class="btn-submit" onclick="irParaSelecionarIngrediente('novo')" style="background: #e2e8f0; color: #475569; margin-top:15px; margin-bottom: 20px;">+ Adicionar Ingrediente</button>
+                <button class="btn-submit" onclick="irParaSelecionarIngrediente('novo')" style="background: rgba(122,31,31,.08); color: var(--ink); margin-top:15px; margin-bottom: 20px;">+ Adicionar Ingrediente</button>
                 
                 <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Modo de Preparo:</p>
                 <textarea id="receita-preparo-input" placeholder="Descreva o passo a passo da receita..."></textarea>
@@ -484,9 +599,9 @@
                         <img id="receita-foto-preview-edit" class="crop-img" alt="Preview">
                     </div>
                     <div id="wrap-slider-edit" style="display:none; margin-top:8px; width: 135px;">
-                        <span style="font-size:0.7rem; color:#64748b; font-weight:bold; display:block; text-align:center;">🔍 Zoom</span>
+                        <span style="font-size:0.7rem; color:var(--muted); font-weight:bold; display:block; text-align:center;">🔍 Zoom</span>
                         <input type="range" id="receita-foto-zoom-edit" class="slider-zoom" min="1" max="3" step="0.1" value="1" oninput="ajustarEnquadramento('edit')">
-                        <span style="font-size:0.7rem; color:#64748b; font-weight:bold; display:block; text-align:center; margin-top:5px;">↕️↔️ Posição X / Y</span>
+                        <span style="font-size:0.7rem; color:var(--muted); font-weight:bold; display:block; text-align:center; margin-top:5px;">↕️↔️ Posição X / Y</span>
                         <input type="range" id="receita-foto-posx-edit" class="slider-enquadramento" min="0" max="100" value="50" oninput="ajustarEnquadramento('edit')">
                         <input type="range" id="receita-foto-posy-edit" class="slider-enquadramento" min="0" max="100" value="50" oninput="ajustarEnquadramento('edit')">
                     </div>
@@ -494,14 +609,14 @@
 
                 <h3 style="margin-top: 20px; font-size:1rem; color:var(--primary);">Ingredientes:</h3>
                 <div id="edit-lista-ingredientes-receita" style="margin-top: 10px; display:flex; flex-direction:column; gap:8px;"></div>
-                <button class="btn-submit" onclick="irParaSelecionarIngrediente('edit')" style="background: #e2e8f0; color: #475569; margin-top:15px; margin-bottom: 20px;">+ Adicionar Ingrediente</button>
+                <button class="btn-submit" onclick="irParaSelecionarIngrediente('edit')" style="background: rgba(122,31,31,.08); color: var(--ink); margin-top:15px; margin-bottom: 20px;">+ Adicionar Ingrediente</button>
                 
                 <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Modo de Preparo:</p>
                 <textarea id="edit-receita-preparo-input" placeholder="Descreva o passo a passo da receita..."></textarea>
 
                 <hr style="opacity: 0.2; margin-top: 15px; margin-bottom: 15px;">
                 <button class="btn-submit" onclick="salvarEdicaoReceita()">SALVAR RECEITA</button>
-                <span style="color:var(--primary); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoReceita()">Excluir Receita</span>
+                <span style="color:var(--danger); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoReceita()">Excluir Receita</span>
             </div>
         </section>
 
@@ -541,7 +656,7 @@
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>
                         <strong>👥 Gerenciamento da Equipe</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Altere a permissão de acesso de cada usuário cadastrado.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Altere a permissão de acesso de cada usuário cadastrado.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
@@ -554,14 +669,14 @@
                 <button class="config-card-header" type="button" aria-expanded="true" onclick="toggleConfigCard(this)">
                     <div>
                         <strong>1. Categorias de Produtos</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Cadastre, edite e mantenha as áreas vinculadas em cada categoria.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Cadastre, edite e mantenha as áreas vinculadas em cada categoria.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
                 <div class="config-card-body" style="display:block;">
                     <input type="hidden" id="edit-cat-id"><input type="text" id="cat-nome" placeholder="Nome da Categoria">
                     <div id="cat-checks-areas" class="cat-grid-checks"></div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(183, 41, 41, 0.1); border-radius: 8px; border: 1px solid var(--primary);">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--primary-soft); border-radius: 8px; border: 1px solid var(--primary);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-uso-fardo" onchange="toggleFardoInput()"> Usa Fardos?
                         </label>
@@ -569,20 +684,20 @@
                             <input type="number" id="cat-qtd-fardo" placeholder="Unidades por fardo">
                         </div>
                     </div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid #3b82f6;">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--surface-2); border-radius: 8px; border:1px solid var(--line-strong);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-contagem-fracionada"> Contagem fracionada? (ex.: 6,5 garrafas)
                         </label>
-                        <p style="font-size:0.75rem; color:#64748b; margin:8px 0 0 22px;">Útil para destilados e itens com capacidade estimada. O financeiro usa a quantidade total × preço da garrafa/unidade.</p>
+                        <p style="font-size:0.75rem; color:var(--muted); margin:8px 0 0 22px;">Útil para destilados e itens com capacidade estimada. O financeiro usa a quantidade total × preço da garrafa/unidade.</p>
                     </div>
-                    <div style="margin: 10px 0; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid #10b981;">
+                    <div style="margin: 10px 0; padding: 12px; background:var(--surface-2); border-radius: 8px; border:1px solid var(--line-strong);">
                         <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:700; font-size: 0.85rem;">
                             <input type="checkbox" id="cat-has-sub" onchange="toggleSubgrupoInput()"> Especificação de categoria?
                         </label>
                         <div id="div-subgrupos" style="display:none; margin-top:10px;">
                             <div style="display:flex; gap:5px; margin-bottom:10px;">
                                 <input type="text" id="cat-new-sub" placeholder="Ex: Cachaça, Vodka..." style="margin:0; flex:1; padding:8px;">
-                                <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background: #10b981;">Adicionar</button>
+                                <button class="btn-submit" onclick="addCatSub()" style="margin:0; width:auto; padding:8px 15px; background:var(--dark);">Adicionar</button>
                             </div>
                             <div id="list-cat-subs" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
                         </div>
@@ -594,8 +709,21 @@
             <div class="config-card">
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>
+                        <strong>Áreas</strong>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Exclua áreas que não existem mais. Os produtos continuam cadastrados.</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <div id="lista-areas-config" style="display:flex; flex-direction:column; gap:8px; margin-top:6px;"></div>
+                </div>
+            </div>
+
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
                         <strong>Categorias Existentes</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Visualize, edite e atribua produtos às categorias existentes.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Visualize, edite e atribua produtos às categorias existentes.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
@@ -608,7 +736,7 @@
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>
                         <strong>2. Métodos de Compra</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Cadastre e atualize os métodos de compra usados na reposição de estoque.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Cadastre e atualize os métodos de compra usados na reposição de estoque.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
@@ -622,7 +750,7 @@
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>
                         <strong>Métodos Existentes</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Gerencie e remova métodos de compra.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Gerencie e remova métodos de compra.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
@@ -634,27 +762,71 @@
             <div class="config-card">
                 <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
                     <div>
+                        <strong>⚡ Deixar o app mais rápido</strong>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Reduz as fotos antigas de receitas e cardápio (faz backup antes).</div>
+                    </div>
+                    <span class="config-card-icon">+</span>
+                </button>
+                <div class="config-card-body">
+                    <p style="font-size:0.85rem; margin:10px 0;">Fotos gravadas antes desta atualização estão no tamanho original do celular e são baixadas por toda a equipe a cada login. Use uma vez para reduzi-las. Um arquivo de backup com as originais é baixado neste aparelho antes.</p>
+                    <button class="btn-submit" id="btn-otimizar-fotos" style="background:var(--dark);" onclick="otimizarFotosSalvas()">OTIMIZAR FOTOS SALVAS</button>
+                    <p id="status-otimizar-fotos" style="font-size:0.85rem; margin-top:10px;"></p>
+                </div>
+            </div>
+
+            <div class="config-card">
+                <button class="config-card-header" type="button" aria-expanded="false" onclick="toggleConfigCard(this)">
+                    <div>
                         <strong>🔴 Zona de Perigo</strong>
-                        <div style="font-size:0.85rem; color:#64748b; margin-top:4px;">Atenção: zera todo o estoque, inclusive o pátio.</div>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px;">Atenção: zera todo o estoque, inclusive o pátio.</div>
                     </div>
                     <span class="config-card-icon">+</span>
                 </button>
                 <div class="config-card-body">
                     <div style="margin-top: 1rem; border: 2px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding:16px; border-radius:12px;">
                         <h3 style="color: #ef4444;"><i class="ph ph-warning"></i> Zona de Perigo</h3>
-                        <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Esta ação vai colocar o estoque de <strong>TODOS</strong> os produtos em zero em todas as áreas (inclusive no pátio).</p>
+                        <p style="font-size:0.8rem; color:var(--muted); margin-bottom:15px;">Esta ação vai colocar o estoque de <strong>TODOS</strong> os produtos em zero em todas as áreas (inclusive no pátio).</p>
                         <button class="btn-submit" style="background:#ef4444; margin-top:0;" onclick="confirmarLimpezaGeral()">ZERAR TODO O ESTOQUE</button>
+                    </div>
+                    <div style="margin-top: 1rem; border: 2px dashed #ef4444; background: rgba(239, 68, 68, 0.05); padding:16px; border-radius:12px;">
+                        <h3 style="color: #b91c1c;"><i class="ph ph-arrow-counter-clockwise"></i> Recomeçar do zero</h3>
+                        <p style="font-size:0.85rem; color:var(--ink-2); margin:6px 0 10px;">Apaga <strong>tudo</strong> o que foi cadastrado: produtos, preços, categorias, áreas, métodos de compra, receitas, histórico, cardápio digital, reservas e mapas do salão. As contas da equipe e os cargos continuam.</p>
+                        <p style="font-size:0.8rem; color:var(--muted); margin-bottom:12px;">Antes de apagar, um arquivo de backup com todos os dados é baixado neste aparelho.</p>
+                        <button class="btn-submit" style="background:#b91c1c; margin-top:0;" onclick="abrirRecomecarDoZero()">RECOMEÇAR DO ZERO</button>
+                    </div>
+                    <div style="margin-top: 1rem; border: 2px dashed var(--line-strong); padding:16px; border-radius:12px;">
+                        <h3><i class="ph ph-upload-simple"></i> Restaurar backup</h3>
+                        <p style="font-size:0.8rem; color:var(--muted); margin:6px 0 12px;">Escolha um arquivo de backup (.json) baixado pelo app. Os dados do arquivo são gravados de volta; o que já existe com o mesmo nome de registro é substituído e o resto fica como está.</p>
+                        <input type="file" id="input-restaurar-backup" accept="application/json,.json" style="display:none;" onchange="restaurarBackup(event)">
+                        <button class="btn-submit" style="margin-top:0;" id="btn-restaurar-backup" onclick="document.getElementById('input-restaurar-backup').click()">ESCOLHER ARQUIVO DE BACKUP</button>
+                        <p id="status-restaurar" class="form-dica" style="min-height:1.2em;"></p>
                     </div>
                 </div>
             </div>
             
 
+
+            <div id="modalRecomecar" class="modal-overlay" style="z-index: 5000;">
+                <div class="modal-box" style="max-width: 380px; border: 2px solid #ef4444 !important;">
+                    <h3 style="color: #b91c1c; margin-bottom: 10px; font-size:1.15rem;"><i class="ph ph-warning-octagon"></i> Recomeçar do zero</h3>
+                    <p style="font-size: 0.88rem; color: var(--text-main); margin-bottom: 12px; line-height: 1.5; text-align:left;">Isto apaga <strong>todos os cadastros e dados</strong> do sistema. <strong>Não dá para desfazer</strong> (só restaurando o backup).</p>
+                    <label class="form-label" style="text-align:left;">Digite <strong>APAGAR TUDO</strong> para confirmar</label>
+                    <input type="text" id="input-recomecar-frase" autocomplete="off" placeholder="APAGAR TUDO" style="text-align:center; font-weight:700;">
+                    <label class="form-label" style="text-align:left;">Sua senha de acesso</label>
+                    <input type="password" id="input-recomecar-senha" placeholder="Senha" autocomplete="new-password" data-lpignore="true" style="text-align:center;">
+                    <p id="status-recomecar" class="form-dica" style="min-height:1.2em;"></p>
+                    <div style="display: flex; gap: 10px; margin-top:6px;">
+                        <button class="btn-pill" style="flex:1;" onclick="document.getElementById('modalRecomecar').style.display='none'">Cancelar</button>
+                        <button class="btn-pill" id="btn-recomecar-confirmar" style="flex:1; background:#b91c1c; color:#fff; border-color:#b91c1c;" onclick="executarRecomecarDoZero()">Apagar tudo</button>
+                    </div>
+                </div>
+            </div>
             <div id="modalZerarEstoque" class="modal-overlay" style="z-index: 5000;">
-                <div class="modal-box" style="background: var(--bg-body); border: 2px solid #ef4444; max-width: 350px;">
+                <div class="modal-box" style="background:var(--modal-bg); border: 2px solid #ef4444; max-width: 350px;">
                     <h3 style="color: #ef4444; margin-bottom: 15px; font-size:1.2rem;"><i class="ph ph-warning-octagon"></i> ZERAR ESTOQUE</h3>
                     <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 15px; line-height: 1.5;">Esta ação é irreversível e vai remover todas as contagens físicas do sistema.<br><br>Para confirmar, digite sua <strong style="color:#ef4444;">SENHA DE ACESSO</strong>:</p>
                     
-                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background: rgba(0,0,0,0.5); color: white; border-color: rgba(239, 68, 68, 0.3);">
+                    <input type="password" id="input-confirm-zerar" placeholder="Sua Senha" autocomplete="new-password" data-lpignore="true" style="text-align: center; margin-bottom: 20px; font-weight: 800; letter-spacing: 2px; background:var(--surface-strong); color: var(--text-main); border-color: rgba(239, 68, 68, 0.3);">
                     
                     <div style="display: flex; gap: 10px;">
                         <button onclick="document.getElementById('modalZerarEstoque').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer;">Cancelar</button>
@@ -663,7 +835,7 @@
                 </div>
             </div>
 
-            <button class="btn-submit" style="background:#444; margin-top:30px;" onclick="auth.signOut(); navegar('inicio')">Sair da Conta (Logout)</button>
+            <button class="btn-submit" style="background:#5a3a28; margin-top:30px;" onclick="auth.signOut(); navegar('inicio')">Sair da Conta (Logout)</button>
         </section>
 
         <!-- SEÇÃO: ORDENAÇÃO DE CATEGORIA ADMIN -->
@@ -673,7 +845,7 @@
             <div class="card" id="info-tecnica-cat"></div>
             <div class="card" style="border-color: var(--primary);">
                 <h3 style="color:var(--primary);">Ordem de Exibição</h3>
-                <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Ajuste a prioridade customizada dos itens usando as setas laterais. Ela prevalece sobre a ordem alfabética em todo o sistema.</p>
+                <p style="font-size:0.8rem; color:var(--muted); margin-bottom:15px;">Ajuste a prioridade customizada dos itens usando as setas laterais. Ela prevalece sobre a ordem alfabética em todo o sistema.</p>
                 <div id="lista-ordenacao-cat" style="display:flex; flex-direction:column; gap:8px;"></div>
             </div>
         </section>
@@ -686,7 +858,7 @@
         <section id="financeiro-dashboard" class="section req-dono">
             <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
             <h1>Financeiro</h1>
-            <div id="valor-total-estoque" class="card" style="background: var(--primary); text-align: center; border: none; padding: 2rem;">
+            <div id="valor-total-estoque" class="card" style="background:var(--dark); text-align: center; border: none; padding: 2rem;">
                 <span style="color: white; opacity: 0.9; font-size: 1rem; font-weight: bold;">Valor Total Parado em Estoque</span>
                 <h2 id="txt-custo-total-geral" style="font-size: 3rem; color: white !important; margin-top: 10px; font-weight: 900;">R$ 0,00</h2>
             </div>
@@ -695,32 +867,37 @@
         </section>
 
         <section id="novo-produto" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
-            <h1 style="font-size: 1.3rem;">Novo Produto</h1>
-            <div class="card">
-                <input type="text" id="prod-nome" placeholder="Ex: Coca-Cola">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Preço de Custo (R$):</p>
-                <input type="number" id="prod-preco-custo" placeholder="Ex: 5.50" step="0.01">
+            <div class="btn-back-styled" onclick="voltarDoCadastroProduto()"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Novo produto</h1><p class="page-sub">Preencha o básico; o resto é opcional e pode ser ajustado depois.</p></div></div>
+            
+            <div class="form-grid">
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">1</span> Identificação</h3>
+                    <label class="form-label" for="prod-nome">Nome do produto <b>*</b></label>
+                    <input type="text" id="prod-nome" placeholder="Ex.: Coca-Cola Lata 350ml" autocomplete="off" enterkeyhint="next">
+                    <label class="form-label" for="prod-codigo">Código do produto</label>
+                    <input type="text" id="prod-codigo" placeholder="Ex.: 1023 (código do xMenu)" autocomplete="off" inputmode="text" maxlength="30">
+                    <p class="form-dica">Igual ao código no xMenu. Usado para ligar as vendas da planilha ao produto.</p>
+                    <label class="form-label" for="prod-preco-custo">Preço de custo por unidade (R$)</label>
+                    <input type="text" inputmode="decimal" id="prod-preco-custo" placeholder="Ex.: 5,50" autocomplete="off">
+                    <p class="form-dica">Use vírgula ou ponto. Para destilados, informe o preço da garrafa abaixo.</p>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
-                <div id="presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
-                
-                <div id="wrap-subgrupo-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background: rgba(183, 41, 41, 0.1);">
-                    <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
-                    <div id="prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                </div>
+                    <label class="form-label">Categoria <b>*</b></label>
+                    <div id="presets-container" class="chip-row"></div>
+                    <div id="wrap-subgrupo-novo" class="form-sub" style="display:none;">
+                        <label class="form-label">Especificação</label>
+                        <div id="prod-subgrupo-container" class="chip-row"></div>
+                    </div>
+                    <div id="wrap-destilados-novo" class="form-sub" style="display:none;">
+                        <label class="form-label">Destilado</label>
+                        <div class="form-duo">
+                            <div><small>Volume da garrafa (ml)</small><input type="number" inputmode="numeric" id="prod-ml-garrafa" placeholder="Ex.: 1000"></div>
+                            <div><small>Preço da garrafa (R$)</small><input type="text" inputmode="decimal" id="prod-preco-garrafa" placeholder="Ex.: 85,00"></div>
+                        </div>
+                    </div>
+                    <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid var(--line-strong); border-radius:8px; background: rgba(245, 158, 11, 0.1);">
 
-                <div id="wrap-destilados-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #10b981; border-radius:8px; background: rgba(16, 185, 129, 0.1);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:#10b981;">Informações do Destilado:</p>
-                    <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
-                    <input type="number" id="prod-ml-garrafa" placeholder="Ex: 1000">
-                    <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
-                    <input type="number" id="prod-preco-garrafa" placeholder="Ex: 85.00" step="0.01">
-                </div>
-                <div id="wrap-item-produzido-novo" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #f59e0b; border-radius:8px; background: rgba(245, 158, 11, 0.1);">
-
-    <label class="check-item" style="font-weight:800; color:#f59e0b;">
+    <label class="check-item" style="font-weight:800; color:var(--ink);">
         <input type="checkbox" id="check-item-produzido" onchange="toggleItemProduzido()">
         <span>Item Produzido</span>
     </label>
@@ -746,7 +923,7 @@
             type="button"
             onclick="adicionarLinhaComposicao()"
             class="btn-submit"
-            style="background:#f59e0b;"
+            style="background:var(--dark);"
         >
             + Adicionar Ingrediente
         </button>
@@ -760,61 +937,105 @@
 
     </div>
 </div>
+                </div>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">2. Selecione o Método de Compra <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas um)*</span>:</p>
-                <div id="metodos-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                <input type="hidden" id="prod-metodo-selecionado">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">3. Estoque Mínimo <span id="lbl-estoque-minimo-novo" style="font-size:0.75rem; font-weight:normal; color:var(--primary);">(Un.)</span>:</p>
-                <input type="number" id="prod-estoque-minimo" value="0">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">4. Onde este produto fica armazenado?</p>
-                <div id="checks-areas" class="areas-check-list"></div>
-                <button class="btn-submit" onclick="salvarProduto()">CADASTRAR</button>
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">2</span> Compra e estoque</h3>
+                    <label class="form-label">Método de compra (fornecedor) <b>*</b></label>
+                    <div id="metodos-container" class="chip-row"></div>
+                    <input type="hidden" id="prod-metodo-selecionado">
+
+                    <label class="form-label" for="prod-estoque-minimo">Estoque mínimo <span id="lbl-estoque-minimo-novo" class="form-unid">(Un.)</span></label>
+                    <div class="stepper">
+                        <button type="button" onclick="passoCampo('prod-estoque-minimo', -1)" aria-label="Diminuir">−</button>
+                        <input type="number" inputmode="numeric" id="prod-estoque-minimo" value="0" min="0">
+                        <button type="button" onclick="passoCampo('prod-estoque-minimo', 1)" aria-label="Aumentar">+</button>
+                    </div>
+                    <p class="form-dica">Abaixo desse número o item aparece em Pedidos para comprar.</p>
+
+                    <div class="form-label-row"><label class="form-label">Onde fica guardado? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area', 'novo')"><i class="ph ph-plus"></i> Nova área</button></div>
+                    <div id="checks-areas" class="areas-check-list"></div>
+                    <p class="form-dica">Ao escolher a categoria, as áreas dela já vêm marcadas.</p>
+                </div>
+            </div>
+            <div class="form-acoes">
+                    <button class="btn-pill" onclick="salvarProduto(true)"><i class="ph ph-plus"></i> <span>Salvar e <span class="so-desk">cadastrar outro</span><span class="so-mob">novo</span></span></button>
+                    <button class="btn-pill dark" onclick="salvarProduto(false)"><i class="ph ph-check"></i> <span>Salvar<span class="so-desk"> produto</span></span></button>
             </div>
         </section>
         
         <section id="editar-produto" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('produtos-categorias')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div><h1 style="font-size: 1.3rem;">Editar Produto</h1>
-            <div class="card">
-                <input type="hidden" id="edit-prod-id"><input type="text" id="edit-prod-nome">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">Preço de Custo (R$):</p>
-                <input type="number" id="edit-prod-preco-custo" placeholder="Ex: 5.50" step="0.01">
+            <div class="btn-back-styled" onclick="voltarDoCadastroProduto()"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Editar produto</h1><p class="page-sub">Altere o que precisar e salve.</p></div></div>
+            <input type="hidden" id="edit-prod-id">
+            <div class="form-grid">
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">1</span> Identificação</h3>
+                    <label class="form-label" for="edit-prod-nome">Nome do produto <b>*</b></label>
+                    <input type="text" id="edit-prod-nome" placeholder="Ex.: Coca-Cola Lata 350ml" autocomplete="off" enterkeyhint="next">
+                    <label class="form-label" for="edit-prod-codigo">Código do produto</label>
+                    <input type="text" id="edit-prod-codigo" placeholder="Ex.: 1023 (código do xMenu)" autocomplete="off" inputmode="text" maxlength="30">
+                    <p class="form-dica">Igual ao código no xMenu. Usado para ligar as vendas da planilha ao produto.</p>
+                    <label class="form-label" for="edit-prod-preco-custo">Preço de custo por unidade (R$)</label>
+                    <input type="text" inputmode="decimal" id="edit-prod-preco-custo" placeholder="Ex.: 5,50" autocomplete="off">
+                    <p class="form-dica">Use vírgula ou ponto. Para destilados, informe o preço da garrafa abaixo.</p>
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">1. Assinale a Categoria <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas uma)*</span>:</p>
-                <div id="edit-presets-container" style="display:flex; flex-wrap:wrap; gap:5px; margin-bottom:10px;"></div>
-                
-                <div id="wrap-subgrupo-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px dashed var(--primary); border-radius:8px; background: rgba(183, 41, 41, 0.1);">
-                    <p style="font-size:0.9rem; margin: 0 0 8px 0; font-weight:700; color:var(--primary);">A qual Especificação pertence? <span style="font-size:0.75rem; font-weight:normal;">*(Apenas um)*</span></p>
-                    <div id="edit-prod-subgrupo-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
+                    <label class="form-label">Categoria <b>*</b></label>
+                    <div id="edit-presets-container" class="chip-row"></div>
+                    <div id="wrap-subgrupo-edit" class="form-sub" style="display:none;">
+                        <label class="form-label">Especificação</label>
+                        <div id="edit-prod-subgrupo-container" class="chip-row"></div>
+                    </div>
+                    <div id="wrap-destilados-edit" class="form-sub" style="display:none;">
+                        <label class="form-label">Destilado</label>
+                        <div class="form-duo">
+                            <div><small>Volume da garrafa (ml)</small><input type="number" inputmode="numeric" id="edit-prod-ml-garrafa" placeholder="Ex.: 1000"></div>
+                            <div><small>Preço da garrafa (R$)</small><input type="text" inputmode="decimal" id="edit-prod-preco-garrafa" placeholder="Ex.: 85,00"></div>
+                        </div>
+                    </div>
+                    
                 </div>
 
-                <div id="wrap-destilados-edit" style="display:none; margin-bottom:10px; padding:15px; border:1px solid #10b981; border-radius:8px; background: rgba(16, 185, 129, 0.1);">
-                    <p style="font-size:0.95rem; margin: 0 0 8px 0; font-weight:800; color:#10b981;">Informações do Destilado:</p>
-                    <p style="font-size:0.8rem; margin: 5px 0; color:var(--text-main);">Volume da Garrafa (ml):</p>
-                    <input type="number" id="edit-prod-ml-garrafa" placeholder="Ex: 1000">
-                    <p style="font-size:0.8rem; margin: 10px 0 5px 0; color:var(--text-main);">Preço da Garrafa (R$):</p>
-                    <input type="number" id="edit-prod-preco-garrafa" placeholder="Ex: 85.00" step="0.01">
-                </div>
+                <div class="card form-card">
+                    <h3 class="form-titulo"><span class="form-num">2</span> Compra e estoque</h3>
+                    <label class="form-label">Método de compra (fornecedor) <b>*</b></label>
+                    <div id="edit-metodos-container" class="chip-row"></div>
+                    <input type="hidden" id="edit-prod-metodo-selecionado">
 
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">2. Selecione o Método de Compra <span style="font-size:0.75rem; font-weight:normal; color:var(--primary);">*(Apenas um)*</span>:</p>
-                <div id="edit-metodos-container" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-                <input type="hidden" id="edit-prod-metodo-selecionado">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">3. Estoque Mínimo <span id="lbl-estoque-minimo-edit" style="font-size:0.75rem; font-weight:normal; color:var(--primary);">(Un.)</span>:</p>
-                <input type="number" id="edit-prod-estoque-minimo">
-                
-                <p style="font-size:0.9rem; margin: 15px 0 5px 0; font-weight:700; color:var(--text-main);">4. Onde este produto fica armazenado?</p>
-                <div id="edit-checks-areas" class="areas-check-list"></div>
-                <button class="btn-submit" onclick="salvarEdicaoProduto()">SALVAR</button>
-                <span style="color:var(--primary); cursor:pointer; display:block; text-align:center; margin-top:15px; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoProd()">Excluir Produto</span>
+                    <label class="form-label" for="edit-prod-estoque-minimo">Estoque mínimo <span id="lbl-estoque-minimo-edit" class="form-unid">(Un.)</span></label>
+                    <div class="stepper">
+                        <button type="button" onclick="passoCampo('edit-prod-estoque-minimo', -1)" aria-label="Diminuir">−</button>
+                        <input type="number" inputmode="numeric" id="edit-prod-estoque-minimo" value="0" min="0">
+                        <button type="button" onclick="passoCampo('edit-prod-estoque-minimo', 1)" aria-label="Aumentar">+</button>
+                    </div>
+                    <p class="form-dica">Abaixo desse número o item aparece em Pedidos para comprar.</p>
+
+                    <div class="form-label-row"><label class="form-label">Onde fica guardado? <b>*</b></label><button type="button" class="link-btn" onclick="cadastroRapido('area', 'edit')"><i class="ph ph-plus"></i> Nova área</button></div>
+                    <div id="edit-checks-areas" class="areas-check-list"></div>
+                    <p class="form-dica">Ao escolher a categoria, as áreas dela já vêm marcadas.</p>
+                </div>
+            </div>
+            <div class="form-acoes">
+                    <button class="btn-pill danger-text" onclick="prepararExclusaoProd()"><i class="ph ph-trash"></i> Excluir</button>
+                    <button class="btn-pill dark" onclick="salvarEdicaoProduto()"><i class="ph ph-check"></i> Salvar alterações</button>
             </div>
         </section>
         
         <section id="nova-area" class="section req-dono">
-            <div class="btn-back-styled" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
-            <h1>Nova Área</h1><div class="card"><input type="text" id="area-nome" placeholder="Nome da área"><button class="btn-submit" onclick="salvarArea()">CRIAR</button></div>
+            <div class="btn-back-styled" onclick="navegar('cadastros')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
+            <div class="page-head"><div><h1>Novas áreas</h1><p class="page-sub">Lugares onde o estoque fica guardado (ex.: Câmara Fria, Bar, Depósito).</p></div></div>
+            <div class="card form-card" style="max-width:640px;">
+                <label class="form-label" for="area-nome">Nome das áreas <b>*</b></label>
+                <textarea id="area-nome" rows="5" placeholder="Uma por linha:&#10;Câmara Fria&#10;Bar&#10;Depósito"></textarea>
+                <p class="form-dica">Pode cadastrar várias de uma vez, uma por linha. Não use os caracteres . # $ [ ] /</p>
+                <div class="form-acoes" style="margin-top:12px;"><button class="btn-pill dark" onclick="salvarArea()"><i class="ph ph-check"></i> Criar áreas</button></div>
+            </div>
+        </section>
+
+        <!-- CADASTROS (passo a passo) -->
+        <section id="cadastros" class="section req-dono">
+            <div class="page-head"><div><h1>Cadastros</h1><p class="page-sub">Siga a ordem: cada passo usa o anterior.</p></div><div class="page-actions"><button class="btn-pill dark" onclick="abrirImportar()"><i class="ph ph-upload-simple"></i> Importar vários produtos</button></div></div>
+            <div id="cadastros-passos" class="passos-grid"></div>
         </section>
 
         <section id="cardapio-digital" class="section req-dono">
@@ -823,7 +1044,7 @@
                     <div class="btn-back-styled" style="margin:0;" onclick="navegar('inicio')"><svg viewBox="0 0 24 24"><path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" /></svg></div>
                     <h1 style="margin:0; font-size: 2.2rem;">Cardápio Digital</h1>
                 </div>
-                <button class="btn-submit" onclick="criarNovoGrupoCardapio()" style="margin:0; width:auto; padding: 10px 20px; background: #10b981; font-weight:800; display:flex; align-items:center; gap:8px;">
+                <button class="btn-submit" onclick="criarNovoGrupoCardapio()" style="margin:0; width:auto; padding: 10px 20px; background:var(--dark); font-weight:800; display:flex; align-items:center; gap:8px;">
                     <i class="ph ph-plus-circle" style="font-size:1.2rem;"></i> Criar Novo Grupo
                 </button>
             </div>
@@ -834,13 +1055,13 @@
         <div id="modalNovoGrupoCardapio" class="modal-overlay" style="z-index: 4000; display: none;">
         <div class="modal-box">
             <h3 style="margin-bottom: 10px; color: var(--primary);">Novo Grupo do Cardápio</h3>
-            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">Digite o nome do novo grupo (Ex: Drinks, Entradas, Porções):</p>
+            <p style="font-size: 0.85rem; color:var(--muted); margin-bottom: 15px;">Digite o nome do novo grupo (Ex: Drinks, Entradas, Porções):</p>
             
             <input type="text" id="input-novo-grupo-cardapio" placeholder="Nome do Grupo" style="margin-bottom: 15px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;" onkeydown="if(event.key==='Enter') confirmarNovoGrupoCardapio()">
             
             <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('modalNovoGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="confirmarNovoGrupoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Criar</button>
+                <button onclick="document.getElementById('modalNovoGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="confirmarNovoGrupoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Criar</button>
             </div>
         </div>
     </div>
@@ -851,13 +1072,13 @@
             
             <input type="text" id="input-editar-grupo-nome" placeholder="Nome do Grupo" style="margin-bottom: 15px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;">
             
-            <button onclick="abrirModalNovoProduto()" style="width: 100%; padding: 10px; border-radius: 8px; background: #3b82f6; color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
+            <button onclick="abrirModalNovoProduto()" style="width: 100%; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer; margin-bottom: 15px; display:flex; justify-content:center; align-items:center; gap:8px;">
                 <i class="ph ph-plus-circle" style="font-size: 1.2rem;"></i> Criar Novo Produto
             </button>
 
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
+                <button onclick="document.getElementById('modalEditarGrupoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="salvarEdicaoGrupo()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar Nome</button>
             </div>
 
             <button onclick="prepararExclusaoGrupoCardapio()" style="width: 100%; padding: 10px; border-radius: 8px; background: #ef4444; color: white; border: none; font-weight: bold; cursor: pointer; display:flex; justify-content:center; align-items:center; gap:8px;">
@@ -868,21 +1089,21 @@
 
     <div id="modalNovoProdutoCardapio" class="modal-overlay" style="z-index: 4001; display: none;">
         <div class="modal-box">
-            <h3 id="titulo-modal-produto" style="margin-bottom: 15px; color: #10b981;">Novo Produto</h3>
+            <h3 id="titulo-modal-produto" style="margin-bottom: 15px; color:var(--ink);">Novo Produto</h3>
             
             <div style="display: flex; gap: 15px; margin-bottom: 15px;">
     <div style="flex: 1; text-align: center;">
         <p style="font-size:0.7rem; font-weight:bold; margin-bottom:5px;">Miniatura</p>
         <img id="preview-prod-foto" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid var(--primary); margin:0 auto 5px;">
-        <label style="display:block; background:rgba(255,255,255,0.1); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
+        <label style="display:block; background:var(--surface-2); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
             📷 Escolher
             <input type="file" id="input-prod-foto" accept="image/*" style="display:none;" onchange="carregarFotoProduto(event, 'preview-prod-foto', 'fotoBase64Miniatura')">
         </label>
     </div>
     <div style="flex: 1; text-align: center;">
         <p style="font-size:0.7rem; font-weight:bold; margin-bottom:5px;">Exibição</p>
-        <img id="preview-prod-exibicao" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid #10b981; margin:0 auto 5px;">
-        <label style="display:block; background:rgba(255,255,255,0.1); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
+        <img id="preview-prod-exibicao" src="" style="width:80px; height:80px; object-fit:cover; border-radius:8px; display:none; border:2px solid var(--line-strong); margin:0 auto 5px;">
+        <label style="display:block; background:var(--surface-2); padding:5px; border-radius:8px; cursor:pointer; font-size:0.7rem;">
             🖼️ Escolher
             <input type="file" id="input-prod-exibicao" accept="image/*" style="display:none;" onchange="carregarFotoProduto(event, 'preview-prod-exibicao', 'fotoBase64Exibicao')">
         </label>
@@ -893,39 +1114,47 @@
             
             <input type="number" id="input-prod-preco" step="0.01" placeholder="Preço (Ex: 25.90)" style="margin-bottom: 10px; text-align: left; font-weight: bold; width: 100%; box-sizing: border-box;">
             
-            <textarea id="input-prod-desc" placeholder="Descrição (Ex: Vodka, morango, gelo e açúcar...)" style="margin-bottom: 15px; text-align: left; width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white;"></textarea>
+            <textarea id="input-prod-desc" placeholder="Descrição (Ex: Vodka, morango, gelo e açúcar...)" style="margin-bottom: 15px; text-align: left; width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px; font-family: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background:var(--surface-strong); color: var(--text-main);"></textarea>
             <label style="display:flex; align-items:center; gap:10px; margin-bottom: 15px; font-size: 0.95rem; color: var(--text-main);">
                 <input type="checkbox" id="input-prod-oculto" style="width:16px; height:16px;">
                 Ocultar produto?
             </label>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button onclick="document.getElementById('modalNovoProdutoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ccc; background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
-                <button onclick="salvarProdutoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer;">Salvar</button>
+                <button onclick="document.getElementById('modalNovoProdutoCardapio').style.display='none'" style="flex: 1; padding: 10px; border-radius: 8px; border:1px solid var(--line); background: white; font-weight: bold; cursor: pointer; color: black;">Cancelar</button>
+                <button onclick="salvarProdutoCardapio()" style="flex: 1; padding: 10px; border-radius: 8px; background:var(--dark); color: white; border: none; font-weight: bold; cursor: pointer;">Salvar</button>
             </div>
             <div id="acao-item-cardapio" style="display:none; margin-top: 12px; text-align: center;">
-                <button type="button" onclick="duplicarProdutoCardapio(produtoAtualEdicao)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: #262626; color: var(--text-main); font-weight: bold; cursor: pointer; margin-bottom: 8px;">Duplicar</button>
+                <button type="button" onclick="duplicarProdutoCardapio(produtoAtualEdicao)" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #262626; color: var(--text-main); font-weight: bold; cursor: pointer; margin-bottom: 8px;">Duplicar</button>
                 <span style="display: block; margin-top: 12px; color: #ff4d4f; cursor: pointer; font-weight: bold; font-size: 0.9rem;" onclick="prepararExclusaoProdutoCardapio()">Excluir produto</span>
             </div>
         </div>
     </div>
-    <div id="modalInfoItem" class="modal-overlay" style="z-index: 5000; display: none;">
-        <div class="modal-box" style="background: #1a0404; border: 1px solid var(--primary); max-width: 450px; width: 90%;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 id="titulo-info-item" style="color: var(--primary); margin: 0;">Detalhes do Item</h3>
-                <button onclick="document.getElementById('modalInfoItem').style.display='none'" style="background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+    <div id="modalInfoItem" class="sheet-overlay" onclick="if(event.target===this) fecharInfoItem()">
+        <div class="sheet-box" role="dialog" aria-modal="true">
+            <div class="sheet-alca"></div>
+            <h3 id="titulo-info-item" class="sheet-titulo">Detalhes do Item</h3>
+            <div class="sheet-grid">
+                <div class="sheet-campo"><small>Custo</small><b id="info-custo">—</b></div>
+                <div class="sheet-campo"><small>Código</small><b id="info-codigo">—</b></div>
+                <div class="sheet-campo" style="grid-column: 1 / -1;"><small>Estoque global</small><b id="total-info-item">0</b></div>
             </div>
-            
-            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 15px;">Este item está distribuído nas seguintes áreas:</p>
-            
-            <div id="lista-locais-item" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
-                </div>
-
-            <div style="text-align: right; font-weight: 800; font-size: 1.1rem; color: white; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
-                Total Geral: <span id="total-info-item" style="color: var(--primary);">0</span>
-            </div>
+            <div class="sheet-secao">Onde é encontrado</div>
+            <div id="lista-locais-item"></div>
+            <button class="sheet-fechar" onclick="fecharInfoItem()">Fechar</button>
         </div>
     </div>
+      </div>
     </main>
+
+    <!-- Barra inferior (celular) -->
+    <nav class="tabbar" id="tabbar">
+        <span class="tab-ind" id="tab-ind" aria-hidden="true"></span>
+        <button class="tab-btn active" data-telas="inicio" onclick="navegar('inicio')"><i class="ph ph-house"></i><span>Início</span></button>
+        <button class="tab-btn" data-telas="produtos-hub areas-lista detalhe-area transferencia-area produtos-categorias produtos-lista-filtrada detalhe-produto pedidos-metodos pedidos-lista recebimentos-lista recebimento-entrada" onclick="navegar('areas-lista')"><i class="ph ph-package"></i><span>Estoque</span></button>
+        <button class="tab-btn" data-telas="reservas-hub agenda-view agenda-detalhe mapa-setup mapa-salao" onclick="irParaAgenda()"><i class="ph ph-calendar-blank"></i><span>Reservas</span></button>
+        <button class="tab-btn" data-telas="receitas-lista detalhe-receita nova-receita editar-receita" onclick="abrirReceitas()"><i class="ph ph-martini"></i><span>Receitas</span></button>
+        <button class="tab-btn" onclick="abrirMenuLateral()"><i class="ph ph-list"></i><span>Menu</span></button>
+    </nav>
 
     <!-- FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
@@ -936,5 +1165,8 @@
     <script src="js/styleFunction.js"></script>
     
     <script src="js/cardapioAdmin.js"></script>
+    <script src="js/painel.js"></script>
+    <script src="js/cadastros.js"></script>
+    <script src="js/experiencia.js"></script>
 </body>
 </html>

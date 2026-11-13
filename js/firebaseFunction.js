@@ -3,12 +3,103 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const auth = firebase.auth();
-        // ATIVAR MODO OFFLINE (Feature 45)
-        
-        // O Firebase já gerencia o cache local automaticamente em navegadores modernos.
-        // ATIVAR MODO OFFLINE (Feature 45)
-        
-        // O Firebase já gerencia o cache local automaticamente em navegadores modernos.
+
+        // ==========================================
+        // UTILITÁRIOS GERAIS
+        // ==========================================
+
+        // Escapa texto digitado pelo usuário antes de colocar no HTML.
+        // Sem isso, nomes como "Bar do Zé <3" ou "D'Ávila" quebravam a tela ou os botões.
+        function esc(v) {
+            return String(v === undefined || v === null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Gera um argumento seguro para usar dentro de onclick="funcao(...)".
+        // Ex.: onclick="verArea(${jsArg(key)}, ${jsArg(nome)})"
+        function jsArg(v) { return esc(JSON.stringify(v === undefined ? null : v)); }
+
+        // Data local (fuso do aparelho) no formato AAAA-MM-DD.
+        // toISOString() usa UTC: depois das 21h no Brasil devolvia o dia seguinte.
+        function dataLocalISO(d) {
+            d = d || new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        // Junta várias atualizações de tela num único redesenho por quadro.
+        // Quando chegam vários eventos do Firebase seguidos, a tela é refeita uma vez só.
+        const _rendersPendentes = new Map();
+        function agendarRender(nome, fn) {
+            if (_rendersPendentes.has(nome)) { _rendersPendentes.set(nome, fn); return; }
+            _rendersPendentes.set(nome, fn);
+            requestAnimationFrame(() => {
+                const f = _rendersPendentes.get(nome);
+                _rendersPendentes.delete(nome);
+                try { f(); } catch (e) { console.error('Erro ao redesenhar ' + nome + ':', e); }
+            });
+        }
+
+        // Toda guia abre no topo absoluto (sem sobra para rolar "para cima").
+        function irParaOTopo() {
+            const topo = () => {
+                const se = document.scrollingElement || document.documentElement;
+                se.style.scrollBehavior = 'auto';
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                se.scrollTop = 0; document.body.scrollTop = 0;
+            };
+            topo();
+            requestAnimationFrame(() => { topo(); setTimeout(topo, 260); });
+        }
+
+        function telaAtiva(id) {
+            const el = document.getElementById(id);
+            return !!(el && el.classList.contains('active'));
+        }
+
+        // Trava um botão enquanto uma gravação está em andamento (evita gravar duas vezes com toque duplo).
+        function travarBotao(btn, textoTemporario) {
+            if (!btn) return () => {};
+            if (btn.dataset.travado === '1') return null;
+            btn.dataset.travado = '1';
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            if (textoTemporario) btn.innerHTML = textoTemporario;
+            return () => { btn.disabled = false; btn.dataset.travado = ''; btn.innerHTML = original; };
+        }
+
+        // Reduz uma foto antes de salvar no banco.
+        // Fotos de celular têm 3–7 MB; gravadas cruas, todo mundo baixava todas a cada login.
+        // Agora ficam com ~100–200 KB, sem diferença visível na tela do app.
+        function comprimirImagem(arquivoOuDataUrl, maxLado = 1080, qualidade = 0.8) {
+            return new Promise((resolve, reject) => {
+                const carregar = (src) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width: w, height: h } = img;
+                        const escala = Math.min(1, maxLado / Math.max(w, h));
+                        w = Math.round(w * escala); h = Math.round(h * escala);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff'; // JPEG não tem transparência
+                        ctx.fillRect(0, 0, w, h);
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', qualidade));
+                    };
+                    img.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+                    img.src = src;
+                };
+                if (typeof arquivoOuDataUrl === 'string') { carregar(arquivoOuDataUrl); return; }
+                const reader = new FileReader();
+                reader.onload = e => carregar(e.target.result);
+                reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'));
+                reader.readAsDataURL(arquivoOuDataUrl);
+            });
+        }
+
+        // Nomes de área viram chaves no Firebase, que não aceita estes caracteres.
+        function nomeAreaInvalido(nome) { return /[.#$\[\]\/]/.test(nome); }
 
         // ESTADOS GLOBAIS
         const DONO_EMAIL = "pedrosoaresctt@gmail.com";
@@ -20,6 +111,17 @@
         const CAPACIDADE_AREAS = { "Varanda": 20, "Salão 1 - Frente": 30, "Salão 1 - Corredor": 30, "Salão 2 - Parede": 40, "Salão 2 - Meio": 40, "Salão 2 - Corrimão": 15, "Salão 2 - Mesas Redondas": 3, "Salão 2 - Bistrôs": 3, "Salão 2 - Brinquedão": 60, "Laje": 60 };
 
         let areas = [], produtos = {}, categorias = {}, metodosCompra = {}, reservasApp = {}, receitasDB = {};
+        let categoriasPorNome = {};       // índice nome -> categoria (evita varrer todas as categorias para cada produto)
+        let receitasCarregadas = false;   // true depois que o Firebase respondeu pela 1ª vez
+        let pedidoMetodoAtualKey = '';    // método aberto na tela de Pedidos
+
+        function reindexarCategorias() {
+            categoriasPorNome = {};
+            Object.keys(categorias).forEach(k => {
+                const c = categorias[k];
+                if (c && c.nome && !categoriasPorNome[c.nome]) categoriasPorNome[c.nome] = c;
+            });
+        }
         let areaAtualKey = "", catsNovo = [], catsEdit = [], agrupamentoAtual = 'categorias'; 
         
         let mapasApp = {}; let modoMontagemMapa = false; let mesasSelecionadasMapa = []; let areaFocadaMapa = null; let mapaAtualData = ""; let mapaAtualTurno = "";
@@ -54,8 +156,15 @@
 
         let authMode = 'login'; 
 
-        function abrirModalAuth() {
-            if(currentUser) { auth.signOut(); return; }
+        async function abrirModalAuth() {
+            if(currentUser) {
+                // Pergunta antes de sair (no celular o avatar é fácil de tocar sem querer)
+                if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && !(await confirmar('Você está no meio de uma contagem. Sair da conta mesmo assim? Os números digitados serão perdidos.', { titulo: 'Sair da conta', ok: 'Sair', perigo: true }))) return;
+                else if (!(typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) && !(await confirmar('Deseja sair da conta?', { titulo: 'Sair da conta', ok: 'Sair' }))) return;
+                if (typeof encerrarModoContagem === 'function') encerrarModoContagem();
+                auth.signOut();
+                return;
+            }
             document.getElementById('modalAuth').style.display = 'flex';
             document.getElementById('auth-nome').value = '';
             document.getElementById('auth-email').value = '';
@@ -84,10 +193,16 @@
             if(!email || !senha) return alert("Preencha email e senha!");
             
             if(authMode === 'login') {
+                const btnAuth = document.getElementById('btn-submit-auth');
+                const liberarAuth = travarBotao(btnAuth, 'Entrando...');
+                if (liberarAuth === null) return;
                 auth.signInWithEmailAndPassword(email, senha)
-                    .then(() => fecharModalAuth())
+                    .then(() => { liberarAuth(); fecharModalAuth(); })
                     .catch(e => {
-                        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') alert("🚨 Essa conta não existe ou a senha está errada! Clique em 'Cadastre-se' e crie a conta.");
+                        liberarAuth();
+                        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-login-credentials') alert("🚨 E-mail ou senha incorretos. Se ainda não tem conta, toque em 'Cadastre-se'.");
+                        else if (e.code === 'auth/too-many-requests') alert("Muitas tentativas. Aguarde alguns minutos e tente de novo.");
+                        else if (e.code === 'auth/network-request-failed') alert("Sem conexão com a internet.");
                         else alert("Erro ao entrar: " + e.message);
                     });
             } else {
@@ -95,6 +210,8 @@
                     .then((cred) => {
                         const roleNovo = email === DONO_EMAIL ? 'dono' : 'visualizador';
                         const perfil = { nome: nome, email: email, role: roleNovo };
+                        currentUserName = nome;
+                        try { cred.user.updateProfile({ displayName: nome }); } catch (e) {}
                         db.ref('users/' + cred.user.uid).set(perfil).then(() => {
                             sincronizarUsuarioIndex(cred.user.uid, perfil);
                         });
@@ -114,6 +231,7 @@
         let listenerEquipeAdmin = null;
 
         auth.onAuthStateChanged((user) => {
+            if (window.XP && !document.body.classList.contains('auth-pronto')) XP.entradaInicial();
             if (perfilUserListener) {
                 db.ref('users/' + perfilUserListener).off('value');
                 perfilUserListener = null;
@@ -124,7 +242,7 @@
             if (user) {
                 currentUser = user;
                 currentRole = (user.email === DONO_EMAIL) ? 'dono' : 'visualizador';
-                currentUserName = user.email ? user.email.split('@')[0] : '';
+                currentUserName = user.displayName || '';
                 aplicarPermissoes();
                 iniciarListenersFirebase();
 
@@ -134,7 +252,9 @@
                     let roleDb = data ? (data.role || 'visualizador') : 'visualizador';
                     if (roleDb === 'vizualizador') roleDb = 'visualizador';
                     currentRole = (user.email === DONO_EMAIL) ? 'dono' : roleDb;
-                    currentUserName = data ? (data.nome || user.email.split('@')[0]) : user.email.split('@')[0];
+                    // Sem perfil ainda (cadastro em andamento): não mostra nem grava o e-mail como nome
+                    if (!data) { currentUserName = user.displayName || ''; aplicarPermissoes(); return; }
+                    currentUserName = data.nome || user.displayName || user.email.split('@')[0];
 
                     const perfilSync = {
                         nome: currentUserName,
@@ -158,22 +278,36 @@
         });
 
         function aplicarPermissoes() {
-            document.body.className = 'role-' + currentRole;
+            document.body.classList.remove('role-dono', 'role-contribuidor', 'role-visualizador');
+            document.body.classList.add('role-' + currentRole);
+            document.body.classList.toggle('logado', !!currentUser);
             const avisoLogin = document.getElementById('aviso-login');
-            if (avisoLogin) avisoLogin.style.display = currentUser ? 'none' : 'block';
+            if (avisoLogin) avisoLogin.style.display = currentUser ? 'none' : '';
 
             const btnLogin = document.getElementById('btn-login-sidebar');
             const btnRole = document.getElementById('btn-top-role');
             
             if(currentUser) {
-                btnLogin.innerHTML = '<i class="ph ph-sign-out" style="font-size:1.3rem;"></i> <span>Sair da Conta</span>';
+                btnLogin.innerHTML = '<i class="ph ph-sign-out"></i><span>Sair da conta</span>';
             } else {
-                btnLogin.innerHTML = '<i class="ph ph-user" style="font-size:1.3rem;"></i> <span>Entrar / Cadastrar</span>';
+                btnLogin.innerHTML = '<i class="ph ph-user"></i><span>Entrar / Cadastrar</span>';
             }
             
-            if (currentRole === 'dono') btnRole.innerHTML = '<i class="ph ph-gear-six" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
-            else if (currentRole === 'contribuidor') btnRole.innerHTML = '<i class="ph ph-pencil-simple" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
-            else btnRole.innerHTML = '<i class="ph ph-eye" style="color: var(--bg-sidebar); font-weight: bold;"></i>';
+            const nomesCargo = { dono: 'Dono', contribuidor: 'Contribuidor', visualizador: 'Visualizador' };
+            const cargoTxt = currentUser ? (nomesCargo[currentRole] || 'Visualizador') : 'Visitante';
+            if (currentRole === 'dono') { btnRole.innerHTML = '<i class="ph ph-gear-six"></i>'; btnRole.title = 'Configurações'; }
+            else if (currentRole === 'contribuidor') { btnRole.innerHTML = '<i class="ph ph-pencil-simple"></i>'; btnRole.title = 'Você pode editar o estoque e as reservas'; }
+            else { btnRole.innerHTML = '<i class="ph ph-eye"></i>'; btnRole.title = 'Somente visualização'; }
+
+            // Avatar e nome na barra superior; cartão no rodapé do menu
+            const nomeExib = currentUser ? (currentUserName || 'Minha conta') : 'Entrar';
+            const iniciais = currentUser ? (nomeExib.split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0].toUpperCase()).join('') || '?') : '?';
+            const elAv = document.getElementById('user-avatar'); if (elAv) elAv.textContent = iniciais;
+            const elNome = document.getElementById('user-nome'); if (elNome) elNome.textContent = nomeExib;
+            const elCargo = document.getElementById('user-cargo'); if (elCargo) elCargo.textContent = cargoTxt;
+            const elChip = document.getElementById('user-chip'); if (elChip) elChip.title = currentUser ? 'Sair da conta' : 'Entrar';
+            const elFoot = document.getElementById('side-foot-role'); if (elFoot) elFoot.textContent = currentUser ? `${nomeExib} · ${cargoTxt}` : 'Visitante';
+            const elFootSub = document.getElementById('side-foot-sub'); if (elFootSub) elFootSub.textContent = currentUser ? (currentUser.email || '') : 'Faça login para usar o sistema';
 
             if(currentRole !== 'dono' && document.getElementById('configuracoes').classList.contains('active')) navegar('inicio');
             
@@ -182,9 +316,11 @@
             if(document.getElementById('mapa-salao').classList.contains('active')) carregarReservasMapa();
 
             if (document.getElementById('receitas-lista').classList.contains('active')) renderizarReceitas();
+            if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
             if (document.getElementById('detalhe-receita').classList.contains('active') && receitaAtualKey) {
-                verDetalhesReceita(receitaAtualKey);
+                verDetalhesReceita(receitaAtualKey, true);
             }
+            if (typeof atualizarBadges === 'function') atualizarBadges();
         }
 
         function sincronizarUsuarioIndex(uid, u) {
@@ -209,7 +345,7 @@
         function carregarEquipeAdmin() {
             const lista = document.getElementById('lista-usuarios-admin');
             if (!lista) return;
-            lista.innerHTML = '<p style="color:#64748b; font-size:0.9rem;">Carregando equipe...</p>';
+            lista.innerHTML = '<p style="color:var(--muted); font-size:0.9rem;">Carregando equipe...</p>';
 
             pararListenerEquipeAdmin();
 
@@ -275,9 +411,9 @@
 
                 const nome = u.nome || (email ? email.split('@')[0] : 'Usuário');
                 const emailLinha = email
-                    ? `<span style="font-size:0.75rem; color:#64748b; font-weight:normal; display:block;">${email}</span>`
-                    : `<span style="font-size:0.75rem; color:#64748b; font-weight:normal; display:block;">Sem e-mail no cadastro</span>`;
-                const nomeExibicao = `${nome}${emailLinha}`;
+                    ? `<span style="font-size:0.75rem; color:var(--muted); font-weight:normal; display:block;">${esc(email)}</span>`
+                    : `<span style="font-size:0.75rem; color:var(--muted); font-weight:normal; display:block;">Sem e-mail no cadastro</span>`;
+                const nomeExibicao = `${esc(nome)}${emailLinha}`;
 
                 let roleAtual = u.role || 'visualizador';
                 if (roleAtual === 'vizualizador') roleAtual = 'visualizador';
@@ -286,19 +422,19 @@
                 if (email === DONO_EMAIL) {
                     selectHtml = `<div style="font-weight:bold; color:var(--primary); font-size:0.85rem; padding-right:5px;">👑 Dono</div>`;
                 } else {
-                    selectHtml = `<select onchange="atualizarCargoUsuario('${uid}', this.value)" style="width:auto; padding:6px; margin:0; font-weight:bold; border-radius:6px; font-size:0.85rem; border:1px solid #ccc; background:#1a0404; color:#fbeee3;">
+                    selectHtml = `<select onchange="atualizarCargoUsuario(${jsArg(uid)}, this.value)" style="width:auto; padding:6px; margin:0; font-weight:bold; border-radius:6px; font-size:0.85rem; border:1px solid var(--line); background:var(--surface-2); color:var(--text-main);">
                         <option value="contribuidor" ${roleAtual==='contribuidor'?'selected':''}>✏️ Contribuidor</option>
                         <option value="visualizador" ${roleAtual==='visualizador'?'selected':''}>👁️ Visualizador</option>
                     </select>`;
                 }
-                html += `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.4); margin-bottom:8px; gap:10px; flex-wrap:wrap;">
+                html += `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; display:flex; justify-content:space-between; align-items:center; background:var(--surface-2); margin-bottom:8px; gap:10px; flex-wrap:wrap;">
                     <div style="font-weight:bold; font-size:0.9rem; color:var(--text-main); line-height:1.2; flex:1; min-width:180px;">${nomeExibicao}</div>
                     ${selectHtml}
                 </div>`;
             });
 
             if (!html) {
-                html = `<p style="color:#64748b; font-size:0.9rem;">Nenhum usuário em <strong>users</strong> ainda. Peça para a equipe criar conta pelo botão Entrar no app.</p>`;
+                html = `<p style="color:var(--muted); font-size:0.9rem;">Nenhum usuário em <strong>users</strong> ainda. Peça para a equipe criar conta pelo botão Entrar no app.</p>`;
             }
             lista.innerHTML = html;
         }
@@ -328,17 +464,20 @@
         // SISTEMA DE RECEBIMENTO E ALOCAÇÃO (PÁTIO)
         // ==========================================
         let recebimentoTemp = {};
+        let recebimentoMetodoAtual = '';
 
         function abrirRecebimentos() {
             navegar('recebimentos-lista');
             const grid = document.getElementById('grid-recebimentos-metodos');
             const chaves = Object.keys(metodosCompra);
-            if(chaves.length === 0) { grid.innerHTML = `<p style="color:#64748b; grid-column:1/-1;">Nenhum método de compra cadastrado.</p>`; return; }
-            grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="iniciarRecebimento('${k}')">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${metodosCompra[k].nome}</h3></div>`).join('');
+            if(chaves.length === 0) { grid.innerHTML = `<p style="color:var(--muted); grid-column:1/-1;">Nenhum método de compra cadastrado.</p>`; return; }
+            grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="iniciarRecebimento(${jsArg(k)})">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${esc(metodosCompra[k].nome)}</h3></div>`).join('');
         }
 
         function iniciarRecebimento(keyMetodo) {
+            if (!metodosCompra[keyMetodo]) return;
             const met = metodosCompra[keyMetodo].nome;
+            recebimentoMetodoAtual = met;
             document.getElementById('titulo-recebimento-metodo').innerText = `Carga: ${met}`;
             recebimentoTemp = {};
             
@@ -346,11 +485,11 @@
             prods.sort((a,b) => compararProdutosPorCategoriaEOrdem(a, b));
             
             if(prods.length === 0) {
-                document.getElementById('tabela-recebimento-itens').innerHTML = `<tr><td colspan="3" style="text-align:center; color:#64748b;">Fornecedor não tem produtos vinculados.</td></tr>`;
+                document.getElementById('tabela-recebimento-itens').innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--muted);">Fornecedor não tem produtos vinculados.</td></tr>`;
             } else {
                 let maxF = 1;
                 prods.forEach(pk => {
-                    let t = 1; getCategoriasProduto(produtos[pk]).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
+                    let t = getTamFardoProduto(produtos[pk]);
                     if(t > maxF) maxF = t;
                 });
                 
@@ -366,21 +505,21 @@
                     const categoria = getCategoriaPrincipalProduto(p);
                     const subgrupo = p.subgrupo ? p.subgrupo : '';
                     if (categoria !== currentCategoria) {
-                        linhasHtml.push(`<tr><td colspan="3" style="padding:12px 0 6px 12px; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${categoria}</td></tr>`);
+                        linhasHtml.push(`<tr><td colspan="3" style="padding:12px 0 6px 12px; color:var(--text-main); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(categoria)}</td></tr>`);
                         currentCategoria = categoria;
                         currentSubgrupo = '';
                     }
                     if (subgrupo !== currentSubgrupo) {
-                        linhasHtml.push(`<tr><td colspan="3" style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${subgrupo || 'Sem especificação'}</td></tr>`);
+                        linhasHtml.push(`<tr><td colspan="3" style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${esc(subgrupo || 'Sem especificação')}</td></tr>`);
                         currentSubgrupo = subgrupo;
                     }
-                    let t = 1; getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
+                    let t = getTamFardoProduto(p);
                     
                     recebimentoTemp[pk] = { f: 0, u: 0, t: t };
-                    const fardoInput = t > 1 ? `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-f-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','f',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','f',-1)">▼</button></div></div>` : '';
-                    const unInput = `<div class="qty-box" style="background:#1a0404;"><input type="number" class="qty-input" style="background:#1a0404;" id="rec-u-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','u',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','u',-1)">▼</button></div></div>`;
+                    const fardoInput = t > 1 ? `<div class="qty-box" style="background:var(--surface-2);"><input type="number" class="qty-input" style="background:var(--surface-2);" id="rec-f-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','f',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','f',-1)">▼</button></div></div>` : '';
+                    const unInput = `<div class="qty-box" style="background:var(--surface-2);"><input type="number" class="qty-input" style="background:var(--surface-2);" id="rec-u-${pk}" value="0" onchange="atualizarRecTemp('${pk}')"><div class="qty-ctrls"><button class="qty-btn-up" onclick="mudarRecQtd('${pk}','u',1)">▲</button><button class="qty-btn-down" onclick="mudarRecQtd('${pk}','u',-1)">▼</button></div></div>`;
                     
-                    linhasHtml.push(`<tr><td class="col-item">${p.nome}</td><td style="text-align:center">${fardoInput}</td><td style="text-align:center">${unInput}</td></tr>`);
+                    linhasHtml.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center">${fardoInput}</td><td style="text-align:center">${unInput}</td></tr>`);
                 });
 
                 document.getElementById('tabela-recebimento-itens').innerHTML = linhasHtml.join('');
@@ -390,14 +529,16 @@
 
         function mudarRecQtd(pk, tipo, delta) {
             const el = document.getElementById(`rec-${tipo}-${pk}`);
+            if (!el) return;
             let v = (parseInt(el.value)||0) + delta; if(v < 0) v = 0;
             el.value = v; atualizarRecTemp(pk);
         }
 
         function atualizarRecTemp(pk) {
+            if (!recebimentoTemp[pk]) return;
             const elF = document.getElementById(`rec-f-${pk}`);
-            recebimentoTemp[pk].f = elF ? (parseInt(elF.value)||0) : 0;
-            recebimentoTemp[pk].u = parseInt(document.getElementById(`rec-u-${pk}`).value)||0;
+            recebimentoTemp[pk].f = elF ? Math.max(0, parseInt(elF.value)||0) : 0;
+            recebimentoTemp[pk].u = Math.max(0, parseInt(document.getElementById(`rec-u-${pk}`).value)||0);
         }
 
         // Função para mostrar Notificações do Sistema (Toasts)
@@ -417,16 +558,21 @@
 
         function salvarRecebimentoEstoque() {
             if(currentRole === 'visualizador') return;
+            // Relê os campos (o "onchange" só dispara ao sair do campo; se a pessoa digitou e tocou
+            // direto em CONFIRMAR, o último valor podia se perder).
+            Object.keys(recebimentoTemp).forEach(pk => atualizarRecTemp(pk));
+
             let updates = {}; let qtdRecebida = 0;
-            let itensRecebidosHist = {}; // NOVO: Para a Linha do Tempo
-            const met = document.getElementById('titulo-recebimento-metodo').innerText.replace('Carga: ', '');
+            let itensRecebidosHist = {}; // Para a Linha do Tempo
+            const met = recebimentoMetodoAtual;
             
             for(let pk in recebimentoTemp) {
                 const r = recebimentoTemp[pk];
+                const p = produtos[pk];
+                if(!p) continue;
                 if(r.f > 0 || r.u > 0) {
                     qtdRecebida++;
-                    const p = produtos[pk];
-                    itensRecebidosHist[pk] = { f: r.f, u: r.u, nome: p.nome }; // Guarda pro histórico
+                    itensRecebidosHist[pk] = { f: r.f, u: r.u, nome: p.nome };
                     
                     let estAntigo = p.estoque && p.estoque['_Pendente_'] ? p.estoque['_Pendente_'] : {f:0, u:0};
                     let novoF = (Number(estAntigo.f)||0) + r.f; let novoU = (Number(estAntigo.u)||0) + r.u;
@@ -434,135 +580,144 @@
                     updates[`produtos/${pk}/estoque/_Pendente_`] = { f: novoF, u: novoU };
                 }
             }
-            if(qtdRecebida > 0) {
-                db.ref().update(updates).then(() => { 
-                    // NOVO: Registra na Linha do Tempo
-                    const data = new Date();
-                    db.ref('historico_timeline').push({
-                        timestamp: data.getTime(), dataFormatada: data.toLocaleDateString('pt-BR'),
-                        tipo: 'recebimento', fornecedor: met, itens: itensRecebidosHist, usuario: currentUserName || "Equipe"
-                    });
-                    
-                    showToast("Entrada registrada! Itens no pátio aguardando armazenagem.", "success"); 
-                    navegar('produtos-hub'); 
-                });
-            } else { alert("Informe pelo menos a quantidade de 1 produto."); }
+            if(qtdRecebida === 0) { alert("Informe pelo menos a quantidade de 1 produto."); return; }
+
+            const btn = document.querySelector('#recebimento-entrada .btn-submit');
+            const liberar = travarBotao(btn, 'SALVANDO...');
+            if (liberar === null) return;
+            const data = new Date();
+            // Estoque e histórico gravados juntos: ou salva tudo, ou nada.
+            const histKey = db.ref('historico_timeline').push().key;
+            updates[`historico_timeline/${histKey}`] = {
+                timestamp: data.getTime(), dataFormatada: data.toLocaleDateString('pt-BR'),
+                tipo: 'recebimento', fornecedor: met, itens: itensRecebidosHist, usuario: currentUserName || "Equipe"
+            };
+            db.ref().update(updates).then(() => {
+                liberar();
+                recebimentoTemp = {};
+                showToast("Entrada registrada! Itens no pátio aguardando armazenagem.", "success");
+                navegar('produtos-hub');
+            }).catch(err => {
+                liberar();
+                console.error(err);
+                showToast("Erro ao salvar a entrada. Verifique a internet e tente de novo.", "error");
+            });
         }
 
         function verificarPendentes() {
-            let temPendente = false; let qtdItens = 0; let htmlAlocar = '';
+            let qtdItens = 0; const blocos = []; const assinaturaPend = [];
             
             for(let pk in produtos) {
                 const p = produtos[pk];
-                if(p.estoque && p.estoque['_Pendente_'] && (p.estoque['_Pendente_'].f > 0 || p.estoque['_Pendente_'].u > 0)) {
-                    temPendente = true; qtdItens++;
-                    const pend = p.estoque['_Pendente_'];
-                    let t = 1; getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
-                    
-                    const frac = produtoUsaContagemFracionada(p);
-                    let totalF = parseQtdValor(pend.f, frac);
-                    let totalU = parseQtdValor(pend.u, frac);
+                if(!p || !p.estoque || !p.estoque['_Pendente_']) continue;
+                const pend = p.estoque['_Pendente_'];
+                const frac = produtoUsaContagemFracionada(p);
+                const t = getTamFardoProduto(p);
+                let totalF = parseQtdValor(pend.f, frac);
+                let totalU = parseQtdValor(pend.u, frac);
+                if (totalF <= 0 && totalU <= 0) continue;
+                qtdItens++;
+                assinaturaPend.push(`${pk}:${totalF}:${totalU}:${(p.locais || []).join(',')}`);
 
-                    if (!frac && t === 1 && totalF > 0) {
-                        totalU += totalF;
-                        totalF = 0;
-                    }
+                if (!frac && t === 1 && totalF > 0) { totalU += totalF; totalF = 0; }
 
-                    const totalUnPend = totalF * t + totalU;
-                    let txtQtd = frac
-                        ? `${formatarQtdNumero(totalUnPend, true)} Un.`
-                        : (t > 1 ? `${formatarQtdNumero(totalF, false)} Fds e ${formatarQtdNumero(totalU, false)} Un.` : `${formatarQtdNumero(totalU, false)} Unidade(s)`);
+                const totalUnPend = totalF * t + totalU;
+                const txtQtd = frac
+                    ? `${formatarQtdNumero(totalUnPend, true)} Un.`
+                    : (t > 1 ? `${formatarQtdNumero(totalF, false)} Fds e ${formatarQtdNumero(totalU, false)} Un.` : `${formatarQtdNumero(totalU, false)} Unidade(s)`);
 
-                    let optionsArea = (p.locais || []).map(loc => `<option value="${loc}">${loc}</option>`).join('');
-                    if(!optionsArea) optionsArea = `<option value="">⚠️ Sem área física assinalada!</option>`;
+                let optionsArea = (p.locais || []).filter(l => l && l !== '_Pendente_').map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
+                if(!optionsArea) optionsArea = `<option value="">⚠️ Sem área física assinalada!</option>`;
 
-                    const stepP = frac ? '0.01' : '1';
-                    let inputsQtd = '';
-                    if (frac || t <= 1) {
-                        inputsQtd = `
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" id="transf-u-${pk}" value="${formatarQtdNumero(totalUnPend, frac)}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>`;
-                        totalF = 0;
-                        totalU = totalUnPend;
-                    } else if(t > 1) {
-                        inputsQtd = `
-                        <div style="display:flex; gap:8px; flex:1;">
-                            <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (MÁX: ${totalF})</label><input type="number" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="${stepP}" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>
-                            <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Un. (MÁX: ${totalU})</label><input type="number" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="${stepP}" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>
-                        </div>`;
-                    } else {
-                        inputsQtd = `
-                        <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Unidades (MÁX: ${totalU})</label><input type="number" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="${stepP}" style="margin:0; text-align:center; background:#000; color:var(--text-main); font-weight:bold;"></div>`;
-                    }
-
-                    htmlAlocar += `
-                    <div style="padding:15px; border:1px solid rgba(251, 238, 227, 0.1); border-radius:10px; background:rgba(255,255,255,0.03);">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">
-                            <strong style="color:var(--text-main); font-size:1.05rem;">${p.nome}</strong>
-                            <span style="color:var(--primary); font-weight:800; font-size:0.85rem; text-align:right;">Disponível:<br>${txtQtd}</span>
-                        </div>
-                        <div style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
-                            <div style="flex:1; min-width: 160px;">
-                                <label style="font-size:0.7rem; color:#64748b;">Área de Destino</label>
-                                <select id="aloc-area-${pk}" style="margin:0; background:#280606; color:#fbeee3; font-weight:bold; border-color:rgba(251, 238, 227, 0.2);">${optionsArea}</select>
-                            </div>
-                            ${inputsQtd}
-                            <button class="btn-submit req-contrib" style="margin:0; background:#10b981; width:auto; padding:10px 15px;" onclick="prepararEfetivacaoAlocacao('${pk}', '${p.nome.replace(/'/g, "\\'")}', ${totalF}, ${totalU}, ${t})">Transferir</button>
-                        </div>
+                const stepP = frac ? '0.01' : '1';
+                let inputsQtd = '';
+                if (frac || t <= 1) {
+                    inputsQtd = `
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Qtd. (máx. ${formatarQtdNumero(totalUnPend, frac)})</label><input type="number" inputmode="decimal" id="transf-u-${pk}" value="${totalUnPend}" min="0" max="${totalUnPend}" step="${stepP}" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>`;
+                } else {
+                    inputsQtd = `
+                    <div style="display:flex; gap:8px; flex:1;">
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Fardos (MÁX: ${totalF})</label><input type="number" inputmode="numeric" id="transf-f-${pk}" value="${totalF}" min="0" max="${totalF}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
+                        <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Un. (MÁX: ${totalU})</label><input type="number" inputmode="numeric" id="transf-u-${pk}" value="${totalU}" min="0" max="${totalU}" step="1" style="margin:0; text-align:center; background:var(--surface-strong); color:var(--text-main); font-weight:bold;"></div>
                     </div>`;
                 }
+
+                blocos.push(`
+                <div style="padding:15px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">
+                        <strong style="color:var(--text-main); font-size:1.05rem;">${esc(p.nome)}</strong>
+                        <span style="color:var(--primary); font-weight:800; font-size:0.85rem; text-align:right;">Disponível:<br>${txtQtd}</span>
+                    </div>
+                    <div style="display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width: 160px;">
+                            <label style="font-size:0.7rem; color:var(--muted);">Área de Destino</label>
+                            <select id="aloc-area-${pk}" style="margin:0; background:var(--surface-2); color:var(--text-main); font-weight:bold; border-color:var(--line);">${optionsArea}</select>
+                        </div>
+                        ${inputsQtd}
+                        <button class="btn-submit req-contrib" style="margin:0; background:var(--dark); width:auto; padding:10px 15px;" onclick="prepararEfetivacaoAlocacao(${jsArg(pk)})">Transferir</button>
+                    </div>
+                </div>`);
             }
             
             const banner = document.getElementById('banner-pendentes'); const listaAlocar = document.getElementById('lista-pendentes-alocar');
             if(banner && listaAlocar) {
-                if(temPendente && currentRole !== 'visualizador') {
+                if(qtdItens > 0 && currentRole !== 'visualizador') {
                     banner.style.display = 'flex';
-                    document.getElementById('txt-qtd-pendentes').innerText = `Contém ${qtdItens} itens pendentes.`;
-                    listaAlocar.innerHTML = htmlAlocar;
+                    document.getElementById('txt-qtd-pendentes').innerText = `Contém ${qtdItens} ${qtdItens === 1 ? 'item pendente' : 'itens pendentes'}.`;
+                    // Não refaz a lista enquanto a janela está aberta e a pessoa digita (perderia o que foi digitado),
+                    // a não ser que as quantidades pendentes tenham mudado.
+                    const modalAberto = document.getElementById('modalAlocar').style.display === 'flex';
+                    const assinatura = assinaturaPend.join('|');
+                    if (!modalAberto || listaAlocar.dataset.assin !== assinatura) listaAlocar.innerHTML = blocos.join('');
+                    listaAlocar.dataset.assin = assinatura;
                 } else {
                     banner.style.display = 'none';
-                    listaAlocar.innerHTML = '';
+                    listaAlocar.innerHTML = '<p style="color:var(--muted);">Nenhum item aguardando armazenagem.</p>';
+                    listaAlocar.dataset.assin = '';
                 }
             }
         }
 
-        function abrirAlocacaoModal() { document.getElementById('modalAlocar').style.display = 'flex'; }
+        function abrirAlocacaoModal() { verificarPendentes(); document.getElementById('modalAlocar').style.display = 'flex'; }
 
-        // Variável global para segurar a transferência enquanto aguarda o pop-up
+        // Transferência aguardando confirmação no pop-up
         let transferenciaPendente = null;
 
-        function prepararEfetivacaoAlocacao(pk, nomeProd, maxF, maxU, t) {
+        function lerPendenteAtual(p) {
+            const frac = produtoUsaContagemFracionada(p);
+            const t = getTamFardoProduto(p);
+            const pend = (p.estoque && p.estoque['_Pendente_']) || { f: 0, u: 0 };
+            let f = parseQtdValor(pend.f, frac), u = parseQtdValor(pend.u, frac);
+            if (frac || t <= 1) { u = f * t + u; f = 0; }
+            return { f, u, t, frac };
+        }
+
+        function prepararEfetivacaoAlocacao(pk) {
+            const p = produtos[pk];
+            if (!p) return;
             const areaSel = document.getElementById(`aloc-area-${pk}`).value;
             if(!areaSel) { alert("Este produto não possui área assinalada para guardar."); return; }
 
             const elF = document.getElementById(`transf-f-${pk}`);
             const elU = document.getElementById(`transf-u-${pk}`);
-            
-            const pAloc = produtos[pk];
-            const fracAloc = produtoUsaContagemFracionada(pAloc);
-            let f = elF ? parseQtdValor(elF.value, fracAloc) : 0;
-            let u = elU ? parseQtdValor(elU.value, fracAloc) : 0;
+            const atual = lerPendenteAtual(p);
+            let f = elF ? parseQtdValor(elF.value, atual.frac) : 0;
+            let u = elU ? parseQtdValor(elU.value, atual.frac) : 0;
 
-            if(f > maxF) f = maxF; if(u > maxU) u = maxU;
+            if(f > atual.f) f = atual.f; if(u > atual.u) u = atual.u;
             
             if(f === 0 && u === 0) { 
                 showToast("Digite uma quantidade maior que zero.", "error"); 
                 return; 
             }
 
-            // Monta o texto inteligente de confirmação (Plural/Singular e Ocultação Inteligente)
             let msgArr = [];
-            if(f > 0) msgArr.push(`${f} ${f === 1 ? 'fardo' : 'fardos'}`);
-            if(u > 0) msgArr.push(`${u} ${u === 1 ? 'unidade' : 'unidades'}`);
-            let msgStr = msgArr.join(' e ');
+            if(f > 0) msgArr.push(`${formatarQtdNumero(f, false)} ${f === 1 ? 'fardo' : 'fardos'}`);
+            if(u > 0) msgArr.push(`${formatarQtdNumero(u, atual.frac)} ${u === 1 ? 'unidade' : 'unidades'}`);
 
-            document.getElementById('msgConfirmTransfer').innerHTML = `Você está transferindo <strong style="color:var(--primary);">${msgStr} de ${nomeProd}</strong> para a área <strong style="color:var(--primary);">${areaSel}</strong>.<br><br>Confirmar operação?`;
+            document.getElementById('msgConfirmTransfer').innerHTML = `Você está transferindo <strong style="color:var(--primary);">${msgArr.join(' e ')} de ${esc(p.nome)}</strong> para a área <strong style="color:var(--primary);">${esc(areaSel)}</strong>.<br><br>Confirmar operação?`;
             
-            const p = produtos[pk];
-            transferenciaPendente = {
-                tipo: 'patio',
-                pk, f, u, t, areaSel, maxF, maxU,
-                fracionada: produtoUsaContagemFracionada(p)
-            };
+            transferenciaPendente = { tipo: 'patio', pk, f, u, t: atual.t, areaSel, fracionada: atual.frac };
             document.getElementById('modalConfirmTransfer').style.display = 'flex';
         }
 
@@ -602,27 +757,33 @@
             });
 
             if (prods.length === 0) {
-                lista.innerHTML = '<p style="color:#64748b;">Nenhum item com estoque nesta área para transferir.</p>';
+                lista.innerHTML = '<p style="color:var(--muted);">Nenhum item com estoque nesta área para transferir.</p>';
                 return;
             }
 
-            prods.sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
+            // Preserva o que já foi digitado se a lista for redesenhada por uma atualização do banco
+            const digitado = {};
+            lista.querySelectorAll('input, select').forEach(el => { if (el.id) digitado[el.id] = el.value; });
 
-            let currentCategoria = '';
-            let currentSubgrupo = '';
+            const areaObj = areas.find(a => a.nome === origem) || null;
+            prods.sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b, areaObj));
+
+            let currentCategoria = null;
+            let currentSubgrupo = null;
             const itensHtml = [];
 
+            // (Bug corrigido: antes usava forEach(...).join(''), que travava a tela com erro e nunca mostrava os itens.)
             prods.forEach(pk => {
                 const p = produtos[pk];
                 const categoria = getCategoriaPrincipalProduto(p);
                 const subgrupo = p.subgrupo ? p.subgrupo : '';
                 if (categoria !== currentCategoria) {
-                    itensHtml.push(`<div style="padding:12px 0 4px 0; color:var(--text-main); font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${categoria}</div>`);
+                    itensHtml.push(`<div style="padding:12px 0 4px 0; color:var(--text-main); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(categoria)}</div>`);
                     currentCategoria = categoria;
-                    currentSubgrupo = '';
+                    currentSubgrupo = null;
                 }
                 if (subgrupo !== currentSubgrupo) {
-                    itensHtml.push(`<div style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${subgrupo || 'Sem especificação'}</div>`);
+                    if (subgrupo) itensHtml.push(`<div style="padding:10px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700;">${esc(subgrupo)}</div>`);
                     currentSubgrupo = subgrupo;
                 }
                 const frac = produtoUsaContagemFracionada(p);
@@ -630,7 +791,7 @@
                 const est = p.estoque[origem];
                 let maxF = parseQtdValor(est.f, frac);
                 let maxU = parseQtdValor(est.u, frac);
-                if (!frac && t === 1 && maxF > 0) { maxU += maxF; maxF = 0; }
+                if (frac || t <= 1) { maxU = maxF * t + maxU; maxF = 0; }
                 const totalUn = maxF * t + maxU;
                 const txtDisp = t > 1 && !frac
                     ? `${formatarQtdNumero(maxF, false)} Fds e ${formatarQtdNumero(maxU, frac)} Un.`
@@ -638,123 +799,130 @@
 
                 const destinos = (p.locais || []).filter(l => l && l !== origem && l !== '_Pendente_');
                 if (destinos.length === 0) {
-                    return `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px;">
-                        <strong>${p.nome}</strong><br><span style="color:#64748b; font-size:0.85rem;">Sem outra área vinculada.</span></div>`;
+                    itensHtml.push(`<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px;">
+                        <strong>${esc(p.nome)}</strong><br><span style="color:var(--muted); font-size:0.85rem;">Sem outra área vinculada.</span></div>`);
+                    return;
                 }
 
-                const opts = destinos.map(d => `<option value="${d}">${d}</option>`).join('');
+                const opts = destinos.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
                 const step = frac ? '0.01' : '1';
                 const inputF = t > 1 && !frac ? `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">Fardos (máx. ${formatarQtdNumero(maxF, false)})</label>
-                    <input type="number" id="tr-area-f-${pk}" value="0" min="0" max="${maxF}" step="${step}" style="margin:0; text-align:center;"></div>` : '';
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">Fardos (máx. ${formatarQtdNumero(maxF, false)})</label>
+                    <input type="number" inputmode="numeric" id="tr-area-f-${pk}" value="0" min="0" max="${maxF}" step="${step}" style="margin:0; text-align:center;"></div>` : '';
                 const inputU = `
-                    <div style="flex:1;"><label style="font-size:0.7rem; color:#64748b;">${t > 1 && !frac ? 'Un.' : 'Qtd.'} (máx. ${formatarQtdNumero(maxU, frac)})</label>
-                    <input type="number" id="tr-area-u-${pk}" value="0" min="0" max="${maxU}" step="${step}" style="margin:0; text-align:center;"></div>`;
+                    <div style="flex:1;"><label style="font-size:0.7rem; color:var(--muted);">${t > 1 && !frac ? 'Un.' : 'Qtd.'} (máx. ${formatarQtdNumero(maxU, frac)})</label>
+                    <input type="number" inputmode="decimal" id="tr-area-u-${pk}" value="0" min="0" max="${maxU}" step="${step}" style="margin:0; text-align:center;"></div>`;
 
-                return `<div style="padding:15px; border:1px solid rgba(251,238,227,0.15); border-radius:10px; margin-bottom:10px; background:rgba(0,0,0,0.25);">
+                itensHtml.push(`<div style="padding:15px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; background:var(--surface-2);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-                        <strong style="color:var(--text-main);">${p.nome}</strong>
+                        <strong style="color:var(--text-main);">${esc(p.nome)}</strong>
                         <span style="color:var(--primary); font-weight:800; font-size:0.85rem;">Disponível: ${txtDisp}</span>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
                         <div style="flex:1; min-width:140px;">
-                            <label style="font-size:0.7rem; color:#64748b;">Destino</label>
+                            <label style="font-size:0.7rem; color:var(--muted);">Destino</label>
                             <select id="tr-area-dest-${pk}" style="margin:0;">${opts}</select>
                         </div>
                         ${inputF}
                         ${inputU}
-                        <button class="btn-submit req-contrib" style="margin:0; width:auto; padding:10px 14px; background:#3b82f6;" onclick="prepararTransferenciaArea('${pk}', '${p.nome.replace(/'/g, "\\'")}', ${maxF}, ${maxU}, ${t}, ${frac})">Transferir</button>
+                        <button class="btn-submit req-contrib" style="margin:0; width:auto; padding:10px 14px; background:var(--dark);" onclick="prepararTransferenciaArea(${jsArg(pk)})">Transferir</button>
                     </div>
-                </div>`;
-            }).join('');
+                </div>`);
+            });
+            lista.innerHTML = itensHtml.join('');
+            Object.keys(digitado).forEach(id => { const el = document.getElementById(id); if (el) el.value = digitado[id]; });
         }
 
-        function prepararTransferenciaArea(pk, nomeProd, maxF, maxU, t, fracionada) {
+        function lerEstoqueArea(p, area) {
+            const frac = produtoUsaContagemFracionada(p);
+            const t = getTamFardoProduto(p);
+            const est = (p.estoque && p.estoque[area]) || { f: 0, u: 0 };
+            let f = parseQtdValor(est.f, frac), u = parseQtdValor(est.u, frac);
+            if (frac || t <= 1) { u = f * t + u; f = 0; }
+            return { f, u, t, frac };
+        }
+
+        function prepararTransferenciaArea(pk) {
+            const p = produtos[pk];
+            if (!p) return;
             const destino = document.getElementById(`tr-area-dest-${pk}`).value;
             if (!destino) { showToast("Selecione o estoque de destino.", "error"); return; }
 
+            const atual = lerEstoqueArea(p, transferenciaOrigemNome);
             const elF = document.getElementById(`tr-area-f-${pk}`);
-            let f = elF ? parseQtdValor(elF.value, fracionada) : 0;
-            let u = parseQtdValor(document.getElementById(`tr-area-u-${pk}`).value, fracionada);
+            let f = elF ? parseQtdValor(elF.value, atual.frac) : 0;
+            let u = parseQtdValor(document.getElementById(`tr-area-u-${pk}`).value, atual.frac);
 
-            if (f > maxF) f = maxF;
-            if (u > maxU) u = maxU;
+            // Permite tirar unidades "quebrando" fardos, desde que o total caiba no que existe na área
+            const totalOrig = atual.f * atual.t + atual.u;
+            if (f > atual.f) f = atual.f;
+            if (f * atual.t + u > totalOrig) u = Math.max(0, totalOrig - f * atual.t);
             if (f <= 0 && u <= 0) {
                 showToast("Informe uma quantidade maior que zero.", "error");
                 return;
             }
 
             let msgArr = [];
-            if (t > 1 && !fracionada && f > 0) msgArr.push(`${formatarQtdNumero(f, false)} ${f === 1 ? 'fardo' : 'fardos'}`);
-            if (u > 0) msgArr.push(`${formatarQtdNumero(u, fracionada)} ${u === 1 ? 'unidade' : 'unidades'}`);
+            if (atual.t > 1 && !atual.frac && f > 0) msgArr.push(`${formatarQtdNumero(f, false)} ${f === 1 ? 'fardo' : 'fardos'}`);
+            if (u > 0) msgArr.push(`${formatarQtdNumero(u, atual.frac)} ${u === 1 ? 'unidade' : 'unidades'}`);
 
             document.getElementById('msgConfirmTransfer').innerHTML =
-                `Transferir <strong style="color:var(--primary);">${msgArr.join(' e ')} de ${nomeProd}</strong><br>
-                De <strong>${transferenciaOrigemNome}</strong> para <strong>${destino}</strong>?`;
+                `Transferir <strong style="color:var(--primary);">${msgArr.join(' e ')} de ${esc(p.nome)}</strong><br>
+                De <strong>${esc(transferenciaOrigemNome)}</strong> para <strong>${esc(destino)}</strong>?`;
 
-            transferenciaPendente = {
-                tipo: 'area',
-                pk, f, u, t,
-                origem: transferenciaOrigemNome,
-                destino,
-                maxF, maxU,
-                fracionada
-            };
+            transferenciaPendente = { tipo: 'area', pk, f, u, t: atual.t, origem: transferenciaOrigemNome, destino, fracionada: atual.frac };
             document.getElementById('modalConfirmTransfer').style.display = 'flex';
         }
 
-        // Função disparada ao clicar no "Sim, Transferir" do modal
+        // Disparada ao tocar em "Sim, Transferir"
         document.getElementById('btnConfirmTransferAction').onclick = function() {
             if(!transferenciaPendente) return;
-            const p = produtos[transferenciaPendente.pk];
+            const tp = transferenciaPendente;
+            const p = produtos[tp.pk];
             if (!p) return;
+            const liberar = travarBotao(this, 'Salvando...');
+            if (liberar === null) return;
 
+            // Usa o estoque ATUAL do banco (não o valor de quando a tela foi desenhada),
+            // para não sobrescrever uma mudança feita por outra pessoa nesse meio tempo.
             let updates = {};
+            if (tp.tipo === 'area') {
+                const estOrig = (p.estoque && p.estoque[tp.origem]) || { f: 0, u: 0 };
+                const estDest = (p.estoque && p.estoque[tp.destino]) || { f: 0, u: 0 };
+                updates[`produtos/${tp.pk}/estoque/${tp.origem}`] = subtrairEstoqueFU(estOrig.f, estOrig.u, tp.f, tp.u, tp.t, tp.fracionada);
+                updates[`produtos/${tp.pk}/estoque/${tp.destino}`] = combinarEstoqueFU(estDest.f, estDest.u, tp.f, tp.u, tp.t, tp.fracionada);
+            } else {
+                const estAtualArea = (p.estoque && p.estoque[tp.areaSel]) || { f: 0, u: 0 };
+                const pend = (p.estoque && p.estoque['_Pendente_']) || { f: 0, u: 0 };
+                const novoPend = subtrairEstoqueFU(pend.f, pend.u, tp.f, tp.u, tp.t, tp.fracionada);
+                updates[`produtos/${tp.pk}/estoque/${tp.areaSel}`] = combinarEstoqueFU(estAtualArea.f, estAtualArea.u, tp.f, tp.u, tp.t, tp.fracionada);
+                updates[`produtos/${tp.pk}/estoque/_Pendente_`] = (novoPend.u <= 0 && novoPend.f <= 0) ? null : novoPend;
+            }
 
-            if (transferenciaPendente.tipo === 'area') {
-                const { pk, f, u, t, origem, destino, maxF, maxU, fracionada } = transferenciaPendente;
-                const estOrig = p.estoque && p.estoque[origem] ? p.estoque[origem] : { f: 0, u: 0 };
-                const estDest = p.estoque && p.estoque[destino] ? p.estoque[destino] : { f: 0, u: 0 };
-
-                const novoOrig = subtrairEstoqueFU(estOrig.f, estOrig.u, f, u, t, fracionada);
-                const somaDest = combinarEstoqueFU(estDest.f, estDest.u, f, u, t, fracionada);
-
-                updates[`produtos/${pk}/estoque/${origem}`] = novoOrig;
-                updates[`produtos/${pk}/estoque/${destino}`] = somaDest;
-
-                db.ref().update(updates).then(() => {
-                    document.getElementById('modalConfirmTransfer').style.display = 'none';
-                    transferenciaPendente = null;
-                    showToast("Transferência entre áreas concluída!", "success");
-                    renderizarTransferenciaArea();
-                    if (document.getElementById('detalhe-area').classList.contains('active')) {
-                        const area = areas.find(a => a.key === areaAtualKey);
-                        if (area) verArea(area.key, area.nome);
-                    }
+            db.ref().update(updates).then(() => {
+                liberar();
+                document.getElementById('modalConfirmTransfer').style.display = 'none';
+                transferenciaPendente = null;
+                showToast(tp.tipo === 'area' ? "Transferência entre áreas concluída!" : "Transferência efetuada com sucesso!", "success");
+            }).catch(err => {
+                liberar();
+                console.error(err);
+                showToast("Erro ao transferir. Verifique a internet e tente de novo.", "error");
+            });
+        };
+        function navegar(id, btn, doHistorico = false) { 
+            // Saindo da área no meio de uma contagem: confirma antes de descartar o que foi digitado.
+            // (Antes o modo contagem ficava "preso" e a próxima área já abria com os campos vazios.)
+            if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo && id !== 'detalhe-area') {
+                if (doHistorico) history.pushState({ tela: 'detalhe-area' }, "", "#detalhe-area");
+                confirmar('Sair sem salvar a contagem? Os números digitados serão perdidos.', { titulo: 'Contagem em andamento', ok: 'Sair sem salvar', perigo: true }).then(ok => {
+                    if (!ok) return;
+                    encerrarModoContagem();
+                    navegar(id, btn, false);
                 });
                 return;
             }
 
-            const { pk, f, u, t, areaSel, maxF, maxU, fracionada } = transferenciaPendente;
-            let estAtualArea = p.estoque && p.estoque[areaSel] ? p.estoque[areaSel] : { f: 0, u: 0 };
-            const somaDest = combinarEstoqueFU(estAtualArea.f, estAtualArea.u, f, u, t, fracionada);
-            const novoPend = subtrairEstoqueFU(maxF, maxU, f, u, t, fracionada);
-
-            updates[`produtos/${pk}/estoque/${areaSel}`] = somaDest;
-            if (novoPend.u <= 0 && novoPend.f <= 0) {
-                updates[`produtos/${pk}/estoque/_Pendente_`] = null;
-            } else {
-                updates[`produtos/${pk}/estoque/_Pendente_`] = novoPend;
-            }
-
-            db.ref().update(updates).then(() => {
-                document.getElementById('modalConfirmTransfer').style.display = 'none';
-                transferenciaPendente = null;
-                showToast("Transferência efetuada com sucesso!", "success");
-                verificarPendentes();
-            });
-        };
-        function navegar(id, btn, doHistorico = false) { 
             // Remove a aura/brilho de qualquer botão que tenha sido clicado
             if (document.activeElement) document.activeElement.blur();
 
@@ -767,51 +935,40 @@
                 fabOptions.classList.remove('active');
             }
 
-            if (!doHistorico) { history.pushState({ tela: id }, "", "#" + id); }
+            const telaAtual = history.state && history.state.tela;
+            if (!doHistorico && telaAtual !== id) { history.pushState({ tela: id }, "", "#" + id); }
             
             const alvo = document.getElementById(id);
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active')); 
             if(alvo) alvo.classList.add('active');
 
-            // Mantém os botões do menu sincronizados
-document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            if (id.includes('reservas') || id.includes('mapa') || id.includes('agenda')) {
-                const btnRes = document.getElementById('nav-reservas-hub');
-                if(btnRes) btnRes.classList.add('active');
-            } else if (id.includes('receita')) {
-                const btnRec = document.getElementById('nav-receitas-hub');
-                if(btnRec) btnRec.classList.add('active');
-            } else if (id === 'inicio') {
-                const btnIni = document.getElementById('nav-inicio');
-                if(btnIni) btnIni.classList.add('active');
-            } else if (id.includes('financeiro')) {
-                const btnFin = document.getElementById('nav-financeiro');
-                if(btnFin) btnFin.classList.add('active');
-            } else if (id === 'cardapio-digital') {
-                const btnCard = document.getElementById('nav-cardapio');
-                if(btnCard) btnCard.classList.add('active');
-            } else if (id !== 'configuracoes' && id !== 'atribuir-categoria' && id !== 'atribuir-metodo' && id !== 'detalhe-categoria-admin') {
-                const btnProd = document.getElementById('nav-produtos-hub');
-                if(btnProd) btnProd.classList.add('active');
-            } 
+            // Mantém o menu lateral e a barra inferior sincronizados com a tela aberta
+            document.querySelectorAll('.nav-btn[data-telas], .tab-btn[data-telas]').forEach(b => {
+                b.classList.toggle('active', b.dataset.telas.split(' ').includes(id));
+            });
+            if (typeof moverIndicadorTabbar === 'function') moverIndicadorTabbar();
+            if (typeof fecharBuscaMobile === 'function') fecharBuscaMobile();
+            if (typeof fecharMenuLateral === 'function') fecharMenuLateral();
             
-            window.scrollTo(0, 0); 
+            irParaOTopo();
             
-            // Quando entrar nas Configurações do dono, garante que todos os cards estejam retraídos
-            if (id === 'configuracoes') {
-                collapseConfigCards();
-                startConfigObserver();
-            } else {
-                stopConfigObserver();
-            }
+            // Ao entrar nas Configurações, todos os cards começam retraídos.
+            // (Antes um "observador" fechava os cards a cada atualização do banco, inclusive o card
+            //  em que a pessoa estava digitando.)
+            if (id === 'configuracoes' && !doHistorico) collapseConfigCards();
 
-            if(id === 'mapa-salao') ajustarEscalaMapa();
-            if(id === 'agenda-view') setTimeout(() => { renderizarCalendario(); }, 100);
+            if(id === 'mapa-salao') requestAnimationFrame(ajustarEscalaMapa);
+            if(id === 'agenda-view') renderizarCalendario();
+            if(id === 'timeline-estoque') { garantirListenerTimeline(); renderizarTimeline(); }
+            if(id === 'cardapio-digital' && typeof iniciarListenersCardapio === 'function') iniciarListenersCardapio();
+            if(id === 'receitas-lista') renderizarReceitas();
+            if(id === 'financeiro-dashboard' && doHistorico) abrirDashboard(true);
+            if(id === 'inicio') if (typeof renderizarInicio === 'function') renderizarInicio();
+            if(id === 'cadastros') if (typeof renderizarCadastros === 'function') renderizarCadastros();
         }
 
         function irParaAgenda() {
             navegar('agenda-view');
-            setTimeout(() => { renderizarCalendario(); }, 100);
         }
 
         function toggleFab(event) { 
@@ -819,8 +976,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             const options = document.getElementById('fabOptions');
             const overlay = document.getElementById('fab-overlay');
             
-            options.classList.toggle('active');
-            overlay.classList.toggle('active');
+            const abrir = !options.classList.contains('active');
+            options.classList.toggle('active', abrir);
+            overlay.classList.toggle('active', abrir);
         }
 
         function collapseConfigCards() {
@@ -842,58 +1000,107 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         }
 
-        // MutationObserver to ensure newly-rendered config cards are collapsed
-        let _configObserver = null;
-        function startConfigObserver() {
-            try {
-                stopConfigObserver();
-                const container = document.getElementById('configuracoes');
-                if (!container) return;
-                _configObserver = new MutationObserver((mutations) => {
-                    // Debounce short reflows
-                    clearTimeout(window._collapseConfigTimeout);
-                    window._collapseConfigTimeout = setTimeout(() => {
-                        collapseConfigCards();
-                    }, 50);
-                });
-                _configObserver.observe(container, { childList: true, subtree: true });
-            } catch (e) { console.warn('startConfigObserver error', e); }
-        }
-
-        function stopConfigObserver() {
-            try {
-                if (_configObserver) { _configObserver.disconnect(); _configObserver = null; }
-                if (window._collapseConfigTimeout) { clearTimeout(window._collapseConfigTimeout); window._collapseConfigTimeout = null; }
-            } catch (e) { console.warn('stopConfigObserver error', e); }
-        }
-
+        // Fecha o menu "Novo" ao tocar fora dele (fecha também a camada invisível de fundo)
         document.addEventListener('click', function(event) {
             const fabOptions = document.getElementById('fabOptions');
-            const fabMain = document.querySelector('.fab-main');
-            const btnNovoTop = document.getElementById('btn-novo-top');
-            
-            if (fabOptions && fabOptions.classList.contains('active')) {
-                const isClickInsideMain = fabMain && fabMain.contains(event.target);
-                const isClickInsideTop = btnNovoTop && btnNovoTop.contains(event.target);
-                const isClickInsideOptions = fabOptions.contains(event.target);
-
-                if (!isClickInsideMain && !isClickInsideTop && !isClickInsideOptions) {
-                    fabOptions.classList.remove('active');
-                }
-            }
+            if (fabOptions && fabOptions.classList.contains('active') && !event.target.closest('.fab-container')) toggleFab();
         });
 
         // ==========================================
         // PESQUISA E FILTROS DINÂMICOS
         // ==========================================
+        // Busca sem diferenciar maiúsculas nem acentos ("acai" encontra "Açaí").
+        function normalizarBusca(t) { return removerAcentos(String(t || '').toLowerCase()).trim(); }
+
+        // Acordeão: abre um card por vez. O card aberto fica na própria linha, ocupando-a toda; os vizinhos descem.
+        // FLIP: mede posição inicial e final de cada card e anima só a diferença (largura e transform),
+        // todos juntos, com a mesma duração e curva. A altura nunca muda.
+        // Texto: o título é mantido no layout FINAL durante o movimento e faz crossfade com uma cópia
+        // do layout ANTIGO, então ele nunca reflui (2 linhas <-> 1 linha) no meio da animação.
+        function toggleCardArea(tr, ev) {
+            if (typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) return; // no modo de contagem os cards não expandem
+            if (ev && ev.target.closest('button, input, .qty-box, .info-btn')) return;
+            const cont = document.getElementById('tabela-area-itens');
+            if (!cont) return;
+            const linhas = Array.from(cont.querySelectorAll('tr'));
+            const reduz = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            // 1) FIRST: posição atual (inclui animação em andamento, para não dar salto ao interromper)
+            const antes = new Map(linhas.map(el => [el, el.getBoundingClientRect()]));
+
+            // limpa animação anterior
+            linhas.forEach(el => el.getAnimations({ subtree: true }).forEach(an => an.cancel()));
+            cont.querySelectorAll('.clone-anim').forEach(c => c.remove());
+            cont.querySelectorAll('td.cel-item > div').forEach(d => { d.style.width = ''; d.style.flex = ''; });
+
+            const prev = cont.querySelector('tr.linha-item.aberto');
+            const abrir = !tr.classList.contains('aberto');
+            const envolvidos = [tr, prev].filter((x, i, arr) => x && arr.indexOf(x) === i);
+
+            // cópia do título no layout antigo
+            const clones = new Map();
+            if (!reduz) envolvidos.forEach(el => {
+                const cel = el.querySelector('td.cel-item'); if (!cel) return;
+                const er = el.getBoundingClientRect(), cr = cel.getBoundingClientRect();
+                const c = document.createElement('div');
+                c.className = 'clone-anim';
+                c.innerHTML = cel.innerHTML;
+                c.style.cssText = `position:absolute; left:${cr.left - er.left - 1}px; top:${cr.top - er.top - 1}px; width:${cr.width}px; height:${cr.height}px; display:flex; align-items:center; padding:10px 12px; box-sizing:border-box; pointer-events:none; z-index:2;`;
+                clones.set(el, c);
+                el.appendChild(c);
+            });
+
+            // 2) LAST: aplica o estado final
+            cont.querySelectorAll('tr.linha-item.aberto').forEach(x => { x.classList.remove('aberto'); x.style.gridRow = ''; });
+            if (abrir) {
+                const tops = [...new Set(linhas.map(el => Math.round(el.getBoundingClientRect().top)))].sort((x, y) => x - y);
+                const rowIdx = tops.indexOf(Math.round(tr.getBoundingClientRect().top)) + 1;
+                tr.classList.add('aberto');
+                if (rowIdx > 0) tr.style.gridRow = String(rowIdx);
+            }
+            if (reduz) return;
+
+            // 3) INVERT + PLAY — mesma duração e curva para tudo (movimento coordenado)
+            const T = 520, EASE = 'cubic-bezier(.4, 0, .2, 1)';
+            const fim = [];
+            linhas.forEach(el => {
+                const a = antes.get(el), d = el.getBoundingClientRect();
+                if (!a || (d.width === 0 && d.height === 0) || (a.width === 0 && a.height === 0)) return;
+                const dx = a.left - d.left, dy = a.top - d.top;
+                const largura = Math.abs(a.width - d.width) > 1;
+                if (!largura && Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+                const k = largura
+                    ? [{ width: a.width + 'px', transform: `translate(${dx}px, ${dy}px)` }, { width: d.width + 'px', transform: 'none' }]
+                    : [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
+                // mede o título no layout final ANTES de iniciar qualquer animação
+                const c = clones.get(el), cel = el.querySelector('td.cel-item');
+                const inner = cel && cel.firstElementChild;
+                const innerW = (largura && c && inner) ? inner.getBoundingClientRect().width : 0;
+                if (largura) el.style.zIndex = (el === tr && abrir) ? '5' : '4';
+                fim.push(el.animate(k, { duration: T, easing: EASE }).finished);
+
+                if (largura && c && inner) {
+                    inner.style.width = innerW + 'px'; inner.style.flex = '0 0 auto';
+                    fim.push(c.animate([{ opacity: 1 }, { opacity: 1, offset: .08 }, { opacity: 0, offset: .55 }, { opacity: 0 }], { duration: T, easing: 'linear', fill: 'forwards' }).finished);
+                    fim.push(inner.animate([{ opacity: 0 }, { opacity: 0, offset: .3 }, { opacity: 1 }], { duration: T, easing: 'linear' }).finished);
+                }
+            });
+            Promise.allSettled(fim).then(() => {
+                cont.querySelectorAll('.clone-anim').forEach(c => c.remove());
+                cont.querySelectorAll('td.cel-item > div').forEach(d => { d.style.width = ''; d.style.flex = ''; });
+                linhas.forEach(el => { el.style.zIndex = ''; });
+            });
+        }
         function filtrarTabela(inputId, tabelaId) {
-            const termo = document.getElementById(inputId).value.toLowerCase();
+            const termo = normalizarBusca(document.getElementById(inputId).value);
             const linhas = document.querySelectorAll(`#${tabelaId} tr`);
             linhas.forEach(linha => {
                 const item = linha.querySelector('.col-item');
                 if (item) {
-                    const txt = item.innerText.toLowerCase();
-                    linha.style.display = txt.includes(termo) ? '' : 'none';
+                    linha.style.display = normalizarBusca(item.textContent).includes(termo) ? '' : 'none';
+                } else if (linha.classList.contains('linha-grupo')) {
+                    // Títulos de categoria/especificação somem durante a busca
+                    linha.style.display = termo ? 'none' : '';
                 }
             });
         }
@@ -901,14 +1108,14 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         let produtosVisualizacao = 'list'; // Estado atual da visualização: 'list' ou 'grid'
 
         function aplicarFiltrosProdutos() {
-            const termo = document.getElementById('busca-categoria').value.toLowerCase();
+            const termo = normalizarBusca(document.getElementById('busca-categoria').value);
             const linhas = document.querySelectorAll(`#tabela-produtos-filtrada tr`);
             
             linhas.forEach(linha => {
                 const item = linha.querySelector('.col-item');
                 if (!item) return;
                 
-                const txt = item.innerText.toLowerCase();
+                const txt = normalizarBusca(item.textContent);
                 const rowSub = linha.getAttribute('data-subgrupo') || "";
                 
                 const passText = txt.includes(termo);
@@ -956,14 +1163,11 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                     return `
                         <article class="product-card">
                             <div class="card-media">
-                                <img src="https://via.placeholder.com/400x400?text=Produto" alt="${nome}">
-                                <button class="favorite-btn" type="button" aria-label="Favoritar">
-                                    <i class="ph ph-heart"></i>
-                                </button>
+                                <div style="aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:3rem; color:var(--primary); background:var(--surface-2);"><i class="ph ph-package"></i></div>
                             </div>
                             <div class="card-body">
-                                <p class="product-title">${nome}</p>
-                                <strong class="product-price">${preco}</strong>
+                                <p class="product-title">${esc(nome)}</p>
+                                <strong class="product-price">${esc(preco)}</strong>
                             </div>
                         </article>
                     `;
@@ -999,33 +1203,125 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         // ==========================================
         // INICIALIZAÇÃO E LISTENERS
         // ==========================================
-        window.onload = () => { 
-            document.getElementById('setup-mapa-data').value = new Date().toISOString().split('T')[0];
-            renderizarCalendario(); 
-        };
+        document.addEventListener('DOMContentLoaded', () => {
+            const campoData = document.getElementById('setup-mapa-data');
+            if (campoData) campoData.value = dataLocalISO();
+            renderizarCalendario();
+        });
 
         let eventosTimeline = [];
+        let timelineCarregada = false;
+        let timelineSemPermissao = false;
+
+        // Todos os listeners ativos ficam aqui para poderem ser desligados no logout.
+        let _listenersAtivos = [];
+        function escutar(refOuQuery, nome, onValue, onErro) {
+            const cb = refOuQuery.on('value', snap => {
+                try { onValue(snap); } catch (e) { console.error('Erro ' + nome + ':', e); }
+            }, err => {
+                console.error('Permissão ' + nome + ':', err);
+                if (onErro) onErro(err);
+            });
+            const item = { ref: refOuQuery, cb, nome };
+            _listenersAtivos.push(item);
+            return item;
+        }
+        function desligar(item) {
+            if (!item) return;
+            try { item.ref.off('value', item.cb); } catch (e) {}
+            _listenersAtivos = _listenersAtivos.filter(x => x !== item);
+        }
+
+        // Reservas: antes o app baixava TODAS as reservas desde o primeiro dia (a lista só cresce).
+        // Agora baixa a partir de ~2 meses atrás; se você voltar o calendário para antes disso,
+        // o período é ampliado automaticamente.
+        let reservasDesde = '';
+        let _listenerReservas = null;
+        function garantirReservasDesde(dataStr) {
+            if (!currentUser) return;
+            if (_listenerReservas && reservasDesde && dataStr >= reservasDesde) return;
+            desligar(_listenerReservas);
+            reservasDesde = dataStr;
+            _listenerReservas = escutar(db.ref('reservas').orderByKey().startAt(dataStr), 'reservas', s => {
+                reservasApp = s.val() || {};
+                agendarRender('reservas', () => {
+                    if (typeof atualizarBadges === 'function') atualizarBadges();
+                    if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
+                    if (telaAtiva('agenda-view')) renderizarCalendario();
+                    if (telaAtiva('agenda-detalhe')) renderizarReservasDia();
+                    if (telaAtiva('mapa-salao')) carregarReservasMapa();
+                });
+            });
+        }
+        function inicioPadraoReservas() {
+            const d = new Date();
+            d.setMonth(d.getMonth() - 2);
+            d.setDate(1);
+            return dataLocalISO(d);
+        }
+
+        // Mapa do salão: antes baixava os mapas de TODOS os dias já montados.
+        // Agora escuta só o dia aberto na tela.
+        let _listenerMapa = null;
+        let _mapaEscutandoData = '';
+        let _mapaCarregadoData = '';   // só libera os toques nas mesas depois que o mapa do dia chegou
+        function escutarMapaDoDia(dataStr) {
+            if (_listenerMapa && _mapaEscutandoData === dataStr) return;
+            desligar(_listenerMapa);
+            _mapaEscutandoData = dataStr;
+            _mapaCarregadoData = '';
+            mapasApp = {};
+            _listenerMapa = escutar(db.ref('mapas/' + dataStr), 'mapa', s => {
+                mapasApp = { [dataStr]: s.val() || {} };
+                _mapaCarregadoData = dataStr;
+                agendarRender('mapa', () => {
+                    if (telaAtiva('mapa-salao')) { carregarMapa(); carregarReservasMapa(); }
+                });
+            });
+        }
+
+        // Histórico: só é baixado quando o dono abre a tela, e só os 300 registros mais recentes.
+        let _listenerTimeline = null;
+        function garantirListenerTimeline() {
+            if (_listenerTimeline || !currentUser) return;
+            timelineSemPermissao = false;
+            _listenerTimeline = escutar(db.ref('historico_timeline').limitToLast(300), 'histórico', s => {
+                const val = s.val();
+                eventosTimeline = val ? Object.keys(val).map(k => ({ id: k, ...val[k] })) : [];
+                eventosTimeline.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                timelineCarregada = true;
+                agendarRender('timeline', () => { if (telaAtiva('timeline-estoque')) renderizarTimeline(); });
+            }, () => {
+                timelineCarregada = true;
+                timelineSemPermissao = true;
+                desligar(_listenerTimeline);
+                _listenerTimeline = null; // permite tentar de novo na próxima abertura
+                agendarRender('timeline', () => { if (telaAtiva('timeline-estoque')) renderizarTimeline(); });
+            });
+        }
 
         function pararListenersFirebase() {
+            _listenersAtivos.slice().forEach(desligar);
+            _listenerReservas = null; reservasDesde = '';
+            _listenerMapa = null; _mapaEscutandoData = ''; _mapaCarregadoData = '';
+            _listenerTimeline = null; timelineCarregada = false;
+            if (typeof pararListenersCardapio === 'function') pararListenersCardapio();
             if (!listenersFirebaseAtivos) return;
-            db.ref('areas').off('value');
-            db.ref('produtos').off('value');
-            db.ref('categorias').off('value');
-            db.ref('metodos').off('value');
-            db.ref('historico_timeline').off('value');
-            db.ref('reservas').off('value');
-            db.ref('mapas').off('value');
-            db.ref('receitas').off('value');
             listenersFirebaseAtivos = false;
+            if (window.XP) XP.resetar();
+            receitasCarregadas = false;
             areas = [];
             produtos = {};
             categorias = {};
+            categoriasPorNome = {};
             metodosCompra = {};
             reservasApp = {};
             mapasApp = {};
             receitasDB = {};
             eventosTimeline = [];
             try {
+                if (typeof atualizarBadges === 'function') atualizarBadges();
+                if (typeof renderizarInicio === 'function') renderizarInicio();
                 renderizarAreas();
                 renderizarGradeAgrupada();
                 renderizarPedidosMetodos();
@@ -1034,95 +1330,86 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             } catch (e) {}
         }
 
+        function atualizarTelasDeProdutos() {
+            renderizarGradeAgrupada();
+            renderizarAreas();
+            verificarPendentes();
+            if (telaAtiva('pedidos-lista') && pedidoMetodoAtualKey) verPedidoPorMetodo(pedidoMetodoAtualKey, true);
+            if (telaAtiva('financeiro-dashboard')) abrirDashboard(true);
+            if (telaAtiva('detalhe-area') && !modoContagemAtivo) {
+                const a = areas.find(x => x.key === areaAtualKey);
+                if (a) verArea(a.key, a.nome, true);
+            }
+            if (telaAtiva('transferencia-area')) renderizarTransferenciaArea();
+            if (telaAtiva('produtos-lista-filtrada') && grupoAtualLista) verGrupo(grupoAtualLista.key, grupoAtualLista.tipo, true);
+            if (typeof atualizarBadges === 'function') atualizarBadges();
+            if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
+            if (telaAtiva('detalhe-produto') && produtoDetalheAtual) verDetalhesProduto(produtoDetalheAtual, true);
+            if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); 
+        }
+
         function iniciarListenersFirebase() {
             if (listenersFirebaseAtivos || !currentUser) return;
             listenersFirebaseAtivos = true;
+            if (window.XP) XP.hidratar(); // mostra o último estado salvo enquanto o Firebase responde
 
-            db.ref('areas').on('value', s => { 
-                try { 
-                    const val = s.val();
-                    areas = val ? Object.entries(val).map(([key, v]) => {
-                        if (typeof v === 'object' && v !== null) {
-                            return { key, nome: v.nome || "Área Recuperada", config: v.config || { usaPadrao: false, padroes: {} } };
-                        }
-                        return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
-                    }) : []; 
-                    renderizarAreas(); 
-                    renderizarChecksConfig(); 
-                } catch(e){ console.error("Erro Áreas:", e); } 
-            }, err => { console.error("Permissão áreas:", err); showToast("Sem permissão para ler áreas.", "error"); });
-
-            db.ref('produtos').on('value', s => {
-                try {
-                    produtos = s.val() || {};
-                    renderizarGradeAgrupada();
-                    renderizarAreas();
-                    verificarPendentes();
-                    if (document.getElementById('pedidos-lista').classList.contains('active')) {
-                        const metKey = Object.keys(metodosCompra).find(k => metodosCompra[k].nome === document.getElementById('titulo-pedido-metodo').innerText.replace('Pedidos: ', ''));
-                        if (metKey) verPedidoPorMetodo(metKey);
+            escutar(db.ref('areas'), 'áreas', s => {
+                const val = s.val();
+                areas = val ? Object.entries(val).map(([key, v]) => {
+                    if (typeof v === 'object' && v !== null) {
+                        return { key, nome: v.nome || "Área Recuperada", config: v.config || { usaPadrao: false, padroes: {} } };
                     }
-                } catch(e) { console.error("Erro produtos:", e); }
-            }, err => { console.error("Permissão produtos:", err); showToast("Sem permissão para ler produtos.", "error"); });
+                    return { key, nome: v || "Área Recuperada", config: { usaPadrao: false, padroes: {} } };
+                }) : [];
+                if (window.XP) XP.salvar('areas', areas);
+                agendarRender('areas', () => { renderizarAreas(); renderizarChecksConfig(); renderizarAreasConfig(); if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio(); });
+            }, () => showToast("Sem permissão para ler áreas.", "error"));
 
-            db.ref('categorias').on('value', s => { 
-                try { 
-                    categorias = s.val() || {}; 
-                    renderizarPresets(); 
-                    renderizarGradeAgrupada(); 
-                    if (document.getElementById('detalhe-categoria-admin').classList.contains('active')) renderizarOrdenacaoCategoria();
-                } catch(e){} 
+            escutar(db.ref('produtos'), 'produtos', s => {
+                produtos = s.val() || {};
+                if (window.XP) XP.salvar('produtos', produtos);
+                agendarRender('produtos', atualizarTelasDeProdutos);
+            }, () => showToast("Sem permissão para ler produtos.", "error"));
+
+            escutar(db.ref('categorias'), 'categorias', s => {
+                categorias = s.val() || {};
+                if (window.XP) XP.salvar('categorias', categorias);
+                reindexarCategorias();
+                agendarRender('categorias', () => {
+                    renderizarPresets();
+                    atualizarTelasDeProdutos();
+                    if (telaAtiva('detalhe-categoria-admin')) renderizarOrdenacaoCategoria();
+                });
             });
 
-            db.ref('metodos').on('value', s => {
-                try {
-                    metodosCompra = s.val() || {};
+            escutar(db.ref('metodos'), 'métodos', s => {
+                metodosCompra = s.val() || {};
+                if (window.XP) XP.salvar('metodos', metodosCompra);
+                agendarRender('metodos', () => {
                     renderizarMetodosConfig();
                     renderizarPresetsMetodos();
                     renderizarGradeAgrupada();
                     renderizarPedidosMetodos();
-                } catch(e) {}
-            });
-
-            if (currentRole === 'dono') {
-                db.ref('historico_timeline').on('value', s => {
-                    const val = s.val();
-                    if (val) {
-                        eventosTimeline = Object.keys(val).map(k => ({ id: k, ...val[k] }));
-                        eventosTimeline.sort((a, b) => b.timestamp - a.timestamp);
-                    } else {
-                        eventosTimeline = [];
-                    }
-                    if (document.getElementById('timeline-estoque') && document.getElementById('timeline-estoque').classList.contains('active')) renderizarTimeline();
+                    if (typeof atualizarPainelCadastros === 'function') atualizarPainelCadastros(); 
                 });
-            }
-
-            db.ref('reservas').on('value', s => {
-                try {
-                    reservasApp = s.val() || {};
-                    if (document.getElementById('agenda-view').classList.contains('active')) renderizarCalendario();
-                    if (document.getElementById('agenda-detalhe').classList.contains('active')) renderizarReservasDia();
-                    if (document.getElementById('mapa-salao').classList.contains('active')) carregarReservasMapa();
-                } catch(e) {}
             });
 
-            db.ref('mapas').on('value', s => {
-                try {
-                    mapasApp = s.val() || {};
-                    if (document.getElementById('mapa-salao').classList.contains('active')) {
-                        carregarMapa();
-                        carregarReservasMapa();
-                    }
-                } catch(e) {}
+            garantirReservasDesde(inicioPadraoReservas());
+
+            escutar(db.ref('receitas'), 'receitas', s => {
+                receitasDB = s.val() || {};
+                receitasCarregadas = true;
+                agendarRender('receitas', () => {
+                    if (telaAtiva('inicio')) if (typeof renderizarInicio === 'function') renderizarInicio();
+                    if (telaAtiva('receitas-lista')) renderizarReceitas();
+                    if (telaAtiva('detalhe-receita') && receitaAtualKey) verDetalhesReceita(receitaAtualKey, true);
+                });
             });
 
-            db.ref('receitas').on('value', s => {
-                try {
-                    receitasDB = s.val() || {};
-                    if (document.getElementById('receitas-lista').classList.contains('active')) renderizarReceitas();
-                    if (document.getElementById('detalhe-receita').classList.contains('active')) verDetalhesReceita(receitaAtualKey);
-                } catch(e) {}
-            });
+            // Se o usuário já estava em telas que dependem de listeners sob demanda, reativa.
+            if (telaAtiva('timeline-estoque')) garantirListenerTimeline();
+            if (telaAtiva('mapa-salao') && mapaAtualData) escutarMapaDoDia(mapaAtualData);
+            if (telaAtiva('cardapio-digital') && typeof iniciarListenersCardapio === 'function') iniciarListenersCardapio();
         }
 
         // ==========================================
@@ -1137,6 +1424,8 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             
             mapaAtualData = dt;
             mapaAtualTurno = tn;
+            escutarMapaDoDia(dt);
+            garantirReservasDesde(dt);
             const [y, m, d] = dt.split('-');
             const turnoStr = tn === 'dia' ? 'Dia (Almoço)' : 'Tarde/Noite';
             document.getElementById('mapa-header-info').innerText = `${d}/${m}/${y} - ${turnoStr}`;
@@ -1148,39 +1437,39 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             
             navegar('mapa-salao');
             carregarReservasMapa();
-            setTimeout(() => { ajustarEscalaMapa(); }, 100);
         }
 
         function carregarReservasMapa() {
-            try {
-                const lista = reservasApp[mapaAtualData] || {};
-                let resHtml = '';
-                for(let k in lista) {
-                    const r = lista[k];
-                    if(r.periodo === mapaAtualTurno) {
-                        let isMontada = false;
-                        const layout = (mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno]) ? mapasApp[mapaAtualData][mapaAtualTurno] : {};
-                        for(let mId in layout) { if(layout[mId].status === 'reservada' && layout[mId].nome === r.nome) { isMontada = true; break; } }
-
-                        if(!isMontada) {
-                             resHtml += `
-                             <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                                 <div><strong style="font-size:0.95rem; color:var(--bg-sidebar);">${r.nome}</strong><br><span style="font-size:0.75rem; color:#64748b;">📍 ${r.area} | 👥 ${r.lugares} lug.</span></div>
-                                 <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--primary); border-radius:6px;" onclick="montarReservaNoMapa('${r.nome}', '${r.area}')">Montar</button>
-                             </div>`;
-                        } else {
-                             resHtml += `
-                             <div style="padding:10px; border:1px solid #10b981; border-radius:8px; background:#f0fdf4; display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
-                                 <div><strong style="font-size:0.95rem; color:#047857;">${r.nome}</strong><br><span style="font-size:0.75rem; color:#047857;">✅ Já montada no salão</span></div>
-                             </div>`;
-                        }
-                    }
+            const box = document.getElementById('lista-reservas-turno-mapa');
+            if (!box) return;
+            const lista = reservasApp[mapaAtualData] || {};
+            const layout = (mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno]) ? mapasApp[mapaAtualData][mapaAtualTurno] : {};
+            // Nomes já montados no mapa (calculado uma vez, não para cada reserva)
+            const montadas = new Set(Object.keys(layout).filter(m => layout[m] && layout[m].status === 'reservada').map(m => layout[m].nome));
+            let resHtml = '';
+            Object.keys(lista).forEach(k => {
+                const r = lista[k];
+                if (!r || r.periodo !== mapaAtualTurno) return;
+                if (!montadas.has(r.nome)) {
+                    resHtml += `
+                    <div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+                        <div><strong style="font-size:0.95rem; color:var(--text-main);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:var(--muted);">📍 ${esc(r.area)} | 👥 ${esc(r.lugares)} lug.</span></div>
+                        <button class="btn-submit req-contrib" style="width:auto; margin:0; padding:8px 15px; font-size:0.8rem; background:var(--dark); border-radius:6px;" onclick="montarReservaNoMapa(${jsArg(k)})">Montar</button>
+                    </div>`;
+                } else {
+                    resHtml += `
+                    <div style="padding:10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface-2); display:flex; justify-content:space-between; align-items:center; opacity:0.8; margin-bottom: 5px;">
+                        <div><strong style="font-size:0.95rem; color:var(--ink);">${esc(r.nome)}</strong><br><span style="font-size:0.75rem; color:var(--ink);">✅ Já montada no salão</span></div>
+                    </div>`;
                 }
-                document.getElementById('lista-reservas-turno-mapa').innerHTML = resHtml || '<p style="font-size:0.85rem; color:#64748b; text-align:center; margin-top:10px;">Nenhuma reserva pendente para este turno.</p>';
-            } catch(e) {}
+            });
+            box.innerHTML = resHtml || '<p style="font-size:0.85rem; color:var(--muted); text-align:center; margin-top:10px;">Nenhuma reserva pendente para este turno.</p>';
         }
 
-        function montarReservaNoMapa(nome, areaOriginal) {
+        function montarReservaNoMapa(resKey) {
+            const r = (reservasApp[mapaAtualData] || {})[resKey];
+            if (!r) return;
+            const areaOriginal = r.area || '';
             let macroNome = "";
             if(areaOriginal.includes("Parede")) macroNome = "Parede";
             else if(areaOriginal.includes("Meio")) macroNome = "Meio";
@@ -1190,7 +1479,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             else if(areaOriginal.includes("Bistrôs")) macroNome = "Bistrôs";
 
             if(!macroNome) { alert("Esta reserva pertence a uma área fora do Salão 2."); return; }
-            document.getElementById('mapa-reserva-nome').value = nome;
+            document.getElementById('mapa-reserva-nome').value = r.nome;
             focarArea(macroNome);
         }
 
@@ -1198,7 +1487,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             modoMontagemMapa = !modoMontagemMapa; mesasSelecionadasMapa = [];
             const btn = document.getElementById('btn-edit-layout');
             btn.innerHTML = modoMontagemMapa ? "💾 Sair Montagem" : "✏️ Modo Montagem";
-            btn.style.background = modoMontagemMapa ? "#10b981" : "var(--bg-sidebar)";
+            btn.style.background = modoMontagemMapa ? "#5a3a28" : "var(--bg-sidebar)";
             atualizarPainelDinamicoMapa(); carregarMapa();
         }
 
@@ -1240,7 +1529,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             carregarMapa();
         }
 
-        window.addEventListener('resize', () => { if(document.getElementById('mapa-salao').classList.contains('active')) ajustarEscalaMapa(); });
+        window.addEventListener('resize', () => { if (telaAtiva('mapa-salao')) agendarRender('escala-mapa', ajustarEscalaMapa); });
 
         function carregarMapa() {
             let layoutDia = {}; if(mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno]) layoutDia = mapasApp[mapaAtualData][mapaAtualTurno];
@@ -1272,7 +1561,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                     for(let i = 1; i <= conf.max; i++) {
                         const mesaId = `${subArea}_${i}`; const estado = layoutDia[mesaId] ? layoutDia[mesaId].status : 'ativa'; const nomeRes = layoutDia[mesaId] ? layoutDia[mesaId].nome : '';
                         let cssStatus = 'status-ghost'; if(estado === 'ativa') cssStatus = 'status-ativa'; if(estado === 'reservada') cssStatus = 'status-reservada'; if(mesasSelecionadasMapa.includes(mesaId)) cssStatus = 'status-selecionada';
-                        let textoMesa = estado === 'reservada' ? nomeRes.substring(0,3) : i; let classeFormato = (conf.tipo === 'redonda' || conf.tipo === 'bistro') ? 'mesa-redonda' : 'mesa-quadrada';
+                        let textoMesa = estado === 'reservada' ? esc(String(nomeRes || '').substring(0,3)) : i; let classeFormato = (conf.tipo === 'redonda' || conf.tipo === 'bistro') ? 'mesa-redonda' : 'mesa-quadrada';
                         htmlMesas += `<div id="mesa-${mesaId}" class="${classeFormato} ${cssStatus}" onclick="cliqueMesa('${mesaId}')">${textoMesa}</div>`;
                     }
 
@@ -1283,8 +1572,15 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             const plantaBox = document.getElementById('mapa-container'); if (plantaBox) plantaBox.innerHTML = html;
         }
 
+        // Evita gravar no mapa antes de ele carregar (as mesas pareceriam todas livres)
+        function mapaPronto() {
+            if (_mapaCarregadoData === mapaAtualData) return true;
+            showToast("Carregando o mapa... tente de novo em instantes.", "error");
+            return false;
+        }
+
         function cliqueMesa(mesaId) {
-            if(currentRole === 'visualizador') return;
+            if(currentRole === 'visualizador' || !mapaPronto()) return;
             let layoutDia = {}; if(mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno]) layoutDia = mapasApp[mapaAtualData][mapaAtualTurno];
             let atual = layoutDia[mesaId] ? layoutDia[mesaId].status : 'ativa';
 
@@ -1296,11 +1592,11 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 
                 if(atual === 'reservada') { 
                     const nomeAlvo = layoutDia[mesaId].nome;
-                    if(confirm(`Excluir a reserva de: ${nomeAlvo}? (Isso vai liberar TODAS as mesas vinculadas a esta reserva)`)) {
+                    confirmar(`Excluir a reserva de: ${nomeAlvo}? Isso libera TODAS as mesas vinculadas a esta reserva.`, { titulo: 'Excluir reserva', ok: 'Excluir', perigo: true }).then(ok => { if (!ok) return;
                         let updates = {};
                         for(let keyMesa in layoutDia) if(layoutDia[keyMesa].status === 'reservada' && layoutDia[keyMesa].nome === nomeAlvo) updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${keyMesa}`] = { status: 'ativa' };
                         db.ref().update(updates).then(() => { mesasSelecionadasMapa = []; atualizarPainelDinamicoMapa(); carregarMapa(); });
-                    }
+                    });
                     return; 
                 }
 
@@ -1342,7 +1638,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         }
 
         function adicionarMesaFileira() {
-            if(currentRole === 'visualizador') return; let sub = obterSubAreaAtual(); if(!sub) return;
+            if(currentRole === 'visualizador' || !mapaPronto()) return; let sub = obterSubAreaAtual(); if(!sub) return;
             let layoutDia = mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno] ? mapasApp[mapaAtualData][mapaAtualTurno] : {};
             let conf = configMapa[sub];
             for(let i = 1; i <= conf.max; i++) {
@@ -1353,7 +1649,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         }
 
         function subtrairMesaFileira() {
-            if(currentRole === 'visualizador') return; let sub = obterSubAreaAtual(); if(!sub) return;
+            if(currentRole === 'visualizador' || !mapaPronto()) return; let sub = obterSubAreaAtual(); if(!sub) return;
             let layoutDia = mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno] ? mapasApp[mapaAtualData][mapaAtualTurno] : {};
             let conf = configMapa[sub];
             for(let i = conf.max; i >= 1; i--) {
@@ -1365,13 +1661,13 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         }
 
         function apagarMesasSelecionadas() {
-            if(currentRole === 'visualizador' || mesasSelecionadasMapa.length === 0) return;
+            if(currentRole === 'visualizador' || mesasSelecionadasMapa.length === 0 || !mapaPronto()) return;
             let updates = {}; mesasSelecionadasMapa.forEach(id => updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${id}`] = { status: 'ghost' });
             db.ref().update(updates).then(() => { mesasSelecionadasMapa = []; atualizarPainelDinamicoMapa(); });
         }
 
         function salvarReservaMapa() {
-            if(mesasSelecionadasMapa.length === 0) return; let nome = document.getElementById('mapa-reserva-nome').value.trim();
+            if(mesasSelecionadasMapa.length === 0 || !mapaPronto()) return; let nome = document.getElementById('mapa-reserva-nome').value.trim();
             if(!nome) { alert("Digite o nome para salvar a reserva!"); return; }
             let updates = {}; mesasSelecionadasMapa.forEach(id => updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${id}`] = { status: 'reservada', nome: nome });
             let porArea = {}; mesasSelecionadasMapa.forEach(id => { let partes = id.split('_'); let subArea = partes[0]; let idx = parseInt(partes[1]); if(!porArea[subArea]) porArea[subArea] = []; porArea[subArea].push(idx); });
@@ -1380,7 +1676,15 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             for(let subArea in porArea) {
                 if(configMapa[subArea].tipo === 'redonda' || configMapa[subArea].tipo === 'bistro') continue; 
                 let indices = porArea[subArea]; let min = Math.min(...indices); let max = Math.max(...indices);
-                [min - 1, max + 1].forEach(i => { if(i >= 1 && i <= configMapa[subArea].max) updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${subArea}_${i}`] = { status: 'ghost' }; });
+                // Só "corta" a mesa vizinha se ela estiver livre — antes apagava a mesa de OUTRA reserva encostada.
+                const layoutAtual = (mapasApp[mapaAtualData] && mapasApp[mapaAtualData][mapaAtualTurno]) || {};
+                [min - 1, max + 1].forEach(i => {
+                    if (i < 1 || i > configMapa[subArea].max) return;
+                    const idViz = `${subArea}_${i}`;
+                    if (mesasSelecionadasMapa.includes(idViz)) return;
+                    const stViz = layoutAtual[idViz] ? layoutAtual[idViz].status : 'ativa';
+                    if (stViz === 'ativa') updates[`mapas/${mapaAtualData}/${mapaAtualTurno}/${idViz}`] = { status: 'ghost' };
+                });
             }
             db.ref().update(updates).then(() => { mesasSelecionadasMapa = []; document.getElementById('mapa-reserva-nome').value = ""; atualizarPainelDinamicoMapa(); });
         }
@@ -1389,7 +1693,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         // AGENDA DETALHADA E CALENDÁRIO
         // ==========================================
         function mudarMes(dir) { 
+            navDate.setDate(1); // evita pular mês (ex.: 31/jan + 1 mês = 3/mar)
             navDate.setMonth(navDate.getMonth() + dir); 
+            garantirReservasDesde(dataLocalISO(new Date(navDate.getFullYear(), navDate.getMonth(), 1)));
             renderizarCalendario(); 
         }
         
@@ -1416,8 +1722,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 let classes = 'cal-day';
                 if(dw === 1) classes += ' closed-day';
                 if(reservasApp[dateStr]) classes += ' has-reserva';
+                const ehHoje = dateStr === dataLocalISO();
                 
-                html += `<div class="${classes}" onclick="abrirDia('${dateStr}', ${dw})">${i}</div>`;
+                html += `<div class="${classes}" onclick="abrirDia('${dateStr}', ${dw})"${ehHoje ? ' style="outline:2px solid var(--primary); outline-offset:-2px; font-weight:900;"' : ''}>${i}</div>`;
             }
             elGrid.innerHTML = html;
         }
@@ -1425,7 +1732,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
         function abrirDia(dateStr, dw) {
             if(dw === 1) return; // Segunda-feira fechado
             
+ 
             dataAtualReserva = dateStr; 
+            garantirReservasDesde(dateStr);
             const [y, m, d] = dateStr.split('-'); 
             document.getElementById('titulo-data-reserva').innerText = `Reservas: ${d}/${m}/${y}`;
             
@@ -1443,13 +1752,19 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             const dw = new Date(dataAtualReserva + 'T12:00:00').getDay();
             let endStr = "- 01:00"; if(dw===2) endStr="- 22:00"; else if(dw===3||dw===4) endStr="- 23:00";
             
-            const html = Object.keys(lista).map(k => {
-                const r = lista[k]; const hor = r.periodo === 'dia' ? '12:00 - 18:00' : `${r.horario} ${endStr}`;
-                const btnExcluir = (currentRole === 'dono' || currentRole === 'contribuidor') ? `<span style="color:red; font-size:0.8rem; cursor:pointer; font-weight:bold;" onclick="excluirReserva('${k}')">Excluir</span>` : '';
+            // Ordena: almoço primeiro, depois por horário
+            const chaves = Object.keys(lista).filter(k => lista[k]).sort((a, b) => {
+                const ra = lista[a], rb = lista[b];
+                if (ra.periodo !== rb.periodo) return ra.periodo === 'dia' ? -1 : 1;
+                return String(ra.horario || '').localeCompare(String(rb.horario || ''));
+            });
+            const html = chaves.map(k => {
+                const r = lista[k]; const hor = r.periodo === 'dia' ? '12:00 - 18:00' : `${r.horario || '—'} ${endStr}`;
+                const btnExcluir = (currentRole === 'dono' || currentRole === 'contribuidor') ? `<span style="color:red; font-size:0.8rem; cursor:pointer; font-weight:bold;" onclick="excluirReserva(${jsArg(k)})">Excluir</span>` : '';
                 return `<div style="padding:12px; border:1px solid var(--border-color); border-radius:8px; background:var(--row-even); margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:1.05rem; color:var(--bg-sidebar);">${r.nome}</strong>${btnExcluir}</div>
-                    <div style="font-size:0.85rem; color:#64748b; margin-top:6px; display:flex; flex-direction:column; gap:3px;"><span>📍 ${r.area} <strong>(${r.lugares} lug.)</strong></span><span>⏰ ${hor}</span></div></div>`;
-            }).join('') || `<p style="font-size:0.85rem; color:#64748b; text-align:center; margin-top:20px;">Nenhuma reserva para este dia.</p>`;
+                    <div style="display:flex; justify-content:space-between; align-items:center;"><strong style="font-size:1.05rem; color:var(--text-main);">${esc(r.nome)}</strong>${btnExcluir}</div>
+                    <div style="font-size:0.85rem; color:var(--muted); margin-top:6px; display:flex; flex-direction:column; gap:3px;"><span>📍 ${esc(r.area)} <strong>(${esc(r.lugares)} lug.)</strong></span><span>⏰ ${esc(hor)}</span></div></div>`;
+            }).join('') || `<p style="font-size:0.85rem; color:var(--muted); text-align:center; margin-top:20px;">Nenhuma reserva para este dia.</p>`;
             
             document.getElementById('lista-reservas-dia').innerHTML = html;
             atualizarFormReserva();
@@ -1495,7 +1810,9 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
             const area = document.getElementById('res-area').value; 
             const lug = parseInt(document.getElementById('res-lugares').value) || 0;
             
-            if(!nome || lug <= 0) { alert("Preencha corretamente!"); return; } 
+ 
+            if(!nome || lug <= 0) { alert("Preencha o nome e a quantidade de lugares."); return; } 
+            if(per !== 'dia' && !/^\d{1,2}:\d{2}$/.test(String(hor).trim())) { alert("Informe o horário da reserva (ex.: 19:30)."); return; }
             
             // TRAVA DE SEGURANÇA (OVERBOOKING)
             const restante = calcularCapacidadeRestante();
@@ -1505,13 +1822,22 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
                 return;
             }
 
-            db.ref(`reservas/${dataAtualReserva}`).push({ nome, periodo: per, horario: hor, area, lugares: lug }); 
-            document.getElementById('res-nome').value = ""; document.getElementById('res-lugares').value = "";
+            const btn = document.querySelector('#agenda-detalhe .req-contrib .btn-submit');
+            const liberar = travarBotao(btn, 'SALVANDO...');
+            if (liberar === null) return;
+            db.ref(`reservas/${dataAtualReserva}`).push({ nome, periodo: per, horario: String(hor).trim(), area, lugares: lug })
+                .then(() => {
+                    liberar();
+                    document.getElementById('res-nome').value = ""; document.getElementById('res-lugares').value = "";
+                    showToast("Reserva cadastrada!", "success");
+                })
+                .catch(err => { liberar(); console.error(err); showToast("Erro ao salvar a reserva.", "error"); });
         }
 
-        function excluirReserva(k) { 
-            if((currentRole === 'dono' || currentRole === 'contribuidor') && confirm("Excluir esta reserva?")) {
-                db.ref(`reservas/${dataAtualReserva}/${k}`).remove(); 
+        async function excluirReserva(k) { 
+            if((currentRole === 'dono' || currentRole === 'contribuidor') && await confirmar("Excluir esta reserva?", { titulo: 'Excluir reserva', ok: 'Excluir', perigo: true })) {
+ 
+                db.ref(`reservas/${dataAtualReserva}/${k}`).remove().catch(() => showToast("Erro ao excluir a reserva.", "error")); 
             }
         }
 
@@ -1546,7 +1872,7 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
 }
 
 function getCategoriaObjPorNome(nome) {
-    return Object.values(categorias).find(c => c && c.nome === nome);
+    return categoriasPorNome[nome];
 }
 
 function categoriaUsaContagemFracionada(nomeCat) {
@@ -1707,17 +2033,17 @@ function atualizarOrdemCategoriasAreaEdit() {
     areaCatOrderTemp = ordenarCategoriasParaArea(areaCatOrderTemp, { config: { ordemCategorias: areaCatOrderTemp } });
 
     if (areaCatOrderTemp.length === 0) {
-        container.innerHTML = `<p style="font-size:0.8rem; color:#64748b;">Marque produtos acima para organizar as categorias.</p>`;
+        container.innerHTML = `<p style="font-size:0.8rem; color:var(--muted);">Marque produtos acima para organizar as categorias.</p>`;
         return;
     }
 
     container.innerHTML = areaCatOrderTemp.map((cat, idx) => `
-        <div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
             <div class="sort-wrapper">
-                <button class="sort-btn-up" onclick="moverCategoriaAreaEdit('${cat}', -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
-                <button class="sort-btn-down" onclick="moverCategoriaAreaEdit('${cat}', 1)" ${idx === areaCatOrderTemp.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
+                <button class="sort-btn-up" onclick="moverCategoriaAreaEdit(${jsArg(cat)}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+                <button class="sort-btn-down" onclick="moverCategoriaAreaEdit(${jsArg(cat)}, 1)" ${idx === areaCatOrderTemp.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
             </div>
-            <strong style="font-size:0.95rem; color:var(--text-main);">${cat}</strong>
+            <strong style="font-size:0.95rem; color:var(--text-main);">${esc(cat)}</strong>
         </div>
     `).join('');
 }
@@ -1737,28 +2063,6 @@ function moverCategoriaAreaEdit(cat, direcao) {
         // ==========================================
         // ESTOQUE E GESTÃO DE PRODUTOS
         // ==========================================
-        function getQtyHTML(id, val, pk, nomeArea, tam) {
-            if(currentRole === 'visualizador') return `<input type="number" class="qty-input" value="${val}" readonly style="width:40px; background:transparent; border:none; text-align:center;">`;
-            return `
-            <div class="qty-box">
-                <input type="number" class="qty-input" id="${id}" value="${val}" onchange="attEst('${pk}','${nomeArea}',${tam})">
-                <div class="qty-ctrls">
-                    <button class="qty-btn-up" onclick="mudarQtd('${id}', 1, '${pk}','${nomeArea}',${tam})">▲</button>
-                    <button class="qty-btn-down" onclick="mudarQtd('${id}', -1, '${pk}','${nomeArea}',${tam})">▼</button>
-                </div>
-            </div>`;
-        }
-
-        function mudarQtd(id, delta, pk, ar, tam) {
-            const input = document.getElementById(id);
-            if(!input) return;
-            let val = parseInt(input.value) || 0;
-            val += delta;
-            if(val < 0) val = 0;
-            input.value = val;
-            attEst(pk, ar, tam);
-        }
-
         function renderizarTotalLinhaDupla(total, tam, p) {
             const tf = tam > 1 ? tam : 1;
             const tot = Number(total) || 0;
@@ -1777,8 +2081,9 @@ function moverCategoriaAreaEdit(cat, direcao) {
         const grid = document.getElementById('grid-areas'); 
         if(!grid) return;
 
+        if (areas.length === 0 && currentUser && window.XP && !XP.ok.areas) { grid.innerHTML = XP.esqueletoCards(4, 110); return; }
         if (areas.length === 0) {
-            grid.innerHTML = `<p style="grid-column:1/-1; color:#64748b; font-size:0.95rem; padding:12px;">${currentUser ? 'Nenhuma área cadastrada ainda.' : 'Faça login para ver as áreas.'}</p>`;
+            grid.innerHTML = `<p style="grid-column:1/-1; color:var(--muted); font-size:0.95rem; padding:12px;">${currentUser ? 'Nenhuma área cadastrada ainda.' : 'Faça login para ver as áreas.'}</p>`;
             return;
         }
         
@@ -1802,20 +2107,16 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     const meta = Number(a.config.padroes[pk]) || 0;
                     if (meta <= 0) return;
 
-                    let t = 1; 
-                    getCategoriasProduto(p).forEach(cn => { 
-                        const c = Object.values(categorias).find(x => x.nome === cn); 
-                        if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); 
-                    });
-
+                    const t = getTamFardoProduto(p);
+                    const frac = produtoUsaContagemFracionada(p);
                     const v = p.estoque?.[a.nome] || {f:0, u:0};
 
-                    const fAtual = Number(v.f) || 0;
-                    const uAtual = Number(v.u) || 0;
+                    const fAtual = parseQtdValor(v.f, frac);
+                    const uAtual = parseQtdValor(v.u, frac);
 
                     // Compara tudo em unidades para evitar erro com fardos + unidades soltas
                     const qtdAtualEmUnidades = (fAtual * t) + uAtual;
-                    const metaEmUnidades = t > 1 ? meta * t : meta;
+                    const metaEmUnidades = (t > 1 && !frac) ? meta * t : meta;
 
                     let pctItem = (qtdAtualEmUnidades / metaEmUnidades) * 100;
                     if (pctItem > 100) pctItem = 100;
@@ -1835,8 +2136,8 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 }
             }
 
-            return `<div class="card-nav" onclick="verArea('${a.key}', '${a.nome}')">
-                ${semaforoHTML}<i>${obterEmoji(a.nome)}</i><h3>${a.nome || 'Área'}</h3>
+            return `<div class="card-nav" onclick="verArea(${jsArg(a.key)}, ${jsArg(a.nome)})">
+                ${semaforoHTML}<i>${obterEmoji(a.nome)}</i><h3>${esc(a.nome || 'Área')}</h3>
             </div>`;
         }).join(''); 
     } catch(e){ 
@@ -1851,6 +2152,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                 
                 const dbFonte = isC ? categorias : metodosCompra; 
                 let chavesFonte = Object.keys(dbFonte);
+                if (currentUser && window.XP && !XP.ok[isC ? 'categorias' : 'metodos'] && chavesFonte.length === 0) { g.innerHTML = XP.esqueletoCards(6, 110); return; }
                 
                 if (isC) {
                     chavesFonte.sort((a, b) => {
@@ -1861,293 +2163,278 @@ function moverCategoriaAreaEdit(cat, direcao) {
                     });
                 } else { chavesFonte.sort((a, b) => (dbFonte[a]?.nome || "").localeCompare(dbFonte[b]?.nome || "")); }
 
-                if(chavesFonte.length === 0) g.innerHTML = `<p style="grid-column: 1 / -1; color:#64748b; font-size: 0.9rem;">Nenhum grupo cadastrado.</p>`;
-                else g.innerHTML = chavesFonte.map(k => `<div class="card-nav" onclick="verGrupo('${k}', '${isC?'categoria':'metodo'}')">${isC ? `<i>${obterEmoji(dbFonte[k]?.nome)}</i>` : obterIconeMetodo(dbFonte[k]?.nome, true)}<h3>${dbFonte[k]?.nome}</h3></div>`).join(''); 
+                if(chavesFonte.length === 0) g.innerHTML = `<p style="grid-column: 1 / -1; color:var(--muted); font-size: 0.9rem;">Nenhum grupo cadastrado.</p>`;
+                else g.innerHTML = chavesFonte.map(k => `<div class="card-nav" onclick="verGrupo(${jsArg(k)}, '${isC?'categoria':'metodo'}')">${isC ? `<i>${obterEmoji(dbFonte[k]?.nome)}</i>` : obterIconeMetodo(dbFonte[k]?.nome, true)}<h3>${esc(dbFonte[k]?.nome)}</h3></div>`).join(''); 
                 
                 const prodsSemGrupo = Object.keys(produtos).filter(k => isC ? getCategoriasProduto(produtos[k]).length === 0 : !produtos[k].metodoCompra);
-                if(prodsSemGrupo.length === 0) ts.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b;">Todos os produtos estão agrupados.</td></tr>`;
-                else ts.innerHTML = prodsSemGrupo.map(k => { const p = produtos[k]; const t = Object.values(p.estoque||{}).reduce((a,v)=>typeof v==='object'&&v!==null?a+(Number(v.f)||0)+(Number(v.u)||0):a+Number(v||0),0); return `<tr><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto('${k}')">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto('${k}')">ⓘ</button><span class="col-item">${p.nome||''}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(t,1)}</td></tr>`; }).join('');
+                if(prodsSemGrupo.length === 0) ts.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Todos os produtos estão agrupados.</td></tr>`;
+                else ts.innerHTML = prodsSemGrupo.map(k => { const p = produtos[k]; const t = getTamFardoProduto(p); const tot = getUnidadesTotaisEstoque(p); return `<tr><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto(${jsArg(k)})">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto(${jsArg(k)})">ⓘ</button><span class="col-item">${esc(p.nome||'')}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(tot,t,p)}</td></tr>`; }).join('');
             } catch(e) {}
         }
 
-        function verGrupo(key, tipo) { 
+        let grupoAtualLista = null; // { key, tipo } da lista de produtos aberta
+
+        function verGrupo(key, tipo, semNavegar = false) { 
             try {
-                document.getElementById('busca-categoria').value = '';
-                navegar('produtos-lista-filtrada'); 
                 const n = tipo === 'categoria' ? categorias[key]?.nome : metodosCompra[key]?.nome; 
-                document.getElementById('titulo-categoria-filtrada').innerText = n || 'Grupo'; 
+                if (!n) { if (semNavegar) navegar('produtos-categorias'); return; }
+                grupoAtualLista = { key, tipo };
+                if (!semNavegar) {
+                    document.getElementById('busca-categoria').value = '';
+                    activeSubgroupFilter = "Todos";
+                    navegar('produtos-lista-filtrada'); 
+                }
+                document.getElementById('titulo-categoria-filtrada').innerText = n; 
                 
-                let prodsFiltrados = Object.keys(produtos).filter(k => tipo === 'categoria' ? getCategoriasProduto(produtos[k]).includes(n) : produtos[k].metodoCompra === n);
-                
-                prodsFiltrados.sort((a, b) => {
-                    if (tipo === 'categoria') {
-                        const catObj = categorias[key];
-                        const customOrder = catObj.ordem || [];
-                        const idxA = customOrder.indexOf(a);
-                        const idxB = customOrder.indexOf(b);
-                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                        if (idxA !== -1) return -1;
-                        if (idxB !== -1) return 1;
-                    }
-                    return (produtos[a].nome || "").localeCompare(produtos[b].nome || "");
-                });
+                let prodsFiltrados = Object.keys(produtos).filter(k => produtos[k] && (tipo === 'categoria' ? getCategoriasProduto(produtos[k]).includes(n) : produtos[k].metodoCompra === n));
+                if (tipo === 'categoria') prodsFiltrados.sort((a, b) => compararProdutosDentroDaCategoria(a, b, n));
+                else prodsFiltrados.sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
 
                 // ABAS DE SUBGRUPOS (ESPECIFICAÇÕES)
                 const filtroWrapper = document.getElementById('filtro-subgrupos-wrapper');
-                if (tipo === 'categoria' && categorias[key] && categorias[key].subgrupos && categorias[key].subgrupos.length > 0) {
+                const subs = (tipo === 'categoria' && categorias[key] && Array.isArray(categorias[key].subgrupos)) ? categorias[key].subgrupos : [];
+                if (subs.length > 0) {
+                    if (activeSubgroupFilter !== 'Todos' && !subs.includes(activeSubgroupFilter)) activeSubgroupFilter = 'Todos';
                     filtroWrapper.style.display = 'flex';
-                    let htmlTabs = `<div class="sub-tab active" onclick="setSubgroupFilter('Todos', this)">Todos</div>`;
-                    categorias[key].subgrupos.forEach(sub => {
-                        htmlTabs += `<div class="sub-tab" onclick="setSubgroupFilter('${sub}', this)">${sub}</div>`;
+                    let htmlTabs = `<div class="sub-tab ${activeSubgroupFilter === 'Todos' ? 'active' : ''}" onclick="setSubgroupFilter('Todos', this)">Todos</div>`;
+                    subs.forEach(sub => {
+                        htmlTabs += `<div class="sub-tab ${activeSubgroupFilter === sub ? 'active' : ''}" onclick="setSubgroupFilter(${jsArg(sub)}, this)">${esc(sub)}</div>`;
                     });
                     filtroWrapper.innerHTML = htmlTabs;
                 } else {
                     filtroWrapper.style.display = 'none';
+                    activeSubgroupFilter = "Todos";
                 }
-                activeSubgroupFilter = "Todos";
 
-                if(prodsFiltrados.length === 0) { document.getElementById('tabela-produtos-filtrada').innerHTML = `<tr><td colspan="2" style="text-align:center; color:#64748b;">Nenhum produto neste grupo.</td></tr>`; return; }
+                const tabela = document.getElementById('tabela-produtos-filtrada');
+                if(prodsFiltrados.length === 0) { tabela.innerHTML = `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Nenhum produto neste grupo.</td></tr>`; renderizarProdutosEmCards(); return; }
                 
-                document.getElementById('tabela-produtos-filtrada').innerHTML = prodsFiltrados.map(k => { 
+                tabela.innerHTML = prodsFiltrados.map(k => { 
                     const p = produtos[k]; 
                     const t = getTamFardoProduto(p);
                     const tot = getUnidadesTotaisEstoque(p);
-                    
-                    return `<tr data-subgrupo="${p.subgrupo || ''}"><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto('${k}')">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto('${k}')">ⓘ</button><span class="col-item">
-    ${p.nome||''}
-
-    ${p.itemProduzido
-        ? `
-            <span style="
-                background:#f59e0b;
-                color:white;
-                font-size:0.65rem;
-                padding:2px 6px;
-                border-radius:999px;
-                margin-left:6px;
-                font-weight:800;
-            ">
-                PRODUZIDO
-            </span>
-        `
-        : ''
-    }
-</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(tot,t,p)}</td></tr>`; 
+                    const selo = p.itemProduzido
+                        ? `<span style="background:var(--dark); color:white; font-size:0.65rem; padding:2px 6px; border-radius:999px; margin-left:6px; font-weight:800;">PRODUZIDO</span>`
+                        : '';
+                    return `<tr data-subgrupo="${esc(p.subgrupo || '')}"><td><div style="display:flex; align-items:center;"><button class="action-icon edit-btn req-dono" onclick="abrirEdicaoProduto(${jsArg(k)})">✎</button><button class="action-icon info-btn" onclick="verDetalhesProduto(${jsArg(k)})">ⓘ</button><span class="col-item">${esc(p.nome||'')}</span>${selo}</div></td><td style="text-align:right">${renderizarTotalLinhaDupla(tot,t,p)}</td></tr>`; 
                 }).join(''); 
                 
                 aplicarFiltrosProdutos(); 
-            } catch(e){}
+            } catch(e){ console.error('Erro ao abrir grupo:', e); }
         }
 
-        function verArea(key, nome) { 
-    try {
-        document.getElementById('busca-area').value = '';
-        document.getElementById('area-edit-box').style.display = 'none'; 
-        areaAtualKey = key; 
-        navegar('detalhe-area'); 
-        document.getElementById('area-display-name').innerText = nome || 'Área'; 
-        
-        const areaObj = areas.find(a => a.key === key);
-        if (!areaObj) return;
-
-        const usaPadrao = (areaObj.config && areaObj.config.usaPadrao);
-        const totalCols = modoContagemAtivo ? 3 : (usaPadrao ? 5 : 4);
-
-        let headHtml = `<tr>
-            <th>Item</th>
-            ${modoContagemAtivo ? '' : (usaPadrao ? '<th style="text-align:center; color:#10b981;">Pad.</th>' : '')}
-            <th style="text-align:center">${modoContagemAtivo ? 'Contar Fds' : 'Estoque Fds'}</th>
-            <th style="text-align:center">${modoContagemAtivo ? 'Contar Un.' : 'Estoque Un.'}</th>
-            ${modoContagemAtivo ? '' : '<th style="text-align:right;">Total</th>'}
-        </tr>`;
-        document.getElementById('head-area-itens').innerHTML = headHtml;
-
-        const lista = document.getElementById('tabela-area-itens');
-        lista.innerHTML = '';
-
-        const prodsArea = Object.keys(produtos).filter(pk => {
-            const p = produtos[pk];
-            if (!p) return false;
-            const vinculado = p.locais && p.locais.includes(nome);
-            const temEstoqueSalvo = p.estoque && p.estoque[nome] !== undefined;
-            return vinculado || temEstoqueSalvo;
-        });
-
-        if (prodsArea.length === 0) {
-            lista.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:#64748b;">Nenhum item vinculado a esta área. Clique no ícone de lápis (✎) acima para adicionar.</td></tr>`;
-            return;
-        }
-
-        const grupos = {};
-        prodsArea.forEach(pk => {
-            const p = produtos[pk];
-            const cats = getCategoriasProduto(p);
-            const catNome = cats.length > 0 ? cats[0] : 'Sem Categoria';
-            if (!grupos[catNome]) grupos[catNome] = [];
-            grupos[catNome].push(pk);
-        });
-
-        const nomesCategorias = ordenarCategoriasParaArea(Object.keys(grupos), areaObj);
-
-nomesCategorias.forEach(catNome => {
-            lista.innerHTML += `<tr>
-                <td colspan="${totalCols}" style="background: rgba(183, 41, 41, 0.22); color:#fbeee3; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.78rem; padding:10px;">
-                    ${catNome}
-                </td>
-            </tr>`;
-
-            grupos[catNome].sort((a, b) => compararProdutosDentroDaCategoria(a, b, catNome));
-
-            let subgruposDaCategoria = {};
-            grupos[catNome].forEach(pkGrupo => {
-                const pGrupo = produtos[pkGrupo];
-                const subNome = pGrupo && pGrupo.subgrupo ? pGrupo.subgrupo : '';
-                const chaveSub = subNome || '_sem_subgrupo_';
-
-                if (!subgruposDaCategoria[chaveSub]) subgruposDaCategoria[chaveSub] = [];
-                subgruposDaCategoria[chaveSub].push(pkGrupo);
-            });
-
-            const catObjSub = getCategoriaObjPorNome(catNome);
-const ordemSalvaSubgrupos = catObjSub && catObjSub.subgrupos ? catObjSub.subgrupos : [];
-
-const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
-    if (a === '_sem_subgrupo_') return 1;
-    if (b === '_sem_subgrupo_') return -1;
-
-    const idxA = ordemSalvaSubgrupos.indexOf(a);
-    const idxB = ordemSalvaSubgrupos.indexOf(b);
-
-    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-    if (idxA !== -1) return -1;
-    if (idxB !== -1) return 1;
-
-    return a.localeCompare(b);
-});
-
-            ordemSubgrupos.forEach(subKey => {
-                if (subKey !== '_sem_subgrupo_') {
-                    lista.innerHTML += `<tr>
-                        <td colspan="${totalCols}" style="background: rgba(0,0,0,0.35); color:#10b981; font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:0.72rem; padding:8px 10px 8px 22px;">
-                            ${subKey}
-                        </td>
-                    </tr>`;
-                }
-
-                subgruposDaCategoria[subKey].forEach(pk => {
-                const p = produtos[pk];
-                const est = (p.estoque && p.estoque[nome]) ? p.estoque[nome] : { f: 0, u: 0 };
-                const frac = produtoUsaContagemFracionada(p);
-                const qtdF = parseQtdValor(est.f, frac);
-                const qtdU = parseQtdValor(est.u, frac);
-
-                const t = getTamFardoProduto(p);
-                const totalUnidades = (qtdF * t) + qtdU;
-                const stepCont = frac ? '0.01' : '1';
-
-                let padraoTxt = '-';
-                if (usaPadrao && areaObj.config && areaObj.config.padroes && areaObj.config.padroes[pk] !== undefined) {
-                    const val = areaObj.config.padroes[pk];
-                    padraoTxt = `<span style="color:#10b981; font-weight:900; font-size: 0.95rem;">${val} ${t > 1 ? 'Fds.' : 'Un.'}</span>`;
-                } else if (usaPadrao) {
-                    padraoTxt = `<span style="color:#64748b;">-</span>`;
-                }
-
-                const usaFardoNaArea = t > 1 && !frac;
-                let viewFardo = modoContagemAtivo 
-                    ? (usaFardoNaArea ? `<div class="qty-box" style="border: 1px solid var(--primary); background: #000; width: 75px;">
-                         <input type="number" class="qty-input" id="cont-f-${pk}" value="" step="${stepCont}" style="background: #000; color: #fff;">
-                         <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
-                             <button class="qty-btn-up" onclick="document.getElementById('cont-f-${pk}').value=(Number(document.getElementById('cont-f-${pk}').value)||0)+1">▲</button>
-                             <button class="qty-btn-down" onclick="document.getElementById('cont-f-${pk}').value=Math.max(0,(Number(document.getElementById('cont-f-${pk}').value)||0)-1)">▼</button>
-                         </div>
-                       </div>` : `<span style="color:#64748b;">-</span>`)
-                    : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${usaFardoNaArea ? formatarQtdNumero(qtdF, false) : '-'}</span>`;
-
-                const incU = frac ? 0.1 : 1;
-                let viewUnidade = modoContagemAtivo 
-                    ? `<div class="qty-box" style="border: 1px solid var(--primary); background: #000; width: 75px;">
-                         <input type="number" class="qty-input" id="cont-u-${pk}" value="" step="${stepCont}" style="background: #000; color: #fff;">
-                         <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
-                             <button class="qty-btn-up" onclick="document.getElementById('cont-u-${pk}').value=(Math.round(((Number(document.getElementById('cont-u-${pk}').value)||0)+${incU})*1000)/1000)">▲</button>
-                             <button class="qty-btn-down" onclick="document.getElementById('cont-u-${pk}').value=Math.max(0,Math.round(((Number(document.getElementById('cont-u-${pk}').value)||0)-${incU})*1000)/1000)">▼</button>
-                         </div>
-                       </div>`
-                    : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${frac ? formatarQtdNumero(totalUnidades, true) : formatarQtdNumero(qtdU, false)}</span>`;
-
-                let txtTopTotal = frac
-                    ? `${formatarQtdNumero(totalUnidades, true)} Un.`
-                    : (t > 1 ? `${Math.floor(totalUnidades / t)} Fds | ${totalUnidades % t} Un.` : `${Math.floor(totalUnidades)} Un.`);
-                let viewTotal = modoContagemAtivo 
-                    ? ''
-                    : `<td style="text-align:right; border-left: 1px solid rgba(255,255,255,0.05);">
-                         <div style="display:flex; flex-direction:column; line-height:1.2;">
-                           <span style="font-weight:900; color:var(--primary); font-size:1.05rem;">${txtTopTotal}</span>
-                           ${t > 1 ? `<span style="font-size:0.75rem; color:#64748b; font-weight:700;">${totalUnidades} Un. Totais</span>` : ''}
-                         </div>
-                       </td>`;
-
-                                lista.innerHTML += `
-                    <tr>
-                        <td style="font-size: 0.95rem; font-weight:700;"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem('${pk}')">ⓘ</button> <span>${p.nome}</span></div></td>
-                        ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid rgba(255,255,255,0.05);">${padraoTxt}</td>` : '')}
-                        <td style="text-align:center">${viewFardo}</td>
-                        <td style="text-align:center">${viewUnidade}</td>
-                        ${viewTotal}
-                    </tr>
-                `;
-                });
-            });
-        });
-
-    } catch (e) {
-        console.error("Erro ao abrir área:", e);
-        showToast("Erro ao carregar detalhes da área.", "error");
-    }
-}
-
-        function attEst(pk, ar, tam) { 
-            if(currentRole === 'visualizador') return; 
-            const p = produtos[pk];
-            const frac = produtoUsaContagemFracionada(p);
-            const elF = document.getElementById(`f-${pk}`);
-            const f = elF ? parseQtdValor(elF.value, frac) : 0; 
-            const u = parseQtdValor(document.getElementById(`u-${pk}`).value, frac);
-            const payload = (frac || tam <= 1) ? { f: 0, u: Math.round((f * tam + u) * 1000) / 1000 } : { f, u };
-            db.ref(`produtos/${pk}/estoque/${ar}`).set(payload); 
-            document.getElementById(`tot-cell-${pk}`).innerHTML = renderizarTotalLinhaDupla(payload.f * tam + payload.u, tam, p); 
-        }
-
-        function verDetalhesProduto(key) { 
+        // Tela de uma área: monta todo o HTML numa string e grava UMA vez.
+        // (Antes fazia "innerHTML +=" para cada produto: com 100 itens o navegador
+        //  redesenhava a tabela 100 vezes — principal causa da demora ao abrir uma área.)
+        async function verArea(key, nome, semNavegar = false) { 
+            // No meio de uma contagem: não redesenha a mesma área (apagaria o que foi digitado)
+            // e pede confirmação antes de ir para outra.
+            if (!semNavegar && typeof modoContagemAtivo !== 'undefined' && modoContagemAtivo) {
+                if (key === areaAtualKey) return;
+                if (!(await confirmar('Sair sem salvar a contagem? Os números digitados serão perdidos.', { titulo: 'Contagem em andamento', ok: 'Sair sem salvar', perigo: true }))) return;
+                encerrarModoContagem();
+            }
             try {
-                const p = produtos[key]; if(!p) return; navegar('detalhe-produto'); document.getElementById('span-titulo-prod').innerText = p.nome || 'Produto'; 
-                let t = 1; const pC = getCategoriasProduto(p); pC.forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); }); 
+                const areaObj = areas.find(a => a.key === key);
+                if (!areaObj) { if (!semNavegar) showToast("Área não encontrada.", "error"); return; }
+                nome = areaObj.nome;
+                areaAtualKey = key; 
+                if (!semNavegar) {
+                    document.getElementById('busca-area').value = '';
+                    document.getElementById('area-edit-box').style.display = 'none'; 
+                    navegar('detalhe-area'); 
+                }
+                document.getElementById('area-display-name').innerText = nome || 'Área'; 
+
+                const usaPadrao = !!(areaObj.config && areaObj.config.usaPadrao);
+                const totalCols = modoContagemAtivo ? 3 : (usaPadrao ? 5 : 4);
+
+                document.getElementById('head-area-itens').innerHTML = `<tr>
+                    <th>Item</th>
+                    ${modoContagemAtivo ? '' : (usaPadrao ? '<th style="text-align:center; color:var(--ink);">Pad.</th>' : '')}
+                    <th style="text-align:center">${modoContagemAtivo ? 'Contar Fds' : 'Estoque Fds'}</th>
+                    <th style="text-align:center">${modoContagemAtivo ? 'Contar Un.' : 'Estoque Un.'}</th>
+                    ${modoContagemAtivo ? '' : '<th style="text-align:right;">Total</th>'}
+                </tr>`;
+
+                const lista = document.getElementById('tabela-area-itens');
+
+                const prodsArea = Object.keys(produtos).filter(pk => {
+                    const p = produtos[pk];
+                    if (!p) return false;
+                    const vinculado = Array.isArray(p.locais) && p.locais.includes(nome);
+                    const temEstoqueSalvo = p.estoque && p.estoque[nome] !== undefined;
+                    return vinculado || temEstoqueSalvo;
+                });
+
+                if (prodsArea.length === 0 && window.XP && !XP.ok.produtos) { lista.innerHTML = XP.esqueletoLinhas(6); return; }
+                if (prodsArea.length === 0) {
+                    lista.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center; padding:20px; color:var(--muted);">Nenhum item vinculado a esta área. Clique no ícone de lápis (✎) acima para adicionar.</td></tr>`;
+                    return;
+                }
+
+                const grupos = {};
+                prodsArea.forEach(pk => {
+                    const catNome = getCategoriaPrincipalProduto(produtos[pk]);
+                    (grupos[catNome] = grupos[catNome] || []).push(pk);
+                });
+
+                const nomesCategorias = ordenarCategoriasParaArea(Object.keys(grupos), areaObj);
+                const html = [];
+
+                nomesCategorias.forEach(catNome => {
+                    html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" class="titulo-grupo">${esc(catNome)}</td></tr>`);
+
+                    grupos[catNome].sort((a, b) => compararProdutosDentroDaCategoria(a, b, catNome));
+
+                    const subgruposDaCategoria = {};
+                    grupos[catNome].forEach(pk => {
+                        const sub = produtos[pk].subgrupo || '_sem_subgrupo_';
+                        (subgruposDaCategoria[sub] = subgruposDaCategoria[sub] || []).push(pk);
+                    });
+
+                    const catObjSub = getCategoriaObjPorNome(catNome);
+                    const ordemSalvaSubgrupos = catObjSub && Array.isArray(catObjSub.subgrupos) ? catObjSub.subgrupos : [];
+                    const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
+                        if (a === '_sem_subgrupo_') return 1;
+                        if (b === '_sem_subgrupo_') return -1;
+                        const idxA = ordemSalvaSubgrupos.indexOf(a), idxB = ordemSalvaSubgrupos.indexOf(b);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                        return a.localeCompare(b);
+                    });
+
+                    ordemSubgrupos.forEach(subKey => {
+                        if (subKey !== '_sem_subgrupo_') {
+                            html.push(`<tr class="linha-grupo"><td colspan="${totalCols}" class="titulo-grupo">${esc(subKey)}</td></tr>`);
+                        }
+
+                        subgruposDaCategoria[subKey].forEach(pk => {
+                            const p = produtos[pk];
+                            const est = (p.estoque && p.estoque[nome]) ? p.estoque[nome] : { f: 0, u: 0 };
+                            const frac = produtoUsaContagemFracionada(p);
+                            const t = getTamFardoProduto(p);
+                            let qtdF = parseQtdValor(est.f, frac);
+                            let qtdU = parseQtdValor(est.u, frac);
+                            const totalUnidades = Math.round(((qtdF * t) + qtdU) * 1000) / 1000;
+                            const usaFardoNaArea = t > 1 && !frac;
+                            if (usaFardoNaArea) { qtdF = Math.floor(totalUnidades / t); qtdU = Math.round((totalUnidades % t) * 1000) / 1000; }
+                            const stepCont = frac ? '0.01' : '1';
+
+                            let padraoTxt = '-';
+                            if (usaPadrao && areaObj.config.padroes && areaObj.config.padroes[pk] !== undefined) {
+                                padraoTxt = `<span style="color:var(--ink); font-weight:900; font-size: 0.95rem;">${esc(areaObj.config.padroes[pk])} ${usaFardoNaArea ? 'Fds.' : 'Un.'}</span>`;
+                            } else if (usaPadrao) {
+                                padraoTxt = `<span style="color:var(--muted);">-</span>`;
+                            }
+
+                            const incU = frac ? 0.1 : 1;
+                            const viewFardo = modoContagemAtivo 
+                                ? (usaFardoNaArea ? `<div class="qty-box" style="border: 1px solid var(--primary); background:var(--surface-strong); width: 75px;">
+                                     <input type="number" inputmode="numeric" class="qty-input" id="cont-f-${pk}" value="" step="1" min="0" >
+                                     <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
+                                         <button class="qty-btn-up" onclick="passoContagem('cont-f-${pk}', 1, 1)">▲</button>
+                                         <button class="qty-btn-down" onclick="passoContagem('cont-f-${pk}', -1, 1)">▼</button>
+                                     </div>
+                                   </div>` : `<span style="color:var(--muted);">-</span>`)
+                                : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${usaFardoNaArea ? formatarQtdNumero(qtdF, false) : '-'}</span>`;
+
+                            const viewUnidade = modoContagemAtivo 
+                                ? `<div class="qty-box" style="border: 1px solid var(--primary); background:var(--surface-strong); width: 75px;">
+                                     <input type="number" inputmode="decimal" class="qty-input" id="cont-u-${pk}" value="" step="${stepCont}" min="0" >
+                                     <div class="qty-ctrls" style="border-left: 1px solid var(--primary);">
+                                         <button class="qty-btn-up" onclick="passoContagem('cont-u-${pk}', 1, ${incU})">▲</button>
+                                         <button class="qty-btn-down" onclick="passoContagem('cont-u-${pk}', -1, ${incU})">▼</button>
+                                     </div>
+                                   </div>`
+                                : `<span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${usaFardoNaArea ? formatarQtdNumero(qtdU, false) : formatarQtdNumero(totalUnidades, frac)}</span>`;
+
+                            const txtTopTotal = frac
+                                ? `${formatarQtdNumero(totalUnidades, true)} Un.`
+                                : (t > 1 ? `${Math.floor(totalUnidades / t)} Fds | ${formatarQtdNumero(totalUnidades % t, false)} Un.` : `${Math.floor(totalUnidades)} Un.`);
+                            const viewTotal = modoContagemAtivo 
+                                ? ''
+                                : `<td class="cel-total" style="text-align:right; border-left: 1px solid var(--line);" data-label="Total">
+                                     <div style="display:flex; flex-direction:column; line-height:1.2;">
+                                       <span style="font-weight:900; color:var(--primary); font-size:1.05rem;">${txtTopTotal}</span>
+                                       ${usaFardoNaArea ? `<span style="font-size:0.75rem; color:var(--muted); font-weight:700;">${formatarQtdNumero(totalUnidades, false)} Un. Totais</span>` : ''}
+                                     </div>
+                                   </td>`;
+
+                            html.push(`<tr class="linha-item" onclick="toggleCardArea(this, event)">
+                                <td class="cel-item" data-label="Item"><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" style="margin:0; width:24px; height:24px; font-size:0.8rem;" onclick="abrirInfoItem(${jsArg(pk)})" aria-label="Informações do item">ⓘ</button> <span class="col-item">${esc(p.nome)}</span></div></td>
+                                ${modoContagemAtivo ? '' : (usaPadrao ? `<td style="text-align:center; border-right: 1px solid var(--line);" data-label="Padrão">${padraoTxt}</td>` : '')}
+                                <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Fds' : 'Fds'}">${viewFardo}</td>
+                                <td style="text-align:center" data-label="${modoContagemAtivo ? 'Contar Un.' : 'Un.'}">${viewUnidade}</td>
+                                ${viewTotal}
+                            </tr>`);
+                        });
+                    });
+                });
+
+                lista.innerHTML = html.join('');
+                // Mantém a busca aplicada quando a tela é atualizada sozinha
+                if (document.getElementById('busca-area').value) filtrarTabela('busca-area', 'tabela-area-itens');
+
+            } catch (e) {
+                console.error("Erro ao abrir área:", e);
+                showToast("Erro ao carregar detalhes da área.", "error");
+            }
+        }
+
+        // Botões ▲/▼ do modo contagem
+        function passoContagem(id, dir, inc) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const atual = Number(String(el.value).replace(',', '.')) || 0;
+            el.value = Math.max(0, Math.round((atual + dir * inc) * 1000) / 1000);
+        }
+
+        let produtoDetalheAtual = '';
+
+        function verDetalhesProduto(key, semNavegar = false) { 
+            try {
+                const p = produtos[key]; if(!p) return;
+                produtoDetalheAtual = key;
+                if (!semNavegar) navegar('detalhe-produto');
+                document.getElementById('span-titulo-prod').innerText = p.nome || 'Produto'; 
+                const t = getTamFardoProduto(p); const pC = getCategoriasProduto(p); 
                 const fracP = produtoUsaContagemFracionada(p);
-                let tG = 0; const locaisHtml = (p.locais||[]).map(loc => { const a = areas.find(x => x.nome === loc); const v = p.estoque?.[loc] || {f:0,u:0}; const q = parseQtdValor(v.f, fracP)*t + parseQtdValor(v.u, fracP); tG += q; return `<tr><td><div style="display:flex; align-items:center; gap:8px;"><button class="action-icon info-btn" onclick="verArea('${a?.key}', '${loc}')">ⓘ</button><span>${loc}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(q,t,p)}</td></tr>`; }).join(''); 
-                document.getElementById('tabela-locais-produto').innerHTML = locaisHtml || `<tr><td colspan="2" style="text-align:center; color:#64748b;">Não alocado em nenhuma área.</td></tr>`; 
+                let tG = 0;
+                const locaisHtml = (p.locais||[]).map(loc => {
+                    const a = areas.find(x => x.nome === loc);
+                    const v = p.estoque?.[loc] || {f:0,u:0};
+                    const q = parseQtdValor(v.f, fracP)*t + parseQtdValor(v.u, fracP);
+                    tG += q;
+                    const btn = a ? `<button class="action-icon info-btn" onclick="verArea(${jsArg(a.key)}, ${jsArg(loc)})">ⓘ</button>` : '';
+                    return `<tr><td><div style="display:flex; align-items:center; gap:8px;">${btn}<span>${esc(loc)}</span></div></td><td style="text-align:right">${renderizarTotalLinhaDupla(q,t,p)}</td></tr>`;
+                }).join(''); 
+                document.getElementById('tabela-locais-produto').innerHTML = locaisHtml || `<tr><td colspan="2" style="text-align:center; color:var(--muted);">Não alocado em nenhuma área.</td></tr>`; 
                 
                 const boxFardosGeral = fracP
-                    ? `<div><strong style="color:var(--primary);">Total em unidades:</strong> <span style="color:#64748b;">${formatarQtdNumero(tG, true)} Un. (geral)</span></div>`
-                    : (t > 1 ? `<div><strong style="color:var(--primary);">Fardos Fechados:</strong> <span style="color:#64748b;">${Math.floor(tG/t)} Fardos (Geral)</span></div>` : '');
+                    ? `<div><strong style="color:var(--primary);">Total em unidades:</strong> <span style="color:var(--muted);">${formatarQtdNumero(tG, true)} Un. (geral)</span></div>`
+                    : (t > 1 ? `<div><strong style="color:var(--primary);">Fardos Fechados:</strong> <span style="color:var(--muted);">${Math.floor(tG/t)} Fardos (Geral)</span></div>` : '');
 
                 const precoBase = getPrecoPorUnidadeBase(p);
                 const custoParado = Math.round(getUnidadesTotaisEstoque(p) * precoBase * 100) / 100;
-                let htmlCustoGeral = podeVerCustos()
-                    ? `<p class="req-custo" style="font-size:0.9rem; margin-bottom:5px;"><strong>Preço por unidade/garrafa:</strong> R$ ${precoBase.toFixed(2).replace('.', ',')}</p>
-                       <p class="req-custo" style="font-size:0.9rem; margin-bottom:5px;"><strong>Custo parado (estoque total):</strong> R$ ${custoParado.toFixed(2).replace('.', ',')}</p>`
+                const htmlCustoGeral = podeVerCustos()
+                    ? `<p class="req-custo" style="font-size:0.9rem; margin-bottom:5px;"><strong>Preço por unidade/garrafa:</strong> ${formatarReais(precoBase)}</p>
+                       <p class="req-custo" style="font-size:0.9rem; margin-bottom:5px;"><strong>Custo parado (estoque total):</strong> ${formatarReais(custoParado)}</p>`
                     : '';
 
                 let htmlInfoDestilado = '';
-                if (p.detalhesDestilado && p.detalhesDestilado.ml) {
+                if (p.detalhesDestilado && Number(p.detalhesDestilado.ml) > 0) {
+                    const ml = Number(p.detalhesDestilado.ml);
                     if (podeVerCustos()) {
-                        const precoLt = (Number(p.detalhesDestilado.precoGarrafa) / Number(p.detalhesDestilado.ml)) * 1000;
+                        const precoLt = (Number(p.detalhesDestilado.precoGarrafa) / ml) * 1000;
                         htmlInfoDestilado = `<div class="req-custo"><hr style="opacity:0.2; margin: 10px 0;">
-                        <p style="font-size:0.9rem; margin-bottom:5px; color:#047857; font-weight:bold;">🍹 Cálculos de Destilado</p>
-                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Volume:</strong> ${p.detalhesDestilado.ml} ml</p>
-                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço Garrafa:</strong> R$ ${Number(p.detalhesDestilado.precoGarrafa).toFixed(2).replace('.', ',')}</p>
-                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço por Litro (1L):</strong> R$ ${precoLt.toFixed(2).replace('.', ',')}</p></div>`;
+                        <p style="font-size:0.9rem; margin-bottom:5px; color:var(--ink); font-weight:bold;">🍹 Cálculos de Destilado</p>
+                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Volume:</strong> ${ml} ml</p>
+                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço Garrafa:</strong> ${formatarReais(p.detalhesDestilado.precoGarrafa)}</p>
+                        <p style="font-size:0.85rem; margin-bottom:3px;"><strong>Preço por Litro (1L):</strong> ${formatarReais(precoLt)}</p></div>`;
                     } else {
-                        htmlInfoDestilado = `<p style="font-size:0.85rem; margin-bottom:3px;"><strong>Volume da garrafa:</strong> ${p.detalhesDestilado.ml} ml</p>`;
+                        htmlInfoDestilado = `<p style="font-size:0.85rem; margin-bottom:3px;"><strong>Volume da garrafa:</strong> ${ml} ml</p>`;
                     }
                 }
 
@@ -2158,99 +2445,127 @@ const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
                         ${htmlCustoGeral}
                         ${htmlInfoDestilado}
                         ${hrAposCusto}
-                        <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:#64748b;">${pC.length>0?pC.join(', '):'Nenhuma'}</span></div>
-                        <div><strong style="color:var(--primary);">Método:</strong> <span style="color:#64748b;">${p.metodoCompra||"Não atribuído"}</span></div>
-                        <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:#64748b;">${p.subgrupo||"Nenhum"}</span></div>
-                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:#64748b;">${p.estoqueMinimo||0} ${t>1?'Fardos':'Unidades'}</span></div>
+                        <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:var(--muted);">${pC.length>0?esc(pC.join(', ')):'Nenhuma'}</span></div>
+                        <div><strong style="color:var(--primary);">Método:</strong> <span style="color:var(--muted);">${esc(p.metodoCompra||"Não atribuído")}</span></div>
+                        <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:var(--muted);">${esc(p.subgrupo||"Nenhum")}</span></div>
+                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(p.estoqueMinimo||0)} ${t>1 && !fracP?'Fardos':'Unidades'}</span></div>
                         ${boxFardosGeral}
                     </div>`; 
-            } catch(e) {}
+            } catch(e) { console.error('Erro ao abrir produto:', e); }
+        }
+
+        function formatarReais(v) {
+            return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         }
 
         // ==========================================
         // MÉTODOS DE COMPRA E CONFIGURAÇÕES ADMIN
         // ==========================================
+        // Logos de fornecedores: se o arquivo não existir no site, mostra o ícone padrão no lugar
+        // (antes aparecia o símbolo de imagem quebrada).
         function obterIconeMetodo(nome, isCard = false) { 
-            if (!nome) return isCard ? `<i>📦</i>` : `📦`; const limpo = removerAcentos(nome.toLowerCase().trim()); let img = null; 
+            if (!nome) return isCard ? `<i>📦</i>` : `📦`;
+            const limpo = removerAcentos(nome.toLowerCase().trim()); let img = null; 
             if(limpo.includes("rr") || limpo.includes("polpa")) img = "rrpolpas.svg"; else if(limpo.includes("heineken")) img = "heinekendistri.svg"; else if(limpo.includes("coca")) img = "cocacoladistri.svg"; else if(limpo.includes("atento")) img = "atento.svg"; 
-            if (img) { if (isCard) return `<img src="${img}" alt="${nome}" style="width:100px; height:100px; object-fit:contain; margin-bottom:10px; display:block; margin-left:auto; margin-right:auto;">`; return `<img src="${img}" alt="${nome}" style="width:28px; height:28px; object-fit:contain; margin-right:6px; vertical-align:middle; display:inline-block; border-radius:3px;">`; } 
-            return isCard ? `<i style="font-size: 3rem;">${obterEmoji(nome)}</i>` : `${obterEmoji(nome)}`; 
+            const icone = obterEmoji(nome);
+            if (img) {
+                const fallback = esc(isCard ? `<i style="font-size: 3rem;">${icone}</i>` : icone);
+                const onerr = `this.outerHTML=this.dataset.fb`;
+                if (isCard) return `<img src="${img}" alt="${esc(nome)}" data-fb="${fallback}" onerror="${onerr}" style="width:100px; height:100px; object-fit:contain; margin-bottom:10px; display:block; margin-left:auto; margin-right:auto;">`;
+                return `<img src="${img}" alt="${esc(nome)}" data-fb="${fallback}" onerror="${onerr}" style="width:28px; height:28px; object-fit:contain; margin-right:6px; vertical-align:middle; display:inline-block; border-radius:3px;">`;
+            } 
+            return isCard ? `<i style="font-size: 3rem;">${icone}</i>` : icone; 
         }
 
         function renderizarMetodosConfig() { 
-            try { document.getElementById('lista-metodos-config').innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid #e2e8f0; margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo('${k}')">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo('${k}')">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${metodosCompra[k].nome}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet('${k}')">Excluir</span></div></div>`).join(''); } catch(e) {}
+            const el = document.getElementById('lista-metodos-config'); if (!el) return;
+            el.innerHTML = Object.keys(metodosCompra).map(k => `<div class="preset-config-item" style="padding:15px 10px; border-bottom:1px solid var(--line); margin-bottom:12px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarMetodo(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirMetodo(${jsArg(k)})">➕</button><strong style="font-size:1.1rem; margin-left:12px;">${esc(metodosCompra[k].nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer; font-weight:bold; font-size:0.85rem;" onclick="prepararExclusaoMet(${jsArg(k)})">Excluir</span></div></div>`).join('') || '<p style="font-size:0.85rem; color:var(--muted);">Nenhum método cadastrado.</p>';
         }
 
         function renderizarPedidosMetodos() { 
-            try {
-                const grid = document.getElementById('grid-pedidos-metodos'); if(!grid) return; const chaves = Object.keys(metodosCompra);
-                if(chaves.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; color:#64748b;">Nenhum método cadastrado.</p>`; return; }
-                grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="verPedidoPorMetodo('${k}')">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${metodosCompra[k].nome}</h3></div>`).join(''); 
-            } catch(e) {}
+            const grid = document.getElementById('grid-pedidos-metodos'); if(!grid) return; const chaves = Object.keys(metodosCompra);
+            if(chaves.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; color:var(--muted);">Nenhum método cadastrado.</p>`; return; }
+            chaves.sort((a, b) => (metodosCompra[a].nome || '').localeCompare(metodosCompra[b].nome || ''));
+            grid.innerHTML = chaves.map(k => `<div class="card-nav" onclick="verPedidoPorMetodo(${jsArg(k)})">${obterIconeMetodo(metodosCompra[k].nome, true)}<h3 style="margin-top:5px;">${esc(metodosCompra[k].nome)}</h3></div>`).join(''); 
         }
 
-        function verPedidoPorMetodo(key) { 
+        function verPedidoPorMetodo(key, semNavegar = false) { 
             try {
-                navegar('pedidos-lista'); const met = metodosCompra[key]?.nome || 'Desconhecido'; document.getElementById('titulo-pedido-metodo').innerText = `Pedidos: ${met}`; 
+                if (!metodosCompra[key]) { if (semNavegar) navegar('pedidos-metodos'); return; }
+                pedidoMetodoAtualKey = key;
+                if (!semNavegar) navegar('pedidos-lista');
+                const met = metodosCompra[key].nome; document.getElementById('titulo-pedido-metodo').innerText = `Pedidos: ${met}`; 
                 const prodsFiltrados = Object.keys(produtos).filter(k => produtos[k] && produtos[k].metodoCompra === met).sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b));
-                if(prodsFiltrados.length === 0) { document.getElementById('tabela-pedidos-filtrada').innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">Nenhum produto usa este método.</td></tr>`; return; }
+                if(prodsFiltrados.length === 0) { document.getElementById('tabela-pedidos-filtrada').innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--muted);">Nenhum produto usa este método.</td></tr>`; return; }
 
-                let currentCategoria = '';
+                let currentCategoria = null;
                 let currentSubgrupo = '';
                 const htmlRows = [];
-                const catObjCache = {};
 
                 prodsFiltrados.forEach(k => {
                     const p = produtos[k];
                     const cat = getCategoriaPrincipalProduto(p);
                     const sub = p.subgrupo ? p.subgrupo : '';
-                    const catObj = catObjCache[cat] || (catObjCache[cat] = getCategoriaObjPorNome(cat));
+                    const catObj = getCategoriaObjPorNome(cat);
 
                     if (cat !== currentCategoria) {
-                        htmlRows.push(`<tr><td colspan="4" style="padding:12px 0 6px 12px; color:#cbd5e1; font-weight:bold; border-bottom:1px solid rgba(255,255,255,0.08); text-transform:uppercase;">${cat}</td></tr>`);
+                        htmlRows.push(`<tr><td colspan="4" style="padding:12px 0 6px 12px; color:var(--ink-2); font-weight:bold; border-bottom:1px solid var(--line); text-transform:uppercase;">${esc(cat)}</td></tr>`);
                         currentCategoria = cat;
                         currentSubgrupo = '';
                     }
 
                     if (sub !== currentSubgrupo && (sub || (catObj && Array.isArray(catObj.subgrupos) && catObj.subgrupos.length > 0) || currentSubgrupo !== '')) {
-                        htmlRows.push(`<tr><td colspan="4" style="padding:8px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700; text-transform:none;">${sub || 'Sem especificação'}</td></tr>`);
+                        htmlRows.push(`<tr><td colspan="4" style="padding:8px 0 8px 20px; color:var(--text-main); font-size:0.9rem; font-weight:700; text-transform:none;">${esc(sub || 'Sem especificação')}</td></tr>`);
                         currentSubgrupo = sub;
                     }
 
-                    let t = 1;
-                    getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); });
-                    const fAt = Object.values(p.estoque||{}).reduce((ac,v) => typeof v==='object'&&v!==null?ac+((Number(v.f)||0)*t)+(Number(v.u)||0):ac+Number(v||0),0)/t;
+                    const frac = produtoUsaContagemFracionada(p);
+                    const t = getTamFardoProduto(p);
+                    const emFardos = t > 1 && !frac;
+                    // Estoque em todas as áreas + o que está no pátio aguardando armazenagem
+                    const pend = (p.estoque && p.estoque['_Pendente_']) || { f: 0, u: 0 };
+                    const totalUn = getUnidadesTotaisEstoque(p) + parseQtdValor(pend.f, frac) * t + parseQtdValor(pend.u, frac);
+                    const fAt = emFardos ? totalUn / t : totalUn;
                     const m = Number(p.estoqueMinimo||0);
-                    const sg = Math.ceil(Math.max(0, m - fAt));
-                    const lb = t > 1 ? 'Fds.' : 'Un.';
-                    htmlRows.push(`<tr><td class="col-item">${p.nome}</td><td style="text-align:center;">${fAt%1===0?fAt:fAt.toFixed(1)} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:#64748b">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--primary)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
+                    const sg = Math.ceil(Math.max(0, Math.round((m - fAt) * 1000) / 1000));
+                    const lb = emFardos ? 'Fds.' : 'Un.';
+                    const atualTxt = Number.isInteger(fAt) ? fAt : fAt.toFixed(1).replace('.', ',');
+                    htmlRows.push(`<tr><td class="col-item">${esc(p.nome)}</td><td style="text-align:center;">${atualTxt} <br><small style="color:var(--muted)">${lb}</small></td><td style="text-align:center;">${m} <br><small style="color:var(--muted)">${lb}</small></td><td style="text-align:center; font-weight:800; font-size:1.1rem; color:${sg>0?'var(--danger)':'#10b981'}">${sg} <br><small style="font-weight:normal; font-size:0.75rem">${lb}</small></td></tr>`);
                 });
 
                 document.getElementById('tabela-pedidos-filtrada').innerHTML = htmlRows.join(''); 
-            } catch(e) {}
+            } catch(e) { console.error('Erro nos pedidos:', e); }
         }
 
         function salvarMetodo() {
             if (currentRole !== 'dono') { showToast("Apenas o dono pode gerenciar métodos.", "error"); return; }
             const id = document.getElementById('edit-met-id').value;
-            const n = document.getElementById('met-nome').value;
-            if (n) {
-                if (id) {
-                    const old = metodosCompra[id].nome;
-                    db.ref('metodos/' + id).update({ nome: n }).then(() => {
-                        if (old !== n) Object.keys(produtos).forEach(pk => {
-                            if (produtos[pk] && produtos[pk].metodoCompra === old) db.ref('produtos/' + pk).update({ metodoCompra: n });
-                        });
-                    });
-                } else {
-                    db.ref('metodos').push({ nome: n });
-                }
-                resetarFormMetodo();
+            const n = document.getElementById('met-nome').value.trim();
+            if (!n) { alert("Digite o nome do método."); return; }
+            const repetido = Object.keys(metodosCompra).some(k => k !== id && (metodosCompra[k].nome || '').trim().toLowerCase() === n.toLowerCase());
+            if (repetido) { alert("Já existe um método com esse nome."); return; }
+            if (id && metodosCompra[id]) {
+                const old = metodosCompra[id].nome;
+                // Renomeia o método e os produtos ligados a ele numa gravação só
+                const updates = { [`metodos/${id}/nome`]: n };
+                if (old !== n) Object.keys(produtos).forEach(pk => {
+                    if (produtos[pk] && produtos[pk].metodoCompra === old) updates[`produtos/${pk}/metodoCompra`] = n;
+                });
+                db.ref().update(updates).then(() => showToast("Método atualizado!", "success")).catch(() => showToast("Erro ao salvar o método.", "error"));
+            } else {
+                db.ref('metodos').push({ nome: n }).then(() => showToast("Método criado!", "success")).catch(() => showToast("Erro ao salvar o método.", "error"));
             }
+            resetarFormMetodo();
         }
-        function editarMetodo(k) { document.getElementById('edit-met-id').value=k; document.getElementById('met-nome').value=metodosCompra[k].nome; document.getElementById('btn-salvar-met').innerText="Atualizar"; }
+        function editarMetodo(k) { if(!metodosCompra[k]) return; document.getElementById('edit-met-id').value=k; document.getElementById('met-nome').value=metodosCompra[k].nome; document.getElementById('btn-salvar-met').innerText="Atualizar"; }
         function resetarFormMetodo() { document.getElementById('edit-met-id').value=""; document.getElementById('met-nome').value=""; document.getElementById('btn-salvar-met').innerText="Salvar"; }
-        function renderizarPresetsMetodos() { const vN=document.getElementById('prod-metodo-selecionado').value, vE=document.getElementById('edit-prod-metodo-selecionado').value; document.getElementById('metodos-container').innerHTML=Object.keys(metodosCompra).map(k=>`<div class="chip ${vN===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo('${k}','novo')">${obterIconeMetodo(metodosCompra[k].nome)} ${metodosCompra[k].nome}</div>`).join(''); document.getElementById('edit-metodos-container').innerHTML=Object.keys(metodosCompra).map(k=>`<div class="chip ${vE===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo('${k}','edit')">${obterIconeMetodo(metodosCompra[k].nome)} ${metodosCompra[k].nome}</div>`).join(''); }
+        function renderizarPresetsMetodos() {
+            const vN=document.getElementById('prod-metodo-selecionado').value, vE=document.getElementById('edit-prod-metodo-selecionado').value;
+            const add = ctx => currentRole === 'dono' ? `<button type="button" class="chip chip-add" onclick="cadastroRapido('metodo','${ctx}')"><i class="ph ph-plus"></i> Novo método</button>` : '';
+            const ordem = Object.keys(metodosCompra).sort((a, b) => String(metodosCompra[a].nome || '').localeCompare(String(metodosCompra[b].nome || ''), 'pt-BR'));
+            document.getElementById('metodos-container').innerHTML=ordem.map(k=>`<div class="chip ${vN===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'novo')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join('') + add('novo');
+            document.getElementById('edit-metodos-container').innerHTML=ordem.map(k=>`<div class="chip ${vE===metodosCompra[k].nome?'active-chip':''}" onclick="selecionarMetodo(${jsArg(k)},'edit')">${obterIconeMetodo(metodosCompra[k].nome)} ${esc(metodosCompra[k].nome)}</div>`).join('') + add('edit');
+        }
         function selecionarMetodo(k, ctx) { document.getElementById(ctx==='novo'?'prod-metodo-selecionado':'edit-prod-metodo-selecionado').value=metodosCompra[k].nome; renderizarPresetsMetodos(); }
         
         // ==========================================
@@ -2269,8 +2584,8 @@ const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
             document.getElementById('cat-new-sub').value = "";
         }
 
-        function removeCatSub(s) { 
-            currentCatSubgrupos = currentCatSubgrupos.filter(x => x !== s); 
+        function removeCatSubIdx(idx) { 
+            currentCatSubgrupos.splice(idx, 1); 
             renderCatSubs(); 
         }
 
@@ -2278,20 +2593,21 @@ const ordemSubgrupos = Object.keys(subgruposDaCategoria).sort((a, b) => {
     const box = document.getElementById('list-cat-subs');
 
     if (currentCatSubgrupos.length === 0) {
-        box.innerHTML = `<p style="font-size:0.8rem; color:#64748b;">Nenhuma especificação adicionada.</p>`;
+        box.innerHTML = `<p style="font-size:0.8rem; color:var(--muted);">Nenhuma especificação adicionada.</p>`;
         return;
     }
 
     box.innerHTML = currentCatSubgrupos.map((s, idx) => `
-        <div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:8px; border-radius:8px; border:1px solid var(--border-color); width:100%;">
+        <div style="display:flex; align-items:center; background:var(--surface-2); padding:8px; border-radius:8px; border:1px solid var(--border-color); width:100%;">
             <div class="sort-wrapper" style="height:38px; margin-right:10px;">
                 <button class="sort-btn-up" onclick="moverCatSub(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
                 <button class="sort-btn-down" onclick="moverCatSub(${idx}, 1)" ${idx === currentCatSubgrupos.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
             </div>
 
-            <strong style="color:var(--text-main); font-size:0.9rem; flex:1;">${s}</strong>
+ 
+            <strong style="color:var(--text-main); font-size:0.9rem; flex:1;">${esc(s)}</strong>
 
-            <button onclick="removeCatSub('${s}')" style="background:#ef4444; color:white; border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; font-weight:900;">×</button>
+            <button onclick="removeCatSubIdx(${idx})" style="background:#ef4444; color:white; border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; font-weight:900;">×</button>
         </div>
     `).join('');
 }
@@ -2307,53 +2623,56 @@ function moverCatSub(index, direcao) {
     renderCatSubs();
 }
 
-                function salvarCategoria() { 
+        function salvarCategoria() { 
             if (currentRole !== 'dono') { showToast("Apenas o dono pode gerenciar categorias.", "error"); return; }
             const id=document.getElementById('edit-cat-id').value;
-            const n=document.getElementById('cat-nome').value;
+            const n=document.getElementById('cat-nome').value.trim();
             const u=document.getElementById('cat-uso-fardo').checked;
-            const t=u?Number(document.getElementById('cat-qtd-fardo').value):1;
+            const t=u?Math.max(1, parseInt(document.getElementById('cat-qtd-fardo').value) || 0):1;
             const sel=Array.from(document.querySelectorAll('#cat-checks-areas input:checked')).map(i=>i.value);
             const hasSub=document.getElementById('cat-has-sub').checked;
             
-            if(n && sel.length){ 
-                const d = {
-                    nome: n,
-                    areas: sel,
-                    unidadesFardo: t,
-                    subgrupos: hasSub ? currentCatSubgrupos : [],
-                    contagemFracionada: document.getElementById('cat-contagem-fracionada').checked
-                }; 
-                if(id) { 
-                    const old=categorias[id].nome; 
-                    db.ref('categorias/'+id).update(d).then(()=>{
-                        renderizarPresets();
-                        if(old!==n) {
-                            Object.keys(produtos).forEach(pk=>{
-                                if(!produtos[pk]) return;
-                                let pc=getCategoriasProduto(produtos[pk]);
-                                if(pc.includes(old)) db.ref('produtos/'+pk).update({categorias:pc.map(c=>c===old?n:c),categoria:null});
-                            });
-                        }
-                    }); 
-                } else {
-                    db.ref('categorias').push(d); 
-                    renderizarPresets();
+            if(!n || !sel.length) { alert("Preencha o nome e selecione pelo menos uma área."); return; }
+            if(u && t < 2) { alert("Informe quantas unidades vêm em cada fardo (2 ou mais)."); return; }
+            const repetida = Object.keys(categorias).some(k => k !== id && (categorias[k].nome || '').trim().toLowerCase() === n.toLowerCase());
+            if (repetida) { alert("Já existe uma categoria com esse nome."); return; }
+
+            const d = {
+                nome: n,
+                areas: sel,
+                unidadesFardo: t,
+                subgrupos: hasSub ? [...currentCatSubgrupos] : [],
+                contagemFracionada: document.getElementById('cat-contagem-fracionada').checked
+            }; 
+            if(id && categorias[id]) { 
+                const old=categorias[id].nome; 
+                // Categoria e produtos renomeados numa gravação só
+                const updates = {};
+                Object.keys(d).forEach(campo => updates[`categorias/${id}/${campo}`] = d[campo]);
+                if(old!==n) {
+                    Object.keys(produtos).forEach(pk=>{
+                        if(!produtos[pk]) return;
+                        const pc=getCategoriasProduto(produtos[pk]);
+                        if(pc.includes(old)) { updates[`produtos/${pk}/categorias`] = pc.map(c=>c===old?n:c); updates[`produtos/${pk}/categoria`] = null; }
+                    });
                 }
-                resetarFormCategoria(); 
+                db.ref().update(updates).then(() => showToast("Categoria atualizada!", "success")).catch(() => showToast("Erro ao salvar a categoria.", "error"));
             } else {
-                alert("Preencha o nome e selecione pelo menos uma área.");
+                db.ref('categorias').push(d).then(() => showToast("Categoria criada!", "success")).catch(() => showToast("Erro ao salvar a categoria.", "error"));
             }
+            resetarFormCategoria(); 
         }
         
         function renderizarPresets() { 
-            document.getElementById('presets-container').innerHTML=Object.keys(categorias).map(k=>`<div class="chip ${catsNovo.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset('${k}','novo')">${obterEmoji(categorias[k].nome)} ${categorias[k].nome}</div>`).join(''); 
-            document.getElementById('edit-presets-container').innerHTML=Object.keys(categorias).map(k=>`<div class="chip ${catsEdit.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset('${k}','edit')">${obterEmoji(categorias[k].nome)} ${categorias[k].nome}</div>`).join(''); 
+            const chipNovaCat = ctx => currentRole === 'dono' ? `<button type="button" class="chip chip-add" onclick="cadastroRapido('categoria','${ctx}')"><i class="ph ph-plus"></i> Nova categoria</button>` : '';
+            const ordemCats = Object.keys(categorias).sort((a, b) => String(categorias[a].nome || '').localeCompare(String(categorias[b].nome || ''), 'pt-BR'));
+            document.getElementById('presets-container').innerHTML=ordemCats.map(k=>`<div class="chip ${catsNovo.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'novo')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join('') + chipNovaCat('novo'); 
+            document.getElementById('edit-presets-container').innerHTML=ordemCats.map(k=>`<div class="chip ${catsEdit.includes(categorias[k].nome)?'active-chip':''}" onclick="togglePreset(${jsArg(k)},'edit')">${obterEmoji(categorias[k].nome)} ${esc(categorias[k].nome)}</div>`).join('') + chipNovaCat('edit'); 
             
             document.getElementById('lista-categorias-config').innerHTML=Object.keys(categorias).map(k=>{ 
                 const c=categorias[k]; 
                 const hasSubs = c.subgrupos && c.subgrupos.length > 0;
-                return `<div class="preset-config-item" style="padding:12px; border:1px solid #ccc; border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria('${k}')">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria('${k}')">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria('${k}')">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${c.nome}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat('${k}')">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:#64748b;">Áreas: ${(c.areas||[]).join(', ')} <br> Fardo: ${c.unidadesFardo>1?c.unidadesFardo+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?c.subgrupos.join(', '):'Nenhuma'}</div></div>`; 
+                return `<div class="preset-config-item" style="padding:12px; border:1px solid var(--line); border-radius:8px; margin-bottom:8px;"><div style="display:flex; align-items:center;"><button class="action-icon edit-btn" onclick="editarCategoria(${jsArg(k)})">✎</button><button class="action-icon add-btn" onclick="abrirAtribuirCategoria(${jsArg(k)})">➕</button><button class="action-icon info-btn" onclick="abrirConfigCategoria(${jsArg(k)})">ⓘ</button><strong style="font-size:1.05rem; margin-left:5px;">${obterEmoji(c.nome)} ${esc(c.nome)}</strong><span style="margin-left:auto; color:red; cursor:pointer;" onclick="prepararExclusaoCat(${jsArg(k)})">Excluir</span></div><div style="margin-top:8px; font-size:0.85rem; color:var(--muted);">Áreas: ${esc((c.areas||[]).join(', '))} <br> Fardo: ${c.unidadesFardo>1?esc(c.unidadesFardo)+' un.':'Não'}<br>Contagem fracionada: ${c.contagemFracionada?'Sim':'Não'}<br>Especificações: ${hasSubs?esc(c.subgrupos.join(', ')):'Nenhuma'}</div></div>`; 
             }).join(''); 
         }
 
@@ -2362,13 +2681,14 @@ function moverCatSub(index, direcao) {
             const c = categorias[k];
             document.getElementById('titulo-config-cat').innerText = `⚙️ ${c.nome}`;
             
-            let htmlInfo = `<p><strong>Unidades por Fardo:</strong> ${c.unidadesFardo}</p><p><strong>Contagem fracionada:</strong> ${c.contagemFracionada ? 'Sim' : 'Não'}</p><p><strong>Áreas Armazenadas:</strong> ${(c.areas||[]).join(', ') || 'Nenhuma'}</p>`;
+            if (!c) return;
+            let htmlInfo = `<p><strong>Unidades por Fardo:</strong> ${esc(c.unidadesFardo)}</p><p><strong>Contagem fracionada:</strong> ${c.contagemFracionada ? 'Sim' : 'Não'}</p><p><strong>Áreas Armazenadas:</strong> ${esc((c.areas||[]).join(', ') || 'Nenhuma')}</p>`;
             
             if (c.subgrupos && c.subgrupos.length > 0) {
                 htmlInfo += `<p style="margin-top:10px; margin-bottom: 5px;"><strong>Especificações (Subgrupos):</strong></p>
                 <div style="display:flex; flex-wrap:wrap; gap:8px;">
                     <button class="chip active-chip" data-sub="Todos" onclick="filtrarOrdenacaoSubgrupo('Todos')">Todos</button>
-                    ${c.subgrupos.map(sub => `<button class="chip" data-sub="${sub}" onclick="filtrarOrdenacaoSubgrupo('${sub}')" style="display:inline-flex; align-items:center; gap:5px;">${sub} <span style="background:var(--primary); color:white; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-style:italic;">i</span></button>`).join('')}
+                    ${c.subgrupos.map(sub => `<button class="chip" data-sub="${esc(sub)}" onclick="filtrarOrdenacaoSubgrupo(${jsArg(sub)})" style="display:inline-flex; align-items:center; gap:5px;">${esc(sub)} <span style="background:var(--dark); color:white; border-radius:50%; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; font-style:italic;">i</span></button>`).join('')}
                 </div>`;
             }
             
@@ -2403,17 +2723,17 @@ function moverCatSub(index, direcao) {
 
             document.getElementById('lista-ordenacao-cat').innerHTML = visibleProds.map((pk, index) => {
                 const p = produtos[pk];
-                return `<div style="display:flex; align-items:center; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                return `<div style="display:flex; align-items:center; background:var(--surface-2); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
                     <div class="sort-wrapper">
-                        <button class="sort-btn-up" onclick="moverProdutoOrdem('${k}', '${pk}', -1)" ${index === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
-                        <button class="sort-btn-down" onclick="moverProdutoOrdem('${k}', '${pk}', 1)" ${index === visibleProds.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
+                        <button class="sort-btn-up" onclick="moverProdutoOrdem(${jsArg(k)}, ${jsArg(pk)}, -1)" ${index === 0 ? 'disabled style="opacity:0.3"' : ''}>▲</button>
+                        <button class="sort-btn-down" onclick="moverProdutoOrdem(${jsArg(k)}, ${jsArg(pk)}, 1)" ${index === visibleProds.length - 1 ? 'disabled style="opacity:0.3"' : ''}>▼</button>
                     </div>
                     <div>
-                        <strong style="font-size:0.95rem; color:var(--text-main);">${p.nome}</strong>
-                        ${p.subgrupo ? `<br><span style="font-size:0.75rem; color:var(--primary);">${p.subgrupo}</span>` : ''}
+                        <strong style="font-size:0.95rem; color:var(--text-main);">${esc(p.nome)}</strong>
+                        ${p.subgrupo ? `<br><span style="font-size:0.75rem; color:var(--primary);">${esc(p.subgrupo)}</span>` : ''}
                     </div>
                 </div>`;
-            }).join('') || '<p style="font-size:0.85rem; color:#64748b;">Nenhum produto listado.</p>';
+            }).join('') || '<p style="font-size:0.85rem; color:var(--muted);">Nenhum produto listado.</p>';
         }
 
         function moverProdutoOrdem(catKey, prodKey, direction) {
@@ -2460,9 +2780,9 @@ function moverCatSub(index, direcao) {
         // ==========================================
         // ATRIBUIÇÃO EM MASSA
         // ==========================================
-        function abrirAtribuirCategoria(k) { const c=categorias[k]; document.getElementById('atribuir-cat-id').value=k; document.getElementById('titulo-atribuir-cat').innerText=`Atribuir: ${c.nome}`; document.getElementById('lista-produtos-atribuir').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=getCategoriasProduto(produtos[a]).includes(c.nome)?1:0; const hB=getCategoriasProduto(produtos[b]).includes(c.nome)?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=getCategoriasProduto(p).includes(c.nome), out=getCategoriasProduto(p).filter(x=>x!==c.nome).length; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${p.nome}</strong><span style="font-size:0.65rem; background:${out>0||has?'#e2e8f0':'#fee2e2'}; color:${out>0||has?'#64748b':'#b91c1c'}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out>0?`+${out} cat`:(has?'OK':'Vazio')}</span></label>`; }).join(''); navegar('atribuir-categoria'); }
+        function abrirAtribuirCategoria(k) { const c=categorias[k]; document.getElementById('atribuir-cat-id').value=k; document.getElementById('titulo-atribuir-cat').innerText=`Atribuir: ${c.nome}`; document.getElementById('lista-produtos-atribuir').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=getCategoriasProduto(produtos[a]).includes(c.nome)?1:0; const hB=getCategoriasProduto(produtos[b]).includes(c.nome)?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=getCategoriasProduto(p).includes(c.nome), out=getCategoriasProduto(p).filter(x=>x!==c.nome).length; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out>0||has?'#f1e4d2':'#fee2e2'}; color:${out>0||has?'#6e5246':'#b91c1c'}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out>0?`+${out} cat`:(has?'OK':'Vazio')}</span></label>`; }).join(''); navegar('atribuir-categoria'); }
         function salvarAtribuicaoCategoria() { const n=categorias[document.getElementById('atribuir-cat-id').value].nome, u={}; document.querySelectorAll('#lista-produtos-atribuir input:checked, #lista-produtos-atribuir input:not(:checked)').forEach(cb=>{ const p=produtos[cb.value]; if(!p)return; let pc=getCategoriasProduto(p), ch=false; if(cb.checked&&!pc.includes(n)){pc.push(n);ch=true;}else if(!cb.checked&&pc.includes(n)){pc=pc.filter(x=>x!==n);ch=true;} if(ch){u[`produtos/${cb.value}/categorias`]=pc.length?pc:null;u[`produtos/${cb.value}/categoria`]=null;} }); if(Object.keys(u).length) db.ref().update(u).then(()=>navegar('configuracoes')); else navegar('configuracoes'); }
-        function abrirAtribuirMetodo(k) { const m=metodosCompra[k]; document.getElementById('atribuir-met-id').value=k; document.getElementById('titulo-atribuir-met').innerText=`Atribuir: ${m.nome}`; document.getElementById('lista-produtos-atribuir-met').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=produtos[a].metodoCompra===m.nome?1:0; const hB=produtos[b].metodoCompra===m.nome?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=p.metodoCompra===m.nome, out=p.metodoCompra&&p.metodoCompra!==m.nome; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${p.nome}</strong><span style="font-size:0.65rem; background:${out?'#e2e8f0':(has?'#e2e8f0':'#fee2e2')}; color:${out?'#64748b':(has?'#64748b':'#b91c1c')}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out?p.metodoCompra:(has?'OK':'Sem método')}</span></label>`; }).join(''); navegar('atribuir-metodo'); }
+        function abrirAtribuirMetodo(k) { const m=metodosCompra[k]; document.getElementById('atribuir-met-id').value=k; document.getElementById('titulo-atribuir-met').innerText=`Atribuir: ${m.nome}`; document.getElementById('lista-produtos-atribuir-met').innerHTML=Object.keys(produtos).filter(pk=>produtos[pk]&&produtos[pk].nome).sort((a,b)=>{const hA=produtos[a].metodoCompra===m.nome?1:0; const hB=produtos[b].metodoCompra===m.nome?1:0; return hA!==hB?hB-hA:produtos[a].nome.localeCompare(produtos[b].nome);}).map(pk=>{ const p=produtos[pk], has=p.metodoCompra===m.nome, out=p.metodoCompra&&p.metodoCompra!==m.nome; return `<label class="check-item" style="padding:15px 10px; border:1px solid ${has?'var(--primary)':'var(--border-color)'}; border-radius:10px; background:${has?'rgba(183, 41, 41, 0.15)':'rgba(0,0,0,0.4)'}; display:flex; align-items:center; cursor:pointer;"><input type="checkbox" value="${pk}" ${has?'checked':''} style="width:22px; height:22px; margin-right:12px;"><strong style="font-size:1.05rem;">${esc(p.nome)}</strong><span style="font-size:0.65rem; background:${out?'#f1e4d2':(has?'#f1e4d2':'#fee2e2')}; color:${out?'#6e5246':(has?'#6e5246':'#b91c1c')}; padding:4px 8px; border-radius:12px; margin-left:auto;">${out?esc(p.metodoCompra):(has?'OK':'Sem método')}</span></label>`; }).join(''); navegar('atribuir-metodo'); }
         function salvarAtribuicaoMetodo() { const n=metodosCompra[document.getElementById('atribuir-met-id').value].nome, u={}; document.querySelectorAll('#lista-produtos-atribuir-met input').forEach(cb=>{ const p=produtos[cb.value]; if(!p)return; let nm=p.metodoCompra, ch=false; if(cb.checked&&nm!==n){nm=n;ch=true;}else if(!cb.checked&&nm===n){nm=null;ch=true;} if(ch)u[`produtos/${cb.value}/metodoCompra`]=nm; }); if(Object.keys(u).length)db.ref().update(u).then(()=>navegar('configuracoes')); else navegar('configuracoes'); }
         
         function selecionarSubgrupoProduto(s, ctx) {
@@ -2473,7 +2793,7 @@ function moverCatSub(index, direcao) {
 
         function renderSubgrupos(ctx) {
             const catName = ctx === 'novo' ? catsNovo[0] : catsEdit[0];
-            const cObj = Object.values(categorias).find(x => x.nome === catName);
+            const cObj = getCategoriaObjPorNome(catName);
             const wrapId = ctx === 'novo' ? 'wrap-subgrupo-novo' : 'wrap-subgrupo-edit';
             const contId = ctx === 'novo' ? 'prod-subgrupo-container' : 'edit-prod-subgrupo-container';
             const currentSub = ctx === 'novo' ? prodSubNovo : prodSubEdit;
@@ -2481,7 +2801,7 @@ function moverCatSub(index, direcao) {
             if(cObj && cObj.subgrupos && cObj.subgrupos.length > 0) {
                 document.getElementById(wrapId).style.display = 'block';
                 document.getElementById(contId).innerHTML = cObj.subgrupos.map(s => 
-                    `<div class="chip ${currentSub === s ? 'active-chip' : ''}" onclick="selecionarSubgrupoProduto('${s}', '${ctx}')">${s}</div>`
+                    `<div class="chip ${currentSub === s ? 'active-chip' : ''}" onclick="selecionarSubgrupoProduto(${jsArg(s)}, '${ctx}')">${esc(s)}</div>`
                 ).join('');
             } else {
                 document.getElementById(wrapId).style.display = 'none';
@@ -2536,7 +2856,9 @@ function toggleItemProduzido() {
             const t=ctx==='novo'?'checks-areas':'edit-checks-areas';
             const a=ctx==='novo'?catsNovo:catsEdit;
             
-            document.querySelectorAll('#'+t+' input').forEach(cb=>cb.checked=false); 
+            // Novo produto: as áreas seguem a categoria escolhida.
+            // Edição: só acrescenta as áreas da categoria (antes apagava as áreas do produto).
+            if (ctx === 'novo') document.querySelectorAll('#'+t+' input').forEach(cb=>cb.checked=false); 
             if(a.includes(n)) { 
                 a.length=0; 
             } else { 
@@ -2558,7 +2880,7 @@ function toggleItemProduzido() {
             document.getElementById('cat-qtd-fardo').value=c.unidadesFardo; 
             toggleFardoInput(); 
             
-            currentCatSubgrupos = c.subgrupos || [];
+            currentCatSubgrupos = Array.isArray(c.subgrupos) ? [...c.subgrupos] : [];
             document.getElementById('cat-has-sub').checked = currentCatSubgrupos.length > 0;
             document.getElementById('cat-contagem-fracionada').checked = !!c.contagemFracionada;
             toggleSubgrupoInput();
@@ -2587,22 +2909,33 @@ function toggleItemProduzido() {
         }
 
         function toggleFardoInput() { document.getElementById('div-unidades-fardo').style.display = document.getElementById('cat-uso-fardo').checked ? 'block' : 'none'; }
-        function renderizarChecksConfig() { document.getElementById('cat-checks-areas').innerHTML=areas.map(a=>`<label class="check-item"><input type="checkbox" value="${a.nome}"> <span>${a.nome}</span></label>`).join(''); }
-        function atualizarLabelEstoqueMinimo(ctx, selectedCats) { let maxFardo=1; selectedCats.forEach(cn=>{ const c = Object.values(categorias).find(x=>x.nome===cn); if(c && c.unidadesFardo>maxFardo) maxFardo=Number(c.unidadesFardo); }); document.getElementById(ctx==='novo'?'lbl-estoque-minimo-novo':'lbl-estoque-minimo-edit').innerText=maxFardo>1?"(Fardos)":"(Un.)"; }
+        function renderizarChecksConfig() {
+            // Preserva o que estava marcado (antes, qualquer mudança nas áreas desmarcava tudo no meio da edição)
+            const box = document.getElementById('cat-checks-areas'); if (!box) return;
+            const marcados = new Set(Array.from(box.querySelectorAll('input:checked')).map(i => i.value));
+            box.innerHTML = areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}" ${marcados.has(a.nome)?'checked':''}> <span>${esc(a.nome)}</span></label>`).join('');
+        }
+        function atualizarLabelEstoqueMinimo(ctx, selectedCats) { let maxFardo=1; selectedCats.forEach(cn=>{ const c = getCategoriaObjPorNome(cn); if(c && c.unidadesFardo>maxFardo) maxFardo=Number(c.unidadesFardo); }); document.getElementById(ctx==='novo'?'lbl-estoque-minimo-novo':'lbl-estoque-minimo-edit').innerText=maxFardo>1?"(Fardos)":"(Un.)"; }
         
         // ==========================================
         // CADASTRO ÁREAS E PRODUTOS (ABRIR/SALVAR/EXCLUIR)
         // ==========================================
         function abrirCadastro(id) { navegar(id); }
         function abrirCadastroProduto() { 
-            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${a.nome}"> <span>${a.nome}</span></label>`).join('') : '<span style="color:#64748b; font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
+            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}"> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:var(--muted); font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
             document.getElementById('checks-areas').innerHTML=checksHTML; 
-            document.getElementById('prod-nome').value=""; 
+            document.getElementById('prod-nome').value=""; document.getElementById('prod-codigo').value=""; 
             document.getElementById('prod-preco-custo').value="";
             document.getElementById('prod-metodo-selecionado').value=""; 
             document.getElementById('prod-estoque-minimo').value="0"; 
             document.getElementById('prod-ml-garrafa').value="";
             document.getElementById('prod-preco-garrafa').value="";
+            // Limpa a composição de "item produzido" (antes o próximo produto herdava a do anterior)
+            const chkProd = document.getElementById('check-item-produzido'); if (chkProd) chkProd.checked = false;
+            const boxComp = document.getElementById('box-composicao'); if (boxComp) boxComp.style.display = 'none';
+            const listaComp = document.getElementById('lista-composicao'); if (listaComp) listaComp.innerHTML = '';
+            const rend = document.getElementById('prod-rendimento-final'); if (rend) rend.value = '';
+            const custoComp = document.getElementById('custo-composicao'); if (custoComp) custoComp.innerText = 'R$ 0,00';
             catsNovo=[]; 
             prodSubNovo="";
             atualizarLabelEstoqueMinimo('novo',catsNovo); 
@@ -2614,84 +2947,97 @@ function toggleItemProduzido() {
             navegar('novo-produto'); 
         }
 
-                function salvarArea() {
-    if (currentRole !== 'dono') { showToast("Apenas o dono pode criar áreas.", "error"); return; }
-    const n = document.getElementById('area-nome').value;
-    if (n) {
-        db.ref('areas').push({
-            nome: n,
-            config: { usaPadrao: false, padroes: {} }
-        });
-        document.getElementById('area-nome').value = "";
-        navegar('areas-lista');
-    }
-}
+        async function salvarArea() {
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode criar áreas.", "error"); return; }
+            const nomes = nomesDasLinhas(document.getElementById('area-nome').value);
+            try {
+                const ok = await criarAreas(nomes);
+                if (!ok) return;
+                document.getElementById('area-nome').value = "";
+                navegar('areas-lista');
+            } catch (e) { console.error(e); showToast("Erro ao criar a área.", "error"); }
+        }
 
-function salvarProduto() {
-    if (currentRole !== 'dono') { showToast("Apenas o dono pode cadastrar produtos.", "error"); return; }
-    const n = document.getElementById('prod-nome').value;
-    const pCusto = Number(document.getElementById('prod-preco-custo').value) || 0;
-    const met = document.getElementById('prod-metodo-selecionado').value;
-    const min = Number(document.getElementById('prod-estoque-minimo').value) || 0;
+        async function salvarProduto(continuar = false) {
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode cadastrar produtos.", "error"); return; }
+            const n = document.getElementById('prod-nome').value.trim();
+            const pCusto = lerPreco(document.getElementById('prod-preco-custo').value);
+            const met = document.getElementById('prod-metodo-selecionado').value;
+            const min = Number(document.getElementById('prod-estoque-minimo').value) || 0;
 
-    if (!met) {
-        alert("Selecione um Método.");
-        return;
-    }
+            if (!n) { alert("Digite o nome do produto."); return; }
+            if (!met) { alert("Selecione um Método."); return; }
 
-    const s = Array.from(document.querySelectorAll('#checks-areas input:checked')).map(i => i.value);
+            const s = Array.from(document.querySelectorAll('#checks-areas input:checked')).map(i => i.value);
+            if (s.length === 0) { alert("Assinale pelo menos uma área onde o produto fica."); return; }
 
-    if (!n || s.length === 0) {
-        alert("Assinale área vinculada.");
-        return;
-    }
+            const existe = Object.values(produtos).some(p => p && (p.nome || '').trim().toLowerCase() === n.toLowerCase());
+            if (existe && !(await confirmar(`Já existe um produto chamado "${n}". Cadastrar mesmo assim?`, { titulo: 'Produto repetido', ok: 'Cadastrar mesmo assim' }))) return;
 
-    const e = {};
-    s.forEach(x => e[x] = { f: 0, u: 0 });
+            const e = {};
+            s.forEach(x => e[x] = { f: 0, u: 0 });
 
-    let detDestilado = null;
-    if (catsNovo.some(c => c.toLowerCase().includes('destilado'))) {
-        detDestilado = {
-            ml: Number(document.getElementById('prod-ml-garrafa').value) || 0,
-            precoGarrafa: Number(document.getElementById('prod-preco-garrafa').value) || 0
-        };
-    }
+            let detDestilado = null;
+            if (catsNovo.some(c => c.toLowerCase().includes('destilado'))) {
+                detDestilado = {
+                    ml: Number(document.getElementById('prod-ml-garrafa').value) || 0,
+                    precoGarrafa: lerPreco(document.getElementById('prod-preco-garrafa').value)
+                };
+            }
 
-    const isProduzido = document.getElementById('check-item-produzido')?.checked || false;
-    const custoFinal = isProduzido ? calcularCustoComposicao() : pCusto;
+            const isProduzido = !!(document.getElementById('check-item-produzido') && document.getElementById('check-item-produzido').checked && document.getElementById('wrap-item-produzido-novo').style.display !== 'none');
+            const custoFinal = isProduzido ? calcularCustoComposicao() : pCusto;
+            const composicao = isProduzido
+                ? Array.from(document.querySelectorAll('#lista-composicao > div')).map(linha => ({
+                    produtoId: linha.querySelector('.comp-prod').value,
+                    quantidade: Number(linha.querySelector('.comp-qtd').value) || 0
+                })).filter(c => c.produtoId && c.quantidade > 0)
+                : null;
 
-    db.ref('produtos').push({
-        nome: n,
-        precoCusto: custoFinal,
-        categorias: catsNovo.length ? catsNovo : null,
-        subgrupo: prodSubNovo || null,
-        detalhesDestilado: detDestilado,
-        metodoCompra: met,
-        estoqueMinimo: min,
-        locais: s,
-        estoque: e,
-        itemProduzido: isProduzido,
-        rendimentoFinal: Number(document.getElementById('prod-rendimento-final')?.value) || 0,
-        composicao: Array.from(document.querySelectorAll('#lista-composicao > div')).map(linha => ({
-            produtoId: linha.querySelector('.comp-prod').value,
-            quantidade: Number(linha.querySelector('.comp-qtd').value) || 0
-        })),
-        custoCalculado: custoFinal
-    });
+            const codigo = (document.getElementById('prod-codigo').value || '').trim();
+            db.ref('produtos').push({
+                nome: n,
+                codigo: codigo || null,
+                precoCusto: custoFinal,
+                categorias: catsNovo.length ? [...catsNovo] : null,
+                subgrupo: prodSubNovo || null,
+                detalhesDestilado: detDestilado,
+                metodoCompra: met,
+                estoqueMinimo: min,
+                locais: s,
+                estoque: e,
+                itemProduzido: isProduzido,
+                rendimentoFinal: isProduzido ? (Number(document.getElementById('prod-rendimento-final')?.value) || 0) : null,
+                composicao: composicao && composicao.length ? composicao : null,
+                custoCalculado: isProduzido ? custoFinal : null
+            }).then(() => showToast("Produto cadastrado!", "success"))
+              .catch(() => showToast("Erro ao cadastrar o produto.", "error"));
 
-    document.getElementById('prod-nome').value = "";
-    document.getElementById('prod-metodo-selecionado').value = "";
-    document.getElementById('prod-estoque-minimo').value = "0";
-    document.getElementById('prod-preco-custo').value = "";
+            document.getElementById('prod-nome').value = "";
+            document.getElementById('prod-codigo').value = "";
+            document.getElementById('prod-preco-custo').value = "";
+            document.getElementById('prod-ml-garrafa').value = "";
+            document.getElementById('prod-preco-garrafa').value = "";
 
-    navegar('produtos-categorias');
-}
+            if (continuar) {
+                // Mantém categoria, método, áreas e mínimo para cadastrar o próximo mais rápido
+                const nomeEl = document.getElementById('prod-nome');
+                nomeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => nomeEl.focus(), 150);
+                return;
+            }
+            document.getElementById('prod-metodo-selecionado').value = "";
+            document.getElementById('prod-estoque-minimo').value = "0";
+            navegar('produtos-categorias');
+        }
 
         function abrirEdicaoProduto(k) { 
             const p=produtos[k]; 
+            if (!p) return;
             document.getElementById('edit-prod-id').value=k; 
-            document.getElementById('edit-prod-nome').value=p.nome; 
-            document.getElementById('edit-prod-preco-custo').value = p.precoCusto || "";
+            document.getElementById('edit-prod-nome').value=p.nome || ''; 
+            document.getElementById('edit-prod-codigo').value=p.codigo || '';
+            document.getElementById('edit-prod-preco-custo').value = precoParaCampo(p.precoCusto);
             document.getElementById('edit-prod-metodo-selecionado').value=p.metodoCompra||""; 
             document.getElementById('edit-prod-estoque-minimo').value=p.estoqueMinimo||0; 
             catsEdit=getCategoriasProduto(p); 
@@ -2699,7 +3045,7 @@ function salvarProduto() {
             
             if(p.detalhesDestilado) {
                 document.getElementById('edit-prod-ml-garrafa').value = p.detalhesDestilado.ml || "";
-                document.getElementById('edit-prod-preco-garrafa').value = p.detalhesDestilado.precoGarrafa || "";
+                document.getElementById('edit-prod-preco-garrafa').value = precoParaCampo(p.detalhesDestilado.precoGarrafa);
             } else {
                 document.getElementById('edit-prod-ml-garrafa').value = "";
                 document.getElementById('edit-prod-preco-garrafa').value = "";
@@ -2712,19 +3058,22 @@ function salvarProduto() {
             checarDestilado('edit');
             checarItemProduzido('edit');
             
-            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${a.nome}" ${(p.locais||[]).includes(a.nome)?'checked':''}> <span>${a.nome}</span></label>`).join('') : '<span style="color:#64748b; font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
+            const checksHTML = areas.length ? areas.map(a=>`<label class="check-item"><input type="checkbox" value="${esc(a.nome)}" ${(p.locais||[]).includes(a.nome)?'checked':''}> <span>${esc(a.nome)}</span></label>`).join('') : '<span style="color:var(--muted); font-size:0.85rem;">Nenhuma área cadastrada. Cadastre uma área primeiro.</span>';
             document.getElementById('edit-checks-areas').innerHTML=checksHTML; 
             navegar('editar-produto'); 
         }
 
-                function salvarEdicaoProduto() { 
+        async function salvarEdicaoProduto() { 
             if (currentRole !== 'dono') { showToast("Apenas o dono pode editar produtos.", "error"); return; }
             const id=document.getElementById('edit-prod-id').value;
-            const n=document.getElementById('edit-prod-nome').value;
-            const pCusto = Number(document.getElementById('edit-prod-preco-custo').value) || 0;
+            const p = produtos[id];
+            if (!p) { showToast("Produto não encontrado (pode ter sido excluído).", "error"); return; }
+            const n=document.getElementById('edit-prod-nome').value.trim();
+            const pCusto = lerPreco(document.getElementById('edit-prod-preco-custo').value);
             const met=document.getElementById('edit-prod-metodo-selecionado').value;
             const min=Number(document.getElementById('edit-prod-estoque-minimo').value)||0; 
             
+            if(!n){alert("Digite o nome do produto.");return;} 
             if(!met){alert("Selecione um Método.");return;} 
             const l=Array.from(document.querySelectorAll('#edit-checks-areas input:checked')).map(i=>i.value); 
             
@@ -2732,21 +3081,39 @@ function salvarProduto() {
             if(catsEdit.some(c => c.toLowerCase().includes('destilado'))) {
                 detDestilado = {
                     ml: Number(document.getElementById('edit-prod-ml-garrafa').value) || 0,
-                    precoGarrafa: Number(document.getElementById('edit-prod-preco-garrafa').value) || 0
+                    precoGarrafa: lerPreco(document.getElementById('edit-prod-preco-garrafa').value)
                 };
             }
 
-            db.ref('produtos/'+id).update({
-                nome:n, 
-                precoCusto: pCusto,
-                categorias:catsEdit.length?catsEdit:null, 
-                categoria:null, 
-                subgrupo: prodSubEdit || null,
-                detalhesDestilado: detDestilado,
-                metodoCompra:met, 
-                estoqueMinimo:min, 
-                locais:l.length?l:null
-            }); 
+            // Áreas desmarcadas: o estoque daquela área também sai do produto
+            // (antes ficava "fantasma": o item continuava aparecendo na área e no financeiro).
+            const removidas = (p.locais || []).filter(loc => !l.includes(loc));
+            const comEstoque = removidas.filter(loc => {
+                const v = p.estoque && p.estoque[loc];
+                return v && (Number(v.f) > 0 || Number(v.u) > 0);
+            });
+            if (comEstoque.length && !(await confirmar(`O produto ainda tem estoque em: ${comEstoque.join(', ')}.\nAo desmarcar, esse estoque será apagado. Continuar?`, { titulo: 'Apagar estoque?', ok: 'Apagar e salvar', perigo: true }))) return;
+
+            const updates = {};
+            const base = `produtos/${id}/`;
+            Object.assign(updates, {
+                [base+'nome']: n,
+                [base+'codigo']: (document.getElementById('edit-prod-codigo').value || '').trim() || null,
+                [base+'precoCusto']: p.itemProduzido ? (p.precoCusto || 0) : pCusto,
+                [base+'categorias']: catsEdit.length ? [...catsEdit] : null,
+                [base+'categoria']: null,
+                [base+'subgrupo']: prodSubEdit || null,
+                [base+'detalhesDestilado']: detDestilado,
+                [base+'metodoCompra']: met,
+                [base+'estoqueMinimo']: min,
+                [base+'locais']: l.length ? l : null
+            });
+            removidas.forEach(loc => { updates[`${base}estoque/${loc}`] = null; });
+            l.forEach(loc => { if (!p.estoque || p.estoque[loc] === undefined) updates[`${base}estoque/${loc}`] = { f: 0, u: 0 }; });
+
+            db.ref().update(updates)
+                .then(() => showToast("Produto atualizado!", "success"))
+                .catch(() => showToast("Erro ao salvar o produto.", "error"));
             navegar('produtos-categorias'); 
         }
 
@@ -2754,128 +3121,137 @@ function salvarProduto() {
             const isChecked = document.getElementById('area-usar-padrao').checked;
             const painel = document.getElementById('div-config-estoque-padrao');
             painel.style.display = isChecked ? 'block' : 'none';
+            if(!isChecked) return;
+
+            const areaObj = areas.find(a => a.key === areaAtualKey);
+            if (!areaObj) return;
+
+            // Guarda o que já foi digitado para não perder ao marcar/desmarcar produtos
+            const digitados = {};
+            document.querySelectorAll('#lista-itens-padrao-area input[id^="padrao-"]').forEach(inp => { digitados[inp.id] = inp.value; });
             
-            if(isChecked) {
-                const areaObj = areas.find(a => a.key === areaAtualKey);
-                if (!areaObj) return;
-                
-                // Puxa baseado no que o usuário marcou AGORA na tela de edição
-                const checkedKeys = Array.from(document.querySelectorAll('.area-prod-checkbox:checked')).map(cb => cb.value);
-                let iA = checkedKeys.filter(pk => produtos[pk]); 
-                
-                iA.sort((a, b) => {
-                    const prioA = getPrioridadeProduto(produtos[a]);
-                    const prioB = getPrioridadeProduto(produtos[b]);
-                    if (prioA !== prioB) return prioA - prioB;
-                    return (produtos[a].nome || "").localeCompare(produtos[b].nome || "");
-                });
-                
-                document.getElementById('lista-itens-padrao-area').innerHTML = iA.map(pk => {
-                    const p = produtos[pk];
-                    let t = 1; getCategoriasProduto(p).forEach(cn => { const c = Object.values(categorias).find(x => x.nome === cn); if(c && c.unidadesFardo > t) t = Number(c.unidadesFardo); }); 
-                    const labelQtd = t > 1 ? 'Fds.' : 'Un.';
-                    const valAtual = (areaObj.config && areaObj.config.padroes && areaObj.config.padroes[pk]) ? areaObj.config.padroes[pk] : 0;
-                    return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding:8px 0;">
-                        <span style="font-size:0.85rem; font-weight:bold; color: var(--text-main);">${p.nome} <small style="color:#64748b;">(${labelQtd})</small></span>
-                        <input type="number" id="padrao-${pk}" value="${valAtual}" style="width:65px; padding:5px; text-align:center; margin:0;" min="0">
-                    </div>`;
-                }).join('') || '<p style="font-size:0.8rem; color:#64748b; padding:10px;">Marque os produtos acima primeiro.</p>';
-            }
+            const checkedKeys = Array.from(document.querySelectorAll('.area-prod-checkbox:checked')).map(cb => cb.value);
+            const iA = checkedKeys.filter(pk => produtos[pk]); 
+            iA.sort((a, b) => compararProdutosPorCategoriaEOrdem(a, b, areaObj));
+            
+            document.getElementById('lista-itens-padrao-area').innerHTML = iA.map(pk => {
+                const p = produtos[pk];
+                const t = getTamFardoProduto(p);
+                const labelQtd = (t > 1 && !produtoUsaContagemFracionada(p)) ? 'Fds.' : 'Un.';
+                const salvo = (areaObj.config && areaObj.config.padroes && areaObj.config.padroes[pk]) ? areaObj.config.padroes[pk] : 0;
+                const valAtual = digitados[`padrao-${pk}`] !== undefined ? digitados[`padrao-${pk}`] : salvo;
+                return `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">
+                    <span style="font-size:0.85rem; font-weight:bold; color: var(--text-main);">${esc(p.nome)} <small style="color:var(--muted);">(${labelQtd})</small></span>
+                    <input type="number" inputmode="decimal" id="padrao-${pk}" value="${esc(valAtual)}" style="width:65px; padding:5px; text-align:center; margin:0;" min="0">
+                </div>`;
+            }).join('') || '<p style="font-size:0.8rem; color:var(--muted); padding:10px;">Marque os produtos acima primeiro.</p>';
         }
+
         function habilitarEdicaoArea() { 
+            const box = document.getElementById('area-edit-box');
+            if (box.style.display === 'block') { box.style.display = 'none'; return; } // lápis de novo = fecha
             const a = areas.find(x => x.key === areaAtualKey);
+            if (!a) return;
             document.getElementById('edit-area-input').value = a.nome;
             
-            // Renderiza lista de produtos para vincular à área
-            let htmlProds = Object.keys(produtos).sort((pa, pb) => (produtos[pa].nome || "").localeCompare(produtos[pb].nome || "")).map(pk => {
+            // Lista de produtos para vincular à área
+            const htmlProds = Object.keys(produtos).filter(pk => produtos[pk]).sort((pa, pb) => (produtos[pa].nome || "").localeCompare(produtos[pb].nome || "")).map(pk => {
                 const p = produtos[pk];
                 const checked = (p.locais || []).includes(a.nome) ? 'checked' : '';
-                return `<label class="check-item" style="font-size:0.85rem; margin-bottom:5px;"><input type="checkbox" value="${pk}" class="area-prod-checkbox" ${checked} onchange="atualizarOrdemCategoriasAreaEdit(); if(document.getElementById('area-usar-padrao').checked) toggleConfigEstoquePadrao()"> <span>${p.nome}</span></label>`;
+                return `<label class="check-item" style="font-size:0.85rem; margin-bottom:5px;"><input type="checkbox" value="${pk}" class="area-prod-checkbox" ${checked} onchange="atualizarOrdemCategoriasAreaEdit(); if(document.getElementById('area-usar-padrao').checked) toggleConfigEstoquePadrao()"> <span>${esc(p.nome)}</span></label>`;
             }).join('');
-            document.getElementById('area-edit-produtos-list').innerHTML = htmlProds || '<p style="font-size:0.8rem; color:#64748b;">Nenhum produto cadastrado.</p>';
+            document.getElementById('area-edit-produtos-list').innerHTML = htmlProds || '<p style="font-size:0.8rem; color:var(--muted);">Nenhum produto cadastrado.</p>';
+            document.getElementById('lista-itens-padrao-area').innerHTML = '';
 
             areaCatOrderTemp = (a.config && a.config.ordemCategorias) ? [...a.config.ordemCategorias] : [];
-document.getElementById('area-usar-padrao').checked = (a.config && a.config.usaPadrao) ? true : false;
-atualizarOrdemCategoriasAreaEdit();
-toggleConfigEstoquePadrao();
-document.getElementById('area-edit-box').style.display='block';
+            document.getElementById('area-usar-padrao').checked = !!(a.config && a.config.usaPadrao);
+            atualizarOrdemCategoriasAreaEdit();
+            toggleConfigEstoquePadrao();
+            document.getElementById('area-edit-box').style.display='block';
         }
 
-        function salvarNovoNomeArea() { 
+        async function salvarNovoNomeArea() { 
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode editar áreas.", "error"); return; }
+            const areaObj = areas.find(a => a.key === areaAtualKey);
+            if (!areaObj) return;
             const nv = document.getElementById('edit-area-input').value.trim(); 
-            const ant = document.getElementById('area-display-name').innerText.trim(); 
+            const ant = areaObj.nome;
             const usaPadrao = document.getElementById('area-usar-padrao').checked;
             
             if(!nv) { alert("O nome da área não pode estar vazio."); return; }
+            if (nomeAreaInvalido(nv)) { alert('O nome da área não pode ter os caracteres  . # $ [ ] /'); return; }
+            if (nv !== ant && areas.some(a => a.key !== areaAtualKey && (a.nome || '').trim().toLowerCase() === nv.toLowerCase())) { alert("Já existe uma área com esse nome."); return; }
 
             const prodsSelecionados = Array.from(document.querySelectorAll('.area-prod-checkbox:checked')).map(cb => cb.value);
+
+            // Produtos que serão desvinculados e ainda têm estoque nesta área
+            const perdendoEstoque = Object.keys(produtos).filter(pk => {
+                const p = produtos[pk];
+                if (!p || prodsSelecionados.includes(pk)) return false;
+                const v = p.estoque && p.estoque[ant];
+                return v && (Number(v.f) > 0 || Number(v.u) > 0);
+            });
+            if (perdendoEstoque.length && !(await confirmar(`${perdendoEstoque.length} produto(s) desmarcado(s) ainda têm estoque nesta área. Esse estoque será apagado. Continuar?`, { titulo: 'Apagar estoque?', ok: 'Apagar e salvar', perigo: true }))) return;
 
             let padroes = {};
             if(usaPadrao) {
                 prodsSelecionados.forEach(pk => {
                     const input = document.getElementById(`padrao-${pk}`);
-                    if(input) padroes[pk] = Number(input.value) || 0;
+                    if(input) padroes[pk] = Number(String(input.value).replace(',', '.')) || 0;
                 });
             }
 
-            // 1. Atualiza a Área no Banco
-            db.ref('areas/' + areaAtualKey).set({ nome: nv, config: { usaPadrao, padroes, ordemCategorias: areaCatOrderTemp } }).then(() => { 
-                
-                // 2. Sincroniza todos os produtos
-                const updatesGerais = {};
-                
-                Object.keys(produtos).forEach(pk => {
-                    const p = produtos[pk];
-                    if(!p) return;
+            // Tudo numa gravação só: área, produtos e categorias que citam o nome da área
+            const updates = {};
+            updates[`areas/${areaAtualKey}`] = { nome: nv, config: { usaPadrao, padroes, ordemCategorias: areaCatOrderTemp } };
 
-                    let locais = p.locais ? [...p.locais] : [];
-                    let estoque = p.estoque ? {...p.estoque} : {};
-                    let mudou = false;
+            Object.keys(produtos).forEach(pk => {
+                const p = produtos[pk];
+                if(!p) return;
+                let locais = Array.isArray(p.locais) ? [...p.locais] : [];
+                const estoque = p.estoque ? {...p.estoque} : {};
+                let mudou = false;
+                const deveEstarNaArea = prodsSelecionados.includes(pk);
+                const estavaNaArea = locais.includes(ant) || estoque[ant] !== undefined;
 
-                    const deveEstarNaArea = prodsSelecionados.includes(pk);
-                    const estavaComNomeAntigo = locais.includes(ant);
-                    const jaEstaComNomeNovo = locais.includes(nv);
-
-                    if (deveEstarNaArea) {
-                        // Se o nome mudou, atualiza o nome no array e no objeto de estoque
-                        if (estavaComNomeAntigo && nv !== ant) {
-                            locais = locais.map(x => x === ant ? nv : x);
-                            if (estoque[ant] !== undefined) {
-                                estoque[nv] = estoque[ant];
-                                delete estoque[ant];
-                            }
-                            mudou = true;
-                        } 
-                        // Se não estava na lista (novo vínculo), adiciona
-                        else if (!estavaComNomeAntigo && !jaEstaComNomeNovo) {
-                            locais.push(nv);
-                            estoque[nv] = { f: 0, u: 0 };
-                            mudou = true;
-                        }
-                    } else {
-                        // Se não deve estar na área mas o nome antigo ou novo consta lá, remove
-                        if (estavaComNomeAntigo || jaEstaComNomeNovo) {
-                            locais = locais.filter(x => x !== ant && x !== nv);
-                            delete estoque[ant];
-                            delete estoque[nv];
-                            mudou = true;
-                        }
+                if (deveEstarNaArea) {
+                    if (nv !== ant) {
+                        if (locais.includes(ant)) { locais = locais.map(x => x === ant ? nv : x); mudou = true; }
+                        if (estoque[ant] !== undefined) { estoque[nv] = estoque[ant]; delete estoque[ant]; mudou = true; }
                     }
-
-                    if (mudou) {
-                        updatesGerais[`produtos/${pk}/locais`] = locais;
-                        updatesGerais[`produtos/${pk}/estoque`] = estoque;
-                    }
-                });
-
-                // Executa todas as atualizações de produtos de uma vez
-                if (Object.keys(updatesGerais).length > 0) {
-                    db.ref().update(updatesGerais).then(() => {
-                        finalizarEdicaoArea();
-                    });
-                } else {
-                    finalizarEdicaoArea();
+                    if (!locais.includes(nv)) { locais.push(nv); mudou = true; }
+                    if (estoque[nv] === undefined) { estoque[nv] = { f: 0, u: 0 }; mudou = true; }
+                } else if (estavaNaArea || locais.includes(nv)) {
+                    locais = locais.filter(x => x !== ant && x !== nv);
+                    delete estoque[ant];
+                    delete estoque[nv];
+                    mudou = true;
                 }
+
+                if (mudou) {
+                    updates[`produtos/${pk}/locais`] = locais.length ? locais : null;
+                    updates[`produtos/${pk}/estoque`] = estoque;
+                }
+            });
+
+            if (nv !== ant) {
+                Object.keys(categorias).forEach(ck => {
+                    const c = categorias[ck];
+                    if (c && Array.isArray(c.areas) && c.areas.includes(ant)) updates[`categorias/${ck}/areas`] = c.areas.map(x => x === ant ? nv : x);
+                });
+            }
+
+            const btn = document.querySelector('#area-edit-box .btn-submit');
+            const liberar = travarBotao(btn, 'Salvando...');
+            if (liberar === null) return;
+            db.ref().update(updates).then(() => {
+                liberar();
+                showToast("Área atualizada!", "success");
+                finalizarEdicaoArea();
+            }).catch(err => {
+                liberar();
+                console.error(err);
+                showToast("Erro ao salvar a área.", "error");
             });
         }
 
@@ -2884,11 +3260,74 @@ document.getElementById('area-edit-box').style.display='block';
             document.getElementById('edit-area-input').value = ""; 
             navegar('areas-lista');
         }
-        
-        function prepararExclusaoArea() { document.getElementById('modalMsg').innerHTML=`Excluir área <strong>${document.getElementById('area-display-name').innerText}</strong>?`; document.getElementById('modalDelete').style.display='flex'; document.getElementById('confirmDeleteBtn').onclick=()=>{db.ref('areas/'+areaAtualKey).remove();fecharModal();navegar('areas-lista');}; }
-        function prepararExclusaoProd() { document.getElementById('modalMsg').innerHTML=`Excluir <strong>${document.getElementById('edit-prod-nome').value}</strong>?`; document.getElementById('modalDelete').style.display='flex'; document.getElementById('confirmDeleteBtn').onclick=()=>{db.ref('produtos/'+document.getElementById('edit-prod-id').value).remove();fecharModal();navegar('produtos-categorias');}; }
-        function prepararExclusaoCat(k) { document.getElementById('modalMsg').innerHTML=`Excluir preset <strong>${categorias[k].nome}</strong>?`; document.getElementById('modalDelete').style.display='flex'; document.getElementById('confirmDeleteBtn').onclick=()=>{db.ref('categorias/'+k).remove();fecharModal();}; }
-        function prepararExclusaoMet(k) { document.getElementById('modalMsg').innerHTML=`Excluir método <strong>${metodosCompra[k].nome}</strong>?`; document.getElementById('modalDelete').style.display='flex'; document.getElementById('confirmDeleteBtn').onclick=()=>{db.ref('metodos/'+k).remove();fecharModal();}; }
+
+        function abrirModalExclusao(msgHtml, acao) {
+            document.getElementById('modalMsg').innerHTML = msgHtml;
+            document.getElementById('modalDelete').style.display = 'flex';
+            document.getElementById('confirmDeleteBtn').onclick = acao;
+        }
+
+        function renderizarAreasConfig() {
+            const el = document.getElementById('lista-areas-config');
+            if (!el) return;
+            const lista = [...areas].sort((x, y) => x.nome.localeCompare(y.nome));
+            el.innerHTML = lista.map(a => `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:12px;">
+                    <span style="font-weight:700; color:var(--ink); min-width:0; overflow-wrap:anywhere;">${esc(a.nome)}</span>
+                    <button type="button" class="btn-submit" style="margin:0; width:auto; min-height:36px; padding:6px 14px; background:var(--danger); font-size:.8rem;" onclick="prepararExclusaoArea(${jsArg(a.key)})">Excluir</button>
+                </div>`).join('') || '<div style="color:var(--muted);">Nenhuma área cadastrada.</div>';
+        }
+
+        function prepararExclusaoArea(key) {
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode excluir áreas.", "error"); return; }
+            const a = areas.find(x => x.key === key);
+            if (!a) return;
+            abrirModalExclusao(`Excluir área <strong>${esc(a.nome)}</strong>?<br><small style="font-weight:normal;">Os produtos deixam de ficar nela e o estoque registrado nesta área é apagado.</small>`, () => {
+                const updates = { [`areas/${a.key}`]: null };
+                Object.keys(produtos).forEach(pk => {
+                    const p = produtos[pk]; if (!p) return;
+                    if (Array.isArray(p.locais) && p.locais.includes(a.nome)) {
+                        const l = p.locais.filter(x => x !== a.nome);
+                        updates[`produtos/${pk}/locais`] = l.length ? l : null;
+                    }
+                    if (p.estoque && p.estoque[a.nome] !== undefined) updates[`produtos/${pk}/estoque/${a.nome}`] = null;
+                });
+                Object.keys(categorias).forEach(ck => {
+                    const c = categorias[ck];
+                    if (c && Array.isArray(c.areas) && c.areas.includes(a.nome)) updates[`categorias/${ck}/areas`] = c.areas.filter(x => x !== a.nome);
+                });
+                db.ref().update(updates).then(() => showToast("Área excluída.", "success")).catch(() => showToast("Erro ao excluir a área.", "error"));
+                fecharModal(); if (telaAtiva('detalhe-area')) navegar('areas-lista');
+            });
+        }
+        function prepararExclusaoProd() {
+            const id = document.getElementById('edit-prod-id').value;
+            const p = produtos[id]; if (!p) return;
+            abrirModalExclusao(`Excluir <strong>${esc(p.nome)}</strong>?`, () => {
+                db.ref('produtos/'+id).remove().then(() => showToast("Produto excluído.", "success")).catch(() => showToast("Erro ao excluir.", "error"));
+                fecharModal(); navegar('produtos-categorias');
+            });
+        }
+        function prepararExclusaoCat(k) {
+            const c = categorias[k]; if (!c) return;
+            abrirModalExclusao(`Excluir categoria <strong>${esc(c.nome)}</strong>?<br><small style="font-weight:normal;">Os produtos dela ficam "Sem Categoria".</small>`, () => {
+                const updates = { [`categorias/${k}`]: null };
+                Object.keys(produtos).forEach(pk => {
+                    const pc = getCategoriasProduto(produtos[pk]);
+                    if (pc.includes(c.nome)) { const nova = pc.filter(x => x !== c.nome); updates[`produtos/${pk}/categorias`] = nova.length ? nova : null; updates[`produtos/${pk}/categoria`] = null; }
+                });
+                db.ref().update(updates).then(() => showToast("Categoria excluída.", "success")).catch(() => showToast("Erro ao excluir.", "error"));
+                fecharModal();
+            });
+        }
+        function prepararExclusaoMet(k) {
+            const m = metodosCompra[k]; if (!m) return;
+            abrirModalExclusao(`Excluir método <strong>${esc(m.nome)}</strong>?<br><small style="font-weight:normal;">Os produtos dele ficam "Sem Método de Compra".</small>`, () => {
+                const updates = { [`metodos/${k}`]: null };
+                Object.keys(produtos).forEach(pk => { if (produtos[pk] && produtos[pk].metodoCompra === m.nome) updates[`produtos/${pk}/metodoCompra`] = null; });
+                db.ref().update(updates).then(() => showToast("Método excluído.", "success")).catch(() => showToast("Erro ao excluir.", "error"));
+                fecharModal();
+            });
+        }
 
         // ==========================================
         // SISTEMA DE RECEITAS
@@ -2900,51 +3339,35 @@ document.getElementById('area-edit-box').style.display='block';
 
         function previewReceitaFoto(event, ctx) {
             const file = event.target.files[0];
-            if(file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    if(ctx === 'novo') {
-                        base64ReceitaFoto = e.target.result;
-                        const preview = document.getElementById('receita-foto-preview-novo');
-                        preview.src = base64ReceitaFoto;
-                        preview.style.display = 'block';
-                        document.getElementById('crop-wrapper-novo').style.display = 'flex';
-                        document.getElementById('wrap-slider-novo').style.display = 'block';
-                        
-                        configEnquadramentoNovo = { x: 50, y: 50, scale: 1 };
-                        document.getElementById('receita-foto-zoom-novo').value = 1;
-                        document.getElementById('receita-foto-posx-novo').value = 50;
-                        document.getElementById('receita-foto-posy-novo').value = 50;
-                        aplicarEnquadramentoVisual(preview, configEnquadramentoNovo);
-                    } else {
-                        base64ReceitaFotoEdit = e.target.result;
-                        const preview = document.getElementById('receita-foto-preview-edit');
-                        preview.src = base64ReceitaFotoEdit;
-                        preview.style.display = 'block';
-                        document.getElementById('crop-wrapper-edit').style.display = 'flex';
-                        document.getElementById('wrap-slider-edit').style.display = 'block';
-                        
-                        configEnquadramentoEdit = { x: 50, y: 50, scale: 1 };
-                        document.getElementById('receita-foto-zoom-edit').value = 1;
-                        document.getElementById('receita-foto-posx-edit').value = 50;
-                        document.getElementById('receita-foto-posy-edit').value = 50;
-                        aplicarEnquadramentoVisual(preview, configEnquadramentoEdit);
-                    }
-                }
-                reader.readAsDataURL(file);
-            }
+            if(!file) return;
+            showToast("Preparando foto...", "success");
+            comprimirImagem(file, 1080, 0.8).then(dataUrl => {
+                const preview = document.getElementById(ctx === 'novo' ? 'receita-foto-preview-novo' : 'receita-foto-preview-edit');
+                if(ctx === 'novo') base64ReceitaFoto = dataUrl; else base64ReceitaFotoEdit = dataUrl;
+                preview.src = dataUrl;
+                preview.style.display = 'block';
+                document.getElementById(ctx === 'novo' ? 'crop-wrapper-novo' : 'crop-wrapper-edit').style.display = 'flex';
+                document.getElementById(ctx === 'novo' ? 'wrap-slider-novo' : 'wrap-slider-edit').style.display = 'block';
+                const cfg = { x: 50, y: 50, scale: 1 };
+                if (ctx === 'novo') configEnquadramentoNovo = cfg; else configEnquadramentoEdit = cfg;
+                const suf = ctx === 'novo' ? 'novo' : 'edit';
+                document.getElementById(`receita-foto-zoom-${suf}`).value = 1;
+                document.getElementById(`receita-foto-posx-${suf}`).value = 50;
+                document.getElementById(`receita-foto-posy-${suf}`).value = 50;
+                aplicarEnquadramentoVisual(preview, cfg);
+            }).catch(() => showToast("Não foi possível ler essa foto.", "error"));
         }
         
         function ajustarEnquadramento(ctx) {
             if(ctx === 'novo') {
-                configEnquadramentoNovo.scale = document.getElementById('receita-foto-zoom-novo').value;
-                configEnquadramentoNovo.x = document.getElementById('receita-foto-posx-novo').value;
-                configEnquadramentoNovo.y = document.getElementById('receita-foto-posy-novo').value;
+                configEnquadramentoNovo.scale = Number(document.getElementById('receita-foto-zoom-novo').value);
+                configEnquadramentoNovo.x = Number(document.getElementById('receita-foto-posx-novo').value);
+                configEnquadramentoNovo.y = Number(document.getElementById('receita-foto-posy-novo').value);
                 aplicarEnquadramentoVisual(document.getElementById('receita-foto-preview-novo'), configEnquadramentoNovo);
             } else {
-                configEnquadramentoEdit.scale = document.getElementById('receita-foto-zoom-edit').value;
-                configEnquadramentoEdit.x = document.getElementById('receita-foto-posx-edit').value;
-                configEnquadramentoEdit.y = document.getElementById('receita-foto-posy-edit').value;
+                configEnquadramentoEdit.scale = Number(document.getElementById('receita-foto-zoom-edit').value);
+                configEnquadramentoEdit.x = Number(document.getElementById('receita-foto-posx-edit').value);
+                configEnquadramentoEdit.y = Number(document.getElementById('receita-foto-posy-edit').value);
                 aplicarEnquadramentoVisual(document.getElementById('receita-foto-preview-edit'), configEnquadramentoEdit);
             }
         }
@@ -2962,116 +3385,100 @@ document.getElementById('area-edit-box').style.display='block';
             renderizarReceitas();
         }
 
-        let receitasCarregadasFirstTime = false; // Controle de animação
+        function custoIngrediente(ing) {
+            const p = produtos[ing.idProduto];
+            if (!p) return 0;
+            const qtd = Number(String(ing.qtd).replace(',', '.')) || 0;
+            if (ing.unidade === 'ml' && p.detalhesDestilado && Number(p.detalhesDestilado.ml) > 0) {
+                return (Number(p.detalhesDestilado.precoGarrafa) / Number(p.detalhesDestilado.ml)) * qtd;
+            }
+            return Number(p.precoCusto || 0) * qtd;
+        }
+
+        function estiloEnquadramento(cfg) {
+            cfg = cfg || { x: 50, y: 50, scale: 1 };
+            const x = Number(cfg.x) || 50, y = Number(cfg.y) || 50, sc = Number(cfg.scale) || 1;
+            return `object-position: ${x}% ${y}%; transform-origin: ${x}% ${y}%; transform: scale(${sc});`;
+        }
         
         function renderizarReceitas() {
             const grid = document.getElementById('grid-receitas');
-            const chaves = Object.keys(receitasDB);
+            if (!grid) return;
+            const chaves = Object.keys(receitasDB).sort((a, b) => (receitasDB[a].nome || '').localeCompare(receitasDB[b].nome || ''));
             
             if(chaves.length === 0) {
-                // Se for a primeira vez que abre, espera 1.2 segundos "Buscando dados"
-                if (!receitasCarregadasFirstTime) {
-                    grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 30px;"><p style="color:var(--primary); font-size:1.2rem; font-weight:bold; letter-spacing:1px; animation: pulse 1s infinite;">⏳ Sincronizando com o servidor...</p></div>`;
-                    setTimeout(() => { 
-                        receitasCarregadasFirstTime = true; 
-                        renderizarReceitas(); // Tenta desenhar de novo
-                    }, 1200);
-                    return;
-                }
-                // Se passou o tempo e continua vazio, é porque não tem mesmo.
-                grid.innerHTML = `<p style="color:#64748b; font-size:0.9rem; text-align:center; grid-column:1/-1;">Nenhuma receita cadastrada ainda.</p>`;
+                // Mostra "carregando" só enquanto o Firebase ainda não respondeu (antes era uma espera fixa de 1,2 s)
+                grid.innerHTML = (currentUser && !receitasCarregadas)
+                    ? `<div style="grid-column: 1/-1; text-align:center; padding: 30px;"><p style="color:var(--primary); font-size:1.2rem; font-weight:bold; letter-spacing:1px; animation: pulse 1s infinite;">⏳ Sincronizando com o servidor...</p></div>`
+                    : `<p style="color:var(--muted); font-size:0.9rem; text-align:center; grid-column:1/-1;">${currentUser ? 'Nenhuma receita cadastrada ainda.' : 'Faça login para ver as receitas.'}</p>`;
                 return;
             }
-            
-            receitasCarregadasFirstTime = true; // Se achou dados na hora, cancela a espera
             
             grid.innerHTML = chaves.map(k => {
                 const r = Object.assign({ ingredientes: [], foto: "", configEnquadramento: { x: 50, y: 50, scale: 1 } }, receitasDB[k]);
                 
                 let custoHtml = '';
                 if (podeVerCustos()) {
-                    let custoTotal = 0;
-                    r.ingredientes.forEach(ing => {
-                        let p = produtos[ing.idProduto];
-                        if (p) {
-                            if (ing.unidade === 'ml' && p.detalhesDestilado && p.detalhesDestilado.ml) {
-                                custoTotal += (Number(p.detalhesDestilado.precoGarrafa) / Number(p.detalhesDestilado.ml)) * Number(ing.qtd);
-                            } else {
-                                custoTotal += Number(p.precoCusto || 0) * Number(ing.qtd);
-                            }
-                        }
-                    });
-                    custoHtml = `<span class="req-custo custo-receita" style="font-size:0.85rem; color:#10b981; font-weight:800;">R$ ${custoTotal.toFixed(2).replace('.', ',')}</span>`;
+                    const custoTotal = (r.ingredientes || []).reduce((acc, ing) => acc + custoIngrediente(ing), 0);
+                    custoHtml = `<span class="req-custo custo-receita" style="font-size:0.85rem; color:var(--ink); font-weight:800;">${formatarReais(custoTotal)}</span>`;
                 }
 
-                let imgHtml = '';
-                if(r.foto) {
-                    const cfg = r.configEnquadramento || { x: 50, y: 50, scale: 1 };
-                    imgHtml = `<div style="width:60px; height:60px; border-radius:10px; overflow:hidden; flex-shrink:0; border:1px solid rgba(255,255,255,0.1); display:block !important;">
-                                    <img src="${r.foto}" style="width:100%; height:100%; object-fit:cover; object-position: ${cfg.x}% ${cfg.y}%; transform-origin: ${cfg.x}% ${cfg.y}%; transform: scale(${cfg.scale}); display:block !important;">
-                               </div>`;
-                } else {
-                    imgHtml = `<div style="width:60px; height:60px; border-radius:10px; background:rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); display:flex !important; align-items:center; justify-content:center; color:var(--primary); font-size:1.5rem; flex-shrink:0;"><i class="ph ph-martini"></i></div>`;
-                }
+                const imgHtml = r.foto
+                    ? `<div style="width:60px; height:60px; border-radius:10px; overflow:hidden; flex-shrink:0; border:1px solid var(--line); display:block !important;">
+                            <img src="${esc(r.foto)}" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:cover; ${estiloEnquadramento(r.configEnquadramento)} display:block !important;">
+                       </div>`
+                    : `<div style="width:60px; height:60px; border-radius:10px; background:var(--surface-2); border: 1px solid var(--line); display:flex !important; align-items:center; justify-content:center; color:var(--primary); font-size:1.5rem; flex-shrink:0;"><i class="ph ph-martini"></i></div>`;
 
                 return `
-                <div class="card-nav" onclick="verDetalhesReceita('${k}')" style="display:flex !important; align-items:center; gap:12px; padding: 15px; flex-direction: row; justify-content:flex-start;">
+                <div class="card-nav" onclick="verDetalhesReceita(${jsArg(k)})" style="display:flex !important; align-items:center; gap:12px; padding: 15px; flex-direction: row; justify-content:flex-start;">
                     ${imgHtml}
                     <div style="display:flex; flex-direction:column; gap:4px; text-align:left;">
-                        <h3 style="font-size:1.05rem; color:var(--text-main); margin:0; display:block !important;">${r.nome}</h3>
+                        <h3 style="font-size:1.05rem; color:var(--text-main); margin:0; display:block !important;">${esc(r.nome)}</h3>
                         ${custoHtml}
                     </div>
                 </div>`;
             }).join('');
         }
 
-        function verDetalhesReceita(k) {
+        function verDetalhesReceita(k, semNavegar = false) {
             receitaAtualKey = k;
             const r = receitasDB[k];
-            if(!r) return;
+            if(!r) { if (semNavegar) navegar('receitas-lista'); return; }
             
-            document.getElementById('detalhe-receita-titulo').innerText = r.nome;
+            document.getElementById('detalhe-receita-titulo').innerText = r.nome || 'Receita';
             
             let custoTotal = 0;
             let ingredientesHtml = (r.ingredientes || []).map(ing => {
-                let p = produtos[ing.idProduto];
+                const p = produtos[ing.idProduto];
                 let custoIngHtml = '';
                 if (podeVerCustos() && p) {
-                    let custoIng = 0;
-                    if (ing.unidade === 'ml' && p.detalhesDestilado && p.detalhesDestilado.ml) {
-                        custoIng = (Number(p.detalhesDestilado.precoGarrafa) / Number(p.detalhesDestilado.ml)) * Number(ing.qtd);
-                    } else {
-                        custoIng = Number(p.precoCusto || 0) * Number(ing.qtd);
-                    }
+                    const custoIng = custoIngrediente(ing);
                     custoTotal += custoIng;
-                    custoIngHtml = `<span class="req-custo custo-receita" style="color:#10b981; font-weight:800; font-size:0.85rem;">R$ ${custoIng.toFixed(2).replace('.', ',')}</span>`;
+                    custoIngHtml = `<span class="req-custo custo-receita" style="color:var(--ink); font-weight:800; font-size:0.85rem;">${formatarReais(custoIng)}</span>`;
                 }
-                return `<li style="margin-bottom:8px; color:var(--text-main); font-size:0.95rem; list-style:none; border-bottom:1px solid rgba(251, 238, 227, 0.1); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                            <span><strong>${ing.qtd} ${ing.unidade}</strong> de ${ing.nome}</span>
+                return `<li style="margin-bottom:8px; color:var(--text-main); font-size:0.95rem; list-style:none; border-bottom:1px solid var(--line); padding-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                             ${custoIngHtml}
                         </li>`;
             }).join('');
 
             if (ingredientesHtml === '') {
-                ingredientesHtml = '<li style="color:#64748b; font-style:italic; list-style:none;">Nenhum ingrediente cadastrado.</li>';
+                ingredientesHtml = '<li style="color:var(--muted); font-style:italic; list-style:none;">Nenhum ingrediente cadastrado.</li>';
             }
 
-            let fotoHtml = '';
-            if(r.foto) {
-                const cfg = r.configEnquadramento || { x: 50, y: 50, scale: 1 };
-                fotoHtml = `<div style="width:135px; height:240px; border-radius:16px; overflow:hidden; flex-shrink:0; border:2px solid var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-                                <img src="${r.foto}" style="width:100%; height:100%; object-fit:cover; object-position: ${cfg.x}% ${cfg.y}%; transform-origin: ${cfg.x}% ${cfg.y}%; transform: scale(${cfg.scale});">
-                            </div>`;
-            }
+            const fotoHtml = r.foto
+                ? `<div style="width:135px; height:240px; border-radius:16px; overflow:hidden; flex-shrink:0; border:2px solid var(--primary); box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                        <img src="${esc(r.foto)}" decoding="async" style="width:100%; height:100%; object-fit:cover; ${estiloEnquadramento(r.configEnquadramento)}">
+                   </div>`
+                : '';
 
-            // Força o fundo da receita a ficar mais redondo e espaçoso
             const container = document.getElementById('detalhe-receita-content');
             container.style.borderRadius = "24px";
             container.style.padding = "20px";
 
             const painelCustoHtml = podeVerCustos()
-                ? `<div id="receita-info-painel" class="req-custo custo-receita" style="background:rgba(16, 185, 129, 0.1); border:1px solid #10b981; border-radius:12px; padding:15px; margin-bottom:15px;">
-                            <h3 style="color:#10b981; margin:0; font-size:1.15rem; font-weight:800;">Custo Total: R$ ${custoTotal.toFixed(2).replace('.', ',')}</h3>
+                ? `<div id="receita-info-painel" class="req-custo custo-receita" style="background:var(--surface-2); border:1px solid var(--line-strong); border-radius:12px; padding:15px; margin-bottom:15px;">
+                            <h3 style="color:var(--ink); margin:0; font-size:1.15rem; font-weight:800;">Custo Total: ${formatarReais(custoTotal)}</h3>
                         </div>`
                 : '';
 
@@ -3082,18 +3489,17 @@ document.getElementById('area-edit-box').style.display='block';
                         <h3 style="color:var(--primary); font-size:1.1rem; margin-bottom:12px;">Ingredientes:</h3>
                         <ul style="padding:0; margin:0;">${ingredientesHtml}</ul>
                     </div>
-                    
                     ${fotoHtml}
                 </div>
 
                 ${r.preparo ? `
-                <div style="margin-top:25px; padding:18px; background:rgba(0,0,0,0.4); border-radius:16px; border:1px solid var(--border-color);">
+                <div style="margin-top:25px; padding:18px; background:var(--surface-2); border-radius:16px; border:1px solid var(--border-color);">
                     <strong style="display:block; margin-bottom:10px; color:var(--primary); font-size:1.05rem;"><i class="ph ph-book-open"></i> Modo de Preparo:</strong>
-                    <p style="margin:0; font-size:0.95rem; line-height:1.6; color:var(--text-main); white-space:pre-wrap;">${r.preparo}</p>
+                    <p style="margin:0; font-size:0.95rem; line-height:1.6; color:var(--text-main); white-space:pre-wrap;">${esc(r.preparo)}</p>
                 </div>` : ''}
             `;
             
-            navegar('detalhe-receita');
+            if (!semNavegar) navegar('detalhe-receita');
         }
 
         function abrirNovaReceita() {
@@ -3120,6 +3526,7 @@ document.getElementById('area-edit-box').style.display='block';
             document.getElementById('edit-receita-preparo-input').value = r.preparo || "";
             
             base64ReceitaFotoEdit = r.foto || "";
+            const inpFotoEdit = document.getElementById('edit-receita-foto-input'); if (inpFotoEdit) inpFotoEdit.value = '';
             configEnquadramentoEdit = r.configEnquadramento ? {...r.configEnquadramento} : { x: 50, y: 50, scale: 1 };
             
             const cropWrapper = document.getElementById('crop-wrapper-edit');
@@ -3150,12 +3557,12 @@ document.getElementById('area-edit-box').style.display='block';
         function renderIngredientesReceita() {
             const lista = document.getElementById('lista-ingredientes-receita');
             if(receitaEmConstrucao.ingredientes.length === 0) {
-                lista.innerHTML = `<p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
+                lista.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
                 return;
             }
             lista.innerHTML = receitaEmConstrucao.ingredientes.map((ing, idx) => `
-                <div style="display:flex; justify-content:space-between; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
-                    <span style="font-size:0.9rem;"><strong>${ing.qtd} ${ing.unidade}</strong> de ${ing.nome}</span>
+                <div style="display:flex; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
+                    <span style="font-size:0.9rem;"><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                     <button style="background:red; color:white; border:none; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="removerIngrediente(${idx})">×</button>
                 </div>
             `).join('');
@@ -3164,12 +3571,12 @@ document.getElementById('area-edit-box').style.display='block';
         function renderIngredientesReceitaEdit() {
             const lista = document.getElementById('edit-lista-ingredientes-receita');
             if(receitaEmEdicao.ingredientes.length === 0) {
-                lista.innerHTML = `<p style="color:#94a3b8; font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
+                lista.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem; font-style:italic;">Nenhum ingrediente adicionado.</p>`;
                 return;
             }
             lista.innerHTML = receitaEmEdicao.ingredientes.map((ing, idx) => `
-                <div style="display:flex; justify-content:space-between; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
-                    <span style="font-size:0.9rem;"><strong>${ing.qtd} ${ing.unidade}</strong> de ${ing.nome}</span>
+                <div style="display:flex; justify-content:space-between; background:var(--surface-2); border:1px solid var(--border-color); padding:10px; border-radius:6px; align-items:center;">
+                    <span style="font-size:0.9rem;"><strong>${esc(ing.qtd)} ${esc(ing.unidade)}</strong> de ${esc(ing.nome)}</span>
                     <button style="background:red; color:white; border:none; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="removerIngredienteEdit(${idx})">×</button>
                 </div>
             `).join('');
@@ -3182,11 +3589,9 @@ document.getElementById('area-edit-box').style.display='block';
 
     const options =
         Object.keys(produtos)
-            .map(k => `
-                <option value="${k}">
-                    ${produtos[k].nome}
-                </option>
-            `)
+            .filter(k => produtos[k])
+            .sort((a, b) => (produtos[a].nome || '').localeCompare(produtos[b].nome || ''))
+            .map(k => `<option value="${k}">${esc(produtos[k].nome)}</option>`)
             .join('');
 
     const div = document.createElement('div');
@@ -3301,11 +3706,11 @@ function calcularCustoComposicao() {
             ctxIngredienteTemp = ctx;
             document.getElementById('busca-ingrediente').value = "";
             const tbody = document.getElementById('tabela-ingredientes');
-            const chaves = Object.keys(produtos).sort((a,b) => produtos[a].nome.localeCompare(produtos[b].nome));
+            const chaves = Object.keys(produtos).filter(k => produtos[k]).sort((a,b) => (produtos[a].nome || '').localeCompare(produtos[b].nome || ''));
             
             tbody.innerHTML = chaves.map(k => `
-                <tr style="cursor:pointer;" onclick="escolherIngrediente('${k}')">
-                    <td class="col-item" style="padding:15px 10px;">${produtos[k].nome}</td>
+                <tr style="cursor:pointer;" onclick="escolherIngrediente(${jsArg(k)})">
+                    <td class="col-item" style="padding:15px 10px;">${esc(produtos[k].nome)}</td>
                     <td style="text-align:right; font-size:1.2rem; color:var(--primary);">+</td>
                 </tr>
             `).join('');
@@ -3326,10 +3731,11 @@ function calcularCustoComposicao() {
         }
 
         function confirmarIngredienteQtd() {
-            const qtd = document.getElementById('ingrediente-modal-qtd').value;
-            if(!qtd || Number(qtd) <= 0) { alert("Informe uma quantidade válida."); return; }
+            const qtd = Number(String(document.getElementById('ingrediente-modal-qtd').value).replace(',', '.'));
+            if(!qtd || qtd <= 0) { alert("Informe uma quantidade válida."); return; }
             
             const p = produtos[ingredienteSelecionadoTemp];
+            if (!p) return;
             const isDestilado = getCategoriasProduto(p).some(c => c.toLowerCase().includes('destilado'));
             
             const novoIngrediente = { 
@@ -3358,6 +3764,8 @@ function calcularCustoComposicao() {
             if(!nome) { alert("Dê um nome para a receita!"); return; }
             if(receitaEmConstrucao.ingredientes.length === 0) { alert("Adicione pelo menos um ingrediente!"); return; }
             
+            const liberar = travarBotao(document.querySelector('#nova-receita .btn-submit:last-of-type'), 'SALVANDO...');
+            if (liberar === null) return;
             db.ref('receitas').push({
                 nome: nome,
                 ingredientes: receitaEmConstrucao.ingredientes,
@@ -3365,8 +3773,10 @@ function calcularCustoComposicao() {
                 foto: base64ReceitaFoto,
                 configEnquadramento: configEnquadramentoNovo
             }).then(() => {
+                liberar();
+                showToast("Receita salva!", "success");
                 abrirReceitas();
-            });
+            }).catch(() => { liberar(); showToast("Erro ao salvar a receita.", "error"); });
         }
         
         function salvarEdicaoReceita() {
@@ -3377,6 +3787,8 @@ function calcularCustoComposicao() {
             if(!nome) { alert("Dê um nome para a receita!"); return; }
             if(receitaEmEdicao.ingredientes.length === 0) { alert("Adicione pelo menos um ingrediente!"); return; }
             
+            const liberar = travarBotao(document.querySelector('#editar-receita .btn-submit:last-of-type'), 'SALVANDO...');
+            if (liberar === null) return;
             db.ref('receitas/' + k).update({
                 nome: nome,
                 ingredientes: receitaEmEdicao.ingredientes,
@@ -3384,13 +3796,15 @@ function calcularCustoComposicao() {
                 foto: base64ReceitaFotoEdit,
                 configEnquadramento: configEnquadramentoEdit
             }).then(() => {
+                liberar();
+                showToast("Receita atualizada!", "success");
                 verDetalhesReceita(k);
-            });
+            }).catch(() => { liberar(); showToast("Erro ao salvar a receita.", "error"); });
         }
 
         function prepararExclusaoReceita() {
             const k = document.getElementById('edit-receita-id').value;
-            document.getElementById('modalMsg').innerHTML=`Excluir a receita <strong>${document.getElementById('edit-receita-nome-input').value}</strong>?`; 
+            document.getElementById('modalMsg').innerHTML=`Excluir a receita <strong>${esc(document.getElementById('edit-receita-nome-input').value)}</strong>?`; 
             document.getElementById('modalDelete').style.display='flex'; 
             document.getElementById('confirmDeleteBtn').onclick=() => {
                 db.ref('receitas/'+k).remove();
@@ -3419,72 +3833,116 @@ function calcularCustoComposicao() {
         // ==========================================
         // INFORMAÇÕES GLOBAIS DO ITEM NO ESTOQUE (i)
         // ==========================================
+        function fecharInfoItem() {
+            document.getElementById('modalInfoItem').classList.remove('aberto');
+        }
+
         function abrirInfoItem(pk) {
             const p = produtos[pk];
             if(!p) return;
 
+            const moeda = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             document.getElementById('titulo-info-item').innerText = p.nome;
-            const containerLista = document.getElementById('lista-locais-item');
-            containerLista.innerHTML = '';
-            let totalGeralUnidades = 0;
+            document.getElementById('info-custo').innerText = podeVerCustos()
+                ? (p.precoCusto ? moeda(p.precoCusto) : '—')
+                : 'Restrito';
+            document.getElementById('info-codigo').innerText = p.codigo || '—';
 
+            const containerLista = document.getElementById('lista-locais-item');
+            let totalGeralUnidades = 0;
             const frac = produtoUsaContagemFracionada(p);
             const t = getTamFardoProduto(p);
+            const linhas = [];
 
-            if (p.estoque) {
-                // Ordenar para ficar mais bonito na tela
-                const locaisOrdem = Object.keys(p.estoque).sort();
-                
-                locaisOrdem.forEach(loc => {
-                    if (loc === '_Pendente_') return;
-                    const v = p.estoque[loc];
-                    if (!v) return;
+            Object.keys(p.estoque || {}).sort().forEach(loc => {
+                if (loc === '_Pendente_') return;
+                const v = p.estoque[loc];
+                if (!v) return;
+                const totalArea = parseQtdValor(v.f, frac) * t + parseQtdValor(v.u, frac);
+                if (totalArea <= 0) return;
+                totalGeralUnidades += totalArea;
+                const txtQtd = frac 
+                    ? `${formatarQtdNumero(totalArea, true)} Un.` 
+                    : (t > 1 ? `${Math.floor(totalArea / t)} Fds | ${totalArea % t} Un.` : `${totalArea} Un.`);
+                const areaObj = areas.find(a => a.nome === loc);
+                const click = areaObj ? `onclick="fecharInfoItem(); verArea(${jsArg(areaObj.key)}, ${jsArg(loc)})"` : '';
+                linhas.push(`<div class="sheet-linha" ${areaObj ? `style="cursor:pointer;" ${click}` : ''}>
+                        <span>${esc(loc)}</span><em>${txtQtd}</em>
+                    </div>`);
+            });
 
-                    const qtdF = parseQtdValor(v.f, frac);
-                    const qtdU = parseQtdValor(v.u, frac);
-                    const totalUnidadesNaArea = (qtdF * t) + qtdU;
+            containerLista.innerHTML = linhas.join('') || '<div style="color:var(--muted); text-align:center; padding:10px;">Item zerado em todas as áreas físicas.</div>';
 
-                    if (totalUnidadesNaArea > 0) {
-                        // Soma pro total geral
-                        totalGeralUnidades += totalUnidadesNaArea;
-
-                        let txtQtd = frac 
-                            ? `${formatarQtdNumero(totalUnidadesNaArea, true)} Un.` 
-                            : (t > 1 ? `${Math.floor(totalUnidadesNaArea / t)} Fds | ${totalUnidadesNaArea % t} Un.` : `${totalUnidadesNaArea} Un.`);
-
-                        // Acha a KEY da área no banco de dados para poder navegar
-                        const areaObj = areas.find(a => a.nome === loc);
-                        let clickComando = "";
-                        let styleHover = "";
-                        let linkStyle = "";
-                        
-                        if (areaObj) {
-                            // Se achou, prepara a linha para ser um botão
-                            clickComando = `onclick="document.getElementById('modalInfoItem').style.display='none'; verArea('${areaObj.key}', '${loc}')"`;
-                            styleHover = "cursor: pointer;";
-                            linkStyle = "text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 4px;";
-                        }
-
-                        containerLista.innerHTML += `
-                            <div ${clickComando} style="display: flex; justify-content: space-between; padding: 12px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; ${styleHover}">
-                                <span style="color: white; font-weight: 600; ${linkStyle}">${loc}</span>
-                                <span style="color: var(--primary); font-weight: 800;">${txtQtd}</span>
-                            </div>
-                        `;
-                    }
-                });
-            }
-
-            if (containerLista.innerHTML === '') {
-                containerLista.innerHTML = '<div style="color: #64748b; text-align: center; padding: 10px;">Item zerado em todas as áreas físicas.</div>';
-            }
-
-            let txtTotalGeral = frac 
+            const txtTotalGeral = frac 
                 ? `${formatarQtdNumero(totalGeralUnidades, true)} Un.` 
                 : (t > 1 ? `${Math.floor(totalGeralUnidades / t)} Fds | ${totalGeralUnidades % t} Un.` : `${totalGeralUnidades} Un.`);
 
             document.getElementById('total-info-item').innerText = txtTotalGeral;
-            document.getElementById('modalInfoItem').style.display = 'flex';
+            document.getElementById('modalInfoItem').classList.add('aberto');
         }
+        // ==========================================
+        // OTIMIZAR FOTOS JÁ SALVAS (receitas e cardápio)
+        // ==========================================
+        // As fotos antigas foram gravadas no tamanho original do celular (vários MB cada),
+        // e são baixadas por todos a cada login. Esta ferramenta:
+        //  1) baixa um BACKUP (.json) com as fotos originais no aparelho do dono;
+        //  2) reduz só as fotos grandes (acima de ~250 KB) e grava de volta.
+        async function otimizarFotosSalvas() {
+            if (currentRole !== 'dono') { showToast("Apenas o dono pode fazer isso.", "error"); return; }
+            if (!(await confirmar("Isso vai reduzir as fotos grandes das receitas e do cardápio para deixar o app mais rápido.\n\nAntes, um arquivo de BACKUP com as fotos originais será baixado neste aparelho.\n\nContinuar?", { titulo: 'Otimizar fotos', ok: 'Continuar' }))) return;
+            const btn = document.getElementById('btn-otimizar-fotos');
+            const liberar = travarBotao(btn, 'Otimizando...');
+            if (liberar === null) return;
+            const status = document.getElementById('status-otimizar-fotos');
+            const info = (t) => { if (status) status.innerText = t; };
+            try {
+                info('Baixando dados...');
+                const [snapRec, snapCard] = await Promise.all([db.ref('receitas').once('value'), db.ref('cardapio/itens').once('value')]);
+                const rec = snapRec.val() || {}, card = snapCard.val() || {};
+
+                // 1) Backup
+                const backup = { geradoEm: new Date().toISOString(), receitas: rec, cardapioItens: card };
+                const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const aEl = document.createElement('a');
+                aEl.href = url; aEl.download = `backup-fotos-adminiran-${dataLocalISO()}.json`;
+                document.body.appendChild(aEl); aEl.click(); aEl.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+                // 2) Lista as fotos grandes
+                const LIMITE = 250 * 1024; // tamanho do texto base64
+                const tarefas = [];
+                Object.keys(rec).forEach(k => { const f = rec[k] && rec[k].foto; if (typeof f === 'string' && f.startsWith('data:image') && f.length > LIMITE) tarefas.push({ caminho: `receitas/${k}/foto`, foto: f, max: 1080 }); });
+                Object.keys(card).forEach(k => {
+                    const it = card[k] || {};
+                    if (typeof it.foto === 'string' && it.foto.startsWith('data:image') && it.foto.length > 120 * 1024) tarefas.push({ caminho: `cardapio/itens/${k}/foto`, foto: it.foto, max: 400 });
+                    if (typeof it.fotoExibicao === 'string' && it.fotoExibicao.startsWith('data:image') && it.fotoExibicao.length > LIMITE) tarefas.push({ caminho: `cardapio/itens/${k}/fotoExibicao`, foto: it.fotoExibicao, max: 1080 });
+                });
+                if (tarefas.length === 0) { info('Todas as fotos já estão otimizadas.'); showToast("Nenhuma foto grande encontrada.", "success"); liberar(); return; }
+
+                // 3) Reduz e grava (uma por vez, para não travar o celular)
+                let antes = 0, depois = 0, feitas = 0;
+                for (const t of tarefas) {
+                    info(`Otimizando foto ${feitas + 1} de ${tarefas.length}...`);
+                    try {
+                        const nova = await comprimirImagem(t.foto, t.max, 0.8);
+                        if (nova.length < t.foto.length) {
+                            await db.ref(t.caminho).set(nova);
+                            antes += t.foto.length; depois += nova.length;
+                        }
+                    } catch (e) { console.warn('Falha ao otimizar', t.caminho, e); }
+                    feitas++;
+                }
+                const mb = n => (n * 0.75 / 1048576).toFixed(1).replace('.', ',');
+                info(`Pronto: ${feitas} foto(s). De ${mb(antes)} MB para ${mb(depois)} MB.`);
+                showToast("Fotos otimizadas!", "success");
+            } catch (e) {
+                console.error(e);
+                info('Erro: ' + (e.message || e));
+                showToast("Erro ao otimizar as fotos.", "error");
+            }
+            liberar();
+        }
+
         // Registra a tela inicial quando o sistema abre
         history.replaceState({ tela: 'inicio' }, "", "#inicio");

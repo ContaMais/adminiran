@@ -42,7 +42,7 @@
     },
     "cardapio": {
       ".read": true,
-      ".write": true
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || auth.token.email === 'pedrosoaresctt@gmail.com')"
     },
     "reservas": {
       ".read": "auth != null",

@@ -6,16 +6,39 @@ let produtoAtualEdicao = null;
 let fotoBase64Miniatura = "";
 let fotoBase64Exibicao = "";
 
-// 1. LISTENERS DO FIREBASE (Sincronização em tempo real)
-db.ref('cardapio/grupos').on('value', snapshot => {
-    cardapioGrupos = snapshot.val() || {};
-    renderizarCardapioDigital();
-});
+// 1. LISTENERS DO FIREBASE
+// Antes eram ligados assim que o app abria — para TODO mundo, até sem login — e baixavam
+// todas as fotos do cardápio. Agora só ligam quando o dono abre a tela do Cardápio Digital.
+let _listenersCardapio = null;
+let cardapioCarregado = false;
 
-db.ref('cardapio/itens').on('value', snapshot => {
-    cardapioItens = snapshot.val() || {};
+function iniciarListenersCardapio() {
+    if (_listenersCardapio || !currentUser) return;
+    _listenersCardapio = [
+        escutar(db.ref('cardapio/grupos'), 'cardápio (grupos)', snapshot => {
+            cardapioGrupos = snapshot.val() || {};
+            agendarRender('cardapio', renderizarCardapioDigital);
+        }),
+        escutar(db.ref('cardapio/itens'), 'cardápio (itens)', snapshot => {
+            cardapioItens = snapshot.val() || {};
+            cardapioCarregado = true;
+            agendarRender('cardapio', renderizarCardapioDigital);
+        })
+    ];
     renderizarCardapioDigital();
-});
+}
+
+function pararListenersCardapio() {
+    if (_listenersCardapio) _listenersCardapio.forEach(desligar);
+    _listenersCardapio = null;
+    cardapioCarregado = false;
+    cardapioGrupos = {};
+    cardapioItens = {};
+}
+
+function abrirCardapioDigital() {
+    navegar('cardapio-digital'); // navegar() liga os listeners
+}
 
 // 2. GRUPOS: ABRIR MODAL NOVO GRUPO
 function criarNovoGrupoCardapio() {
@@ -45,10 +68,11 @@ function confirmarNovoGrupoCardapio() {
 }
 
 // 3. GRUPOS: ABRIR MODAL DE EDIÇÃO DO GRUPO
-function editarGrupoCardapio(key, nomeAtual, event) {
+function editarGrupoCardapio(key, event) {
     if(event) event.stopPropagation(); // Trava crucial: impede a gaveta de abrir/fechar
+    if (!cardapioGrupos[key]) return;
     grupoAtualEdicao = key;
-    document.getElementById('input-editar-grupo-nome').value = nomeAtual;
+    document.getElementById('input-editar-grupo-nome').value = cardapioGrupos[key].nome || '';
     document.getElementById('modalEditarGrupoCardapio').style.display = 'flex';
 }
 
@@ -71,7 +95,7 @@ function prepararExclusaoGrupoCardapio() {
     const grupo = cardapioGrupos[grupoAtualEdicao];
     if (!grupo) return;
     
-    document.getElementById('modalMsg').innerHTML = `Excluir <strong>${grupo.nome || ''}</strong>? Todos os produtos deste grupo também serão removidos.`;
+    document.getElementById('modalMsg').innerHTML = `Excluir <strong>${esc(grupo.nome || '')}</strong>? Todos os produtos deste grupo também serão removidos.`;
     document.getElementById('modalDelete').style.display = 'flex';
     document.getElementById('confirmDeleteBtn').onclick = () => {
         excluirGrupoCardapio(grupoAtualEdicao);
@@ -112,7 +136,7 @@ function moverGrupoCardapio(key, direcao, event) {
     let chaves = Object.keys(cardapioGrupos).sort((a,b) => {
         let ordemA = cardapioGrupos[a].ordem || 0;
         let ordemB = cardapioGrupos[b].ordem || 0;
-        if (ordemA === ordemB) return cardapioGrupos[a].nome.localeCompare(cardapioGrupos[b].nome);
+        if (ordemA === ordemB) return (cardapioGrupos[a].nome || '').localeCompare(cardapioGrupos[b].nome || '');
         return ordemA - ordemB;
     });
 
@@ -136,21 +160,20 @@ function moverGrupoCardapio(key, direcao, event) {
     db.ref('cardapio/grupos').update(updates);
 }
 
-// 4. PRODUTOS: CARREGAR E CONVERTER FOTO PARA TEXTO (BASE64)
+// 4. PRODUTOS: CARREGAR FOTO (já reduzida para não pesar no banco)
+// Miniatura: até 400 px. Exibição: até 1080 px.
 function carregarFotoProduto(event, previewId, variavelAlvo) {
     const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (variavelAlvo === 'fotoBase64Miniatura') fotoBase64Miniatura = e.target.result;
-            else fotoBase64Exibicao = e.target.result;
-            
-            const preview = document.getElementById(previewId);
-            preview.src = e.target.result;
-            preview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const ehMini = variavelAlvo === 'fotoBase64Miniatura';
+    comprimirImagem(file, ehMini ? 400 : 1080, ehMini ? 0.82 : 0.8).then(dataUrl => {
+        if (ehMini) fotoBase64Miniatura = dataUrl;
+        else fotoBase64Exibicao = dataUrl;
+        const preview = document.getElementById(previewId);
+        preview.src = dataUrl;
+        preview.style.display = 'block';
+    }).catch(() => showToast("Não foi possível ler essa foto.", "error"));
+    event.target.value = '';
 }
 
 // 4.1 PRODUTOS: ABRIR MODAL (MODO CRIAÇÃO NOVO)
@@ -169,6 +192,9 @@ function abrirModalNovoProduto() {
     
     document.getElementById('preview-prod-foto').style.display = 'none';
     document.getElementById('preview-prod-foto').src = '';
+    // (antes a foto de exibição do último produto editado continuava aparecendo aqui)
+    document.getElementById('preview-prod-exibicao').style.display = 'none';
+    document.getElementById('preview-prod-exibicao').src = '';
     
     document.getElementById('acao-item-cardapio').style.display = 'none';
     document.getElementById('modalNovoProdutoCardapio').style.display = 'flex';
@@ -189,8 +215,8 @@ function editarProdutoCardapio(key, event) {
     fotoBase64Exibicao = item.fotoExibicao || "";
 
     document.getElementById('titulo-modal-produto').innerText = "Editar Produto";
-    document.getElementById('input-prod-nome').value = item.nome;
-    document.getElementById('input-prod-preco').value = item.preco;
+    document.getElementById('input-prod-nome').value = item.nome || '';
+    document.getElementById('input-prod-preco').value = (item.preco !== undefined && item.preco !== null) ? item.preco : '';
     document.getElementById('input-prod-desc').value = item.descricao || '';
     
     // Preview da Miniatura
@@ -225,15 +251,18 @@ function salvarProdutoCardapio() {
     let preco = document.getElementById('input-prod-preco').value;
     let desc = document.getElementById('input-prod-desc').value;
 
-    if (!nome.trim() || !preco.trim()) {
-        alert("O nome e o preço são obrigatórios!");
+    // Aceita "25,90" e "25.90"
+    const precoNum = parseFloat(String(preco).trim().replace(/\s/g, '').replace(',', '.'));
+    if (!nome.trim() || isNaN(precoNum) || precoNum < 0) {
+        alert("O nome e o preço são obrigatórios! (ex.: 25,90)");
         return;
     }
+    if (!grupoAtualEdicao || !cardapioGrupos[grupoAtualEdicao]) { alert("Grupo do cardápio não encontrado."); return; }
 
     const dadosProduto = {
         idGrupo: grupoAtualEdicao,
         nome: nome.trim(),
-        preco: parseFloat(preco),
+        preco: Math.round(precoNum * 100) / 100,
         descricao: desc.trim(),
         foto: fotoBase64Miniatura,     // Miniatura
         fotoExibicao: fotoBase64Exibicao, // Nova foto maior
@@ -259,7 +288,7 @@ function prepararExclusaoProdutoCardapio() {
     if (!produtoAtualEdicao) return;
     const item = cardapioItens[produtoAtualEdicao];
     if (!item) return;
-    document.getElementById('modalMsg').innerHTML = `Excluir <strong>${item.nome || ''}</strong>?`;
+    document.getElementById('modalMsg').innerHTML = `Excluir <strong>${esc(item.nome || '')}</strong>?`;
     document.getElementById('modalDelete').style.display = 'flex';
     document.getElementById('confirmDeleteBtn').onclick = () => {
         excluirProdutoCardapio(produtoAtualEdicao);
@@ -312,7 +341,7 @@ function moverItemCardapio(key, idGrupo, direcao, event) {
     let chaves = Object.keys(cardapioItens).filter(ik => cardapioItens[ik].idGrupo === idGrupo).sort((a,b) => {
         let ordemA = cardapioItens[a].ordem || 0;
         let ordemB = cardapioItens[b].ordem || 0;
-        if (ordemA === ordemB) return cardapioItens[a].nome.localeCompare(cardapioItens[b].nome);
+        if (ordemA === ordemB) return (cardapioItens[a].nome || '').localeCompare(cardapioItens[b].nome || '');
         return ordemA - ordemB;
     });
 
@@ -364,129 +393,87 @@ function toggleGrupoCardapio(key) {
 function renderizarCardapioDigital() {
     const container = document.getElementById('lista-grupos-cardapio');
     if (!container) return;
-    container.innerHTML = '';
 
     const chavesGrupos = Object.keys(cardapioGrupos);
 
     if (chavesGrupos.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:20px; color:#64748b; font-style:italic;">Nenhum grupo cadastrado. Clique em 'Criar Novo Grupo' para iniciar.</p>`;
+        container.innerHTML = (currentUser && !cardapioCarregado)
+            ? `<p style="text-align:center; padding:20px; color:var(--primary); font-weight:bold;">⏳ Carregando cardápio...</p>`
+            : `<p style="text-align:center; padding:20px; color:var(--muted); font-style:italic;">Nenhum grupo cadastrado. Clique em 'Criar Novo Grupo' para iniciar.</p>`;
         return;
     }
 
-    // Renderiza e organiza os grupos pela ORDEM definida nas setinhas
-    chavesGrupos.sort((a,b) => {
-        let ordemA = cardapioGrupos[a].ordem || 0;
-        let ordemB = cardapioGrupos[b].ordem || 0;
-        if (ordemA === ordemB) return cardapioGrupos[a].nome.localeCompare(cardapioGrupos[b].nome);
+    const ordenar = (obj) => (a, b) => {
+        const ordemA = obj[a].ordem || 0, ordemB = obj[b].ordem || 0;
+        if (ordemA === ordemB) return (obj[a].nome || '').localeCompare(obj[b].nome || '');
         return ordemA - ordemB;
-    }).forEach((gk, index) => {
+    };
+
+    // Agrupa os itens por grupo uma única vez (antes varria todos os itens para cada grupo)
+    const itensPorGrupo = {};
+    Object.keys(cardapioItens).forEach(ik => {
+        const it = cardapioItens[ik];
+        if (!it) return;
+        (itensPorGrupo[it.idGrupo] = itensPorGrupo[it.idGrupo] || []).push(ik);
+    });
+
+    chavesGrupos.sort(ordenar(cardapioGrupos));
+    const html = chavesGrupos.map((gk, index) => {
         const grupo = cardapioGrupos[gk];
-        
-        const itensDoGrupo = Object.keys(cardapioItens).filter(ik => cardapioItens[ik].idGrupo === gk);
+        const itensDoGrupo = (itensPorGrupo[gk] || []).sort(ordenar(cardapioItens));
         const qtdItens = itensDoGrupo.length;
 
-        // Setas Coloridas do GRUPO
-        let btnSubir = index > 0 
-            ? `<button class="sort-btn-up" onclick="moverGrupoCardapio('${gk}', -1, event)">▲</button>` 
+        const btnSubir = index > 0 
+            ? `<button class="sort-btn-up" onclick="moverGrupoCardapio(${jsArg(gk)}, -1, event)">▲</button>` 
             : `<button class="sort-btn-up" disabled style="opacity:0.3">▲</button>`;
-        
-        let btnDescer = index < chavesGrupos.length - 1 
-            ? `<button class="sort-btn-down" onclick="moverGrupoCardapio('${gk}', 1, event)">▼</button>`
+        const btnDescer = index < chavesGrupos.length - 1 
+            ? `<button class="sort-btn-down" onclick="moverGrupoCardapio(${jsArg(gk)}, 1, event)">▼</button>`
             : `<button class="sort-btn-down" disabled style="opacity:0.3">▼</button>`;
 
-        let divGrupoWrapper = document.createElement('div');
-        divGrupoWrapper.className = 'card';
-        divGrupoWrapper.style.display = 'flex';
-        divGrupoWrapper.style.flexDirection = 'column';
-        divGrupoWrapper.style.padding = '0';
-        divGrupoWrapper.style.overflow = 'hidden';
-        divGrupoWrapper.style.background = 'var(--card-bg)';
-        divGrupoWrapper.style.border = '1px solid var(--border-color)';
-
-        // LÊ A MEMÓRIA: Verifica se este grupo estava aberto antes da tela atualizar
-        const estaAberto = typeof gruposAbertosCardapio !== 'undefined' && gruposAbertosCardapio.includes(gk);
+        // Mantém aberto o grupo que já estava aberto antes da tela atualizar
+        const estaAberto = gruposAbertosCardapio.includes(gk);
         const rotacao = estaAberto ? 'rotate(180deg)' : 'rotate(0deg)';
 
-        divGrupoWrapper.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding: 15px 20px; cursor: pointer;" onclick="toggleGrupoCardapio('${gk}')">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    
-                    <div class="sort-wrapper" style="margin-right: 5px;" onclick="event.stopPropagation()">
-                        ${btnSubir}
-                        ${btnDescer}
-                    </div>
-
-                    <i id="seta-grupo-${gk}" class="ph ph-caret-down" style="color:var(--primary); font-size:1.1rem; transition: transform 0.3s ease; transform: ${rotacao};"></i>
-                    <span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${grupo.nome}</span>
-                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:700; margin-left:5px;">(${qtdItens} ${qtdItens === 1 ? 'item' : 'itens'})</span>
-                </div>
-                <button class="action-icon edit-btn" onclick="editarGrupoCardapio('${gk}', '${grupo.nome.replace(/'/g, "\\'")}', event)" style="margin:0; width:28px; height:28px;">✎</button>
-            </div>
-        `;
-
-        let divGavetaItens = document.createElement('div');
-        divGavetaItens.id = `itens-grupo-${gk}`;
-        
-        // Aplica a regra da memória no CSS da gaveta
-        divGavetaItens.style.display = estaAberto ? 'flex' : 'none';
-        
-        divGavetaItens.style.flexDirection = 'column';
-        divGavetaItens.style.gap = '6px';
-        divGavetaItens.style.padding = '0 15px 15px 15px';
-        divGavetaItens.style.background = 'rgba(0, 0, 0, 0.15)';
-
+        let itensHtml;
         if (qtdItens === 0) {
-            divGavetaItens.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted); font-style:italic; padding: 5px 10px;">Nenhum produto cadastrado neste grupo ainda.</p>`;
+            itensHtml = `<p style="font-size:0.8rem; color:var(--text-muted); font-style:italic; padding: 5px 10px;">Nenhum produto cadastrado neste grupo ainda.</p>`;
         } else {
-            // Renderiza e organiza os ITENS pela ORDEM definida nas setinhas
-            itensDoGrupo.sort((a,b) => {
-                let ordemA = cardapioItens[a].ordem || 0;
-                let ordemB = cardapioItens[b].ordem || 0;
-                if(ordemA === ordemB) return cardapioItens[a].nome.localeCompare(cardapioItens[b].nome);
-                return ordemA - ordemB;
-            }).forEach((ik, idxItem) => {
+            itensHtml = itensDoGrupo.map((ik, idxItem) => {
                 const item = cardapioItens[ik];
-                
-                // Setas Coloridas do PRODUTO
-                let btnSubirItem = idxItem > 0 
-                    ? `<button class="sort-btn-up" onclick="moverItemCardapio('${ik}', '${gk}', -1, event)">▲</button>` 
+                const btnSubirItem = idxItem > 0 
+                    ? `<button class="sort-btn-up" onclick="moverItemCardapio(${jsArg(ik)}, ${jsArg(gk)}, -1, event)">▲</button>` 
                     : `<button class="sort-btn-up" disabled style="opacity:0.3">▲</button>`;
-                
-                let btnDescerItem = idxItem < itensDoGrupo.length - 1 
-                    ? `<button class="sort-btn-down" onclick="moverItemCardapio('${ik}', '${gk}', 1, event)">▼</button>`
+                const btnDescerItem = idxItem < qtdItens - 1 
+                    ? `<button class="sort-btn-down" onclick="moverItemCardapio(${jsArg(ik)}, ${jsArg(gk)}, 1, event)">▼</button>`
                     : `<button class="sort-btn-down" disabled style="opacity:0.3">▼</button>`;
-
-                let divItemRow = document.createElement('div');
-                divItemRow.style.display = 'flex';
-                divItemRow.style.justifyContent = 'space-between';
-                divItemRow.style.alignItems = 'center';
-                divItemRow.style.padding = '8px 12px';
-                divItemRow.style.background = 'rgba(255, 255, 255, 0.02)';
-                divItemRow.style.borderRadius = '8px';
-                divItemRow.style.border = '1px solid var(--border-color)';
-
-                let fotoHTML = item.foto ? `<img src="${item.foto}" style="width:30px; height:30px; object-fit:cover; border-radius:4px; border: 1px solid var(--border-color);">` : '';
-
-                divItemRow.innerHTML = `
+                // Foto só é carregada quando o grupo é aberto (loading="lazy")
+                const fotoHTML = item.foto ? `<img src="${esc(item.foto)}" loading="lazy" decoding="async" style="width:30px; height:30px; object-fit:cover; border-radius:4px; border: 1px solid var(--border-color);">` : '';
+                return `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--surface-2); border-radius:8px; border:1px solid var(--border-color);">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        
-                        <div class="sort-wrapper" style="margin-right: 5px;" onclick="event.stopPropagation()">
-                            ${btnSubirItem}
-                            ${btnDescerItem}
-                        </div>
-
-                        <button class="action-icon edit-btn" onclick="editarProdutoCardapio('${ik}', event)" style="margin:0; width:24px; height:24px; font-size:0.7rem;">✎</button>
+                        <div class="sort-wrapper" style="margin-right: 5px;" onclick="event.stopPropagation()">${btnSubirItem}${btnDescerItem}</div>
+                        <button class="action-icon edit-btn" onclick="editarProdutoCardapio(${jsArg(ik)}, event)" style="margin:0; width:24px; height:24px; font-size:0.7rem;">✎</button>
                         ${fotoHTML}
-                        <span style="font-size:0.95rem; font-weight:700; color:var(--text-main);">${item.nome}</span>
+                        <span style="font-size:0.95rem; font-weight:700; color:var(--text-main);">${esc(item.nome)}</span>
                         ${item.oculto ? `<span class="item-hidden-label">Oculto</span>` : ''}
                     </div>
-                    <span style="color:var(--text-main); font-weight:800; font-size:0.95rem;">R$ ${Number(item.preco).toFixed(2).replace('.', ',')}</span>
-                `;
-                divGavetaItens.appendChild(divItemRow);
-            });
+                    <span style="color:var(--text-main); font-weight:800; font-size:0.95rem;">R$ ${(Number(item.preco) || 0).toFixed(2).replace('.', ',')}</span>
+                </div>`;
+            }).join('');
         }
 
-        divGrupoWrapper.appendChild(divGavetaItens);
-        container.appendChild(divGrupoWrapper);
-    });
+        return `<div class="card" style="display:flex; flex-direction:column; padding:0; overflow:hidden; background:var(--card-bg); border:1px solid var(--border-color);">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding: 15px 20px; cursor: pointer;" onclick="toggleGrupoCardapio(${jsArg(gk)})">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="sort-wrapper" style="margin-right: 5px;" onclick="event.stopPropagation()">${btnSubir}${btnDescer}</div>
+                    <i id="seta-grupo-${gk}" class="ph ph-caret-down" style="color:var(--primary); font-size:1.1rem; transition: transform 0.3s ease; transform: ${rotacao};"></i>
+                    <span style="font-size:1.15rem; font-weight:800; color:var(--text-main);">${esc(grupo.nome)}</span>
+                    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:700; margin-left:5px;">(${qtdItens} ${qtdItens === 1 ? 'item' : 'itens'})</span>
+                </div>
+                <button class="action-icon edit-btn" onclick="editarGrupoCardapio(${jsArg(gk)}, event)" style="margin:0; width:28px; height:28px;">✎</button>
+            </div>
+            <div id="itens-grupo-${gk}" style="display:${estaAberto ? 'flex' : 'none'}; flex-direction:column; gap:6px; padding:0 15px 15px 15px; background:var(--surface-2);">${itensHtml}</div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = html;
 }
