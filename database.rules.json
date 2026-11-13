@@ -58,6 +58,18 @@
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'dono' || root.child('users').child(auth.uid).child('role').val() === 'contribuidor')",
         ".validate": "newData.hasChildren(['timestamp', 'tipo'])"
       }
+    },
+    "vendas_base": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "config": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
+    },
+    "vendas_ligacoes": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'dono'"
     }
   }
 }
