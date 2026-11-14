@@ -201,13 +201,6 @@ function minimoEfetivo(p) {
     return { valor: emFardos ? Math.ceil(un / t) : un, origem: 'vendas', media, pct, pessoas, un, emFardos };
 }
 
-function textoMinimo(p) {
-    const m = minimoEfetivo(p);
-    if (m.origem !== 'vendas') return '';
-    const fmt = n => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
-    return `Venda média ${fmt(m.media)} Un./sem. + ${fmt(m.pct)}% (${m.pessoas} pessoas na semana)`;
-}
-
 // ---------- Banco ----------
 function iniciarListenersVendas() {
     escutar(db.ref('vendas_base'), 'vendas', s => {

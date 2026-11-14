@@ -2450,7 +2450,7 @@ function moverCategoriaAreaEdit(cat, direcao) {
                         <div><strong style="color:var(--primary);">Categorias:</strong> <span style="color:var(--muted);">${pC.length>0?esc(pC.join(', ')):'Nenhuma'}</span></div>
                         <div><strong style="color:var(--primary);">Método:</strong> <span style="color:var(--muted);">${esc(p.metodoCompra||"Não atribuído")}</span></div>
                         <div><strong style="color:var(--primary);">Especificação (Subgrupo):</strong> <span style="color:var(--muted);">${esc(p.subgrupo||"Nenhum")}</span></div>
-                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(minimoEfetivo(p).valor)} ${t>1 && !fracP?'Fardos':'Unidades'}</span>${minimoEfetivo(p).origem==='vendas' ? `<br><small style="color:var(--muted)">${esc(textoMinimo(p))}</small>` : ''}</div>
+                        <div><strong style="color:var(--primary);">Estoque Mín.:</strong> <span style="color:var(--muted);">${esc(minimoEfetivo(p).valor)} ${t>1 && !fracP?'Fardos':'Unidades'}</span></div>
                         ${boxFardosGeral}
                     </div>`; 
             } catch(e) { console.error('Erro ao abrir produto:', e); }
@@ -3849,7 +3849,7 @@ function calcularCustoComposicao() {
                 ? (p.precoCusto ? moeda(p.precoCusto) : '—')
                 : 'Restrito';
             document.getElementById('info-codigo').innerText = p.codigo || '—';
-            { const mm = minimoEfetivo(p), tf = getTamFardoProduto(p), fr = produtoUsaContagemFracionada(p); document.getElementById('info-minimo').innerText = mm.valor > 0 ? `${mm.valor} ${tf > 1 && !fr ? 'Fds' : 'Un.'}` + (mm.origem === 'vendas' ? ` · ${textoMinimo(p)}` : '') : '—'; }
+            { const mm = minimoEfetivo(p), tf = getTamFardoProduto(p), fr = produtoUsaContagemFracionada(p); document.getElementById('info-minimo').innerText = mm.valor > 0 ? `${mm.valor} ${tf > 1 && !fr ? 'Fds' : 'Un.'}` : '—'; }
 
             const containerLista = document.getElementById('lista-locais-item');
             let totalGeralUnidades = 0;
